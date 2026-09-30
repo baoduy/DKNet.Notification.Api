@@ -1,0 +1,27 @@
+# ADR-0003: Accept with 202, then deliver from an in-process queue
+
+- **Status:** Accepted
+- **Context:**
+  - The requester's rule: an unavailable channel is accepted, logged and ignored. The caller gets no error.
+  - So a success answer can never mean "delivered". It can only mean "accepted".
+  - SMTP submission can take seconds. Callers should not wait for it.
+  - There is no status tracking in version 1, so no store is needed to hand work from the API to a worker.
+  - The scaffold carries SlimMessageBus with an in-memory bus and an optional Azure Service Bus.
+- **Decision:**
+  - Validate and render inside the API call. Answer 400 for invalid requests and 202 for the rest.
+  - Put the rendered notification in a bounded in-process queue: 1,000 per replica. A full queue answers 503 with `Retry-After: 5`.
+  - One delivery worker per replica sends one notification at a time.
+  - Retry transient failures: at most 3 attempts, waiting 5 seconds and then 30 seconds.
+  - The guarantee is best effort:
+    - A process stop loses every queued or waiting notification.
+    - A timeout after the provider already took the message can cause a duplicate on retry.
+- **Alternatives:**
+  - *Deliver inside the API call.* Rejected: callers wait on SMTP. A 502 would tell callers about delivery, which the skip rule does not allow for other cases.
+  - *Azure Service Bus queue.* Rejected for version 1: it adds infrastructure and a dead-letter process for a service with no delivery guarantee asked for. It is the upgrade path when loss on restart is no longer acceptable.
+  - *SlimMessageBus in-memory bus with DKNet.SlimBus.Extensions.* Rejected: its setup methods need an EF Core context, and this service has none (ADR-0002). The in-memory bus is no more durable than a plain queue.
+  - *DKNet.AspCore.Tasks for the worker.* Rejected: it runs one-shot jobs at start-up. It is not a long-running consumer.
+  - *A database outbox.* Rejected: it needs the database that ADR-0002 removes.
+- **Consequences:**
+  - Easier: fast answers, no broker, no store, a simple worker.
+  - Harder: messages can be lost on restart or sent twice on an ambiguous timeout. Operators see this only in logs.
+  - Harder: throughput per replica is one delivery at a time. Raise it only on a measured need.

@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Send an Email Notification",
+    "output": "send-email.html",
+    "viewBox": [
+      1080,
+      690
+    ],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "Backend caller",
+      "sublabel": "client credentials"
+    },
+    {
+      "id": "entra",
+      "type": "security",
+      "label": "Entra ID",
+      "sublabel": "token issuer"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Notification API",
+      "sublabel": "POST /v1/notifications"
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "idempotency records"
+    },
+    {
+      "id": "queue",
+      "type": "messagebus",
+      "label": "Delivery queue",
+      "sublabel": "in process, 1,000"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Delivery worker",
+      "sublabel": "one at a time"
+    },
+    {
+      "id": "smtp",
+      "type": "external",
+      "label": "SMTP provider",
+      "sublabel": "STARTTLS / TLS"
+    }
+  ],
+  "segments": [
+    {
+      "from": 160,
+      "to": 240,
+      "label": "Authenticate"
+    },
+    {
+      "from": 250,
+      "to": 400,
+      "label": "Accept"
+    },
+    {
+      "from": 412,
+      "to": 570,
+      "label": "Deliver"
+    }
+  ],
+  "messages": [
+    {
+      "id": "get-token",
+      "from": "caller",
+      "to": "entra",
+      "y": 170,
+      "label": "token for notifications.send",
+      "variant": "security"
+    },
+    {
+      "id": "token",
+      "from": "entra",
+      "to": "caller",
+      "y": 198,
+      "label": "JWT (roles or scp)",
+      "variant": "return"
+    },
+    {
+      "id": "post",
+      "from": "caller",
+      "to": "api",
+      "y": 230,
+      "label": "POST channel=email + Idempotency-Key",
+      "variant": "emphasis",
+      "note": "401 bad token; 403 no notifications.send"
+    },
+    {
+      "id": "reserve",
+      "from": "api",
+      "to": "redis",
+      "y": 262,
+      "label": "reserve key, 30 s",
+      "variant": "default"
+    },
+    {
+      "id": "reserved",
+      "from": "redis",
+      "to": "api",
+      "y": 290,
+      "label": "new key",
+      "variant": "return",
+      "note": "kept key: replay 202; in flight: 409"
+    },
+    {
+      "id": "enqueue",
+      "from": "api",
+      "to": "queue",
+      "y": 330,
+      "label": "rendered message (checks passed)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "keep",
+      "from": "api",
+      "to": "redis",
+      "y": 362,
+      "label": "keep 202, 4 h",
+      "variant": "dashed"
+    },
+    {
+      "id": "accepted",
+      "from": "api",
+      "to": "caller",
+      "y": 392,
+      "label": "202 notificationId",
+      "variant": "return"
+    },
+    {
+      "id": "take",
+      "from": "queue",
+      "to": "worker",
+      "y": 428,
+      "label": "next notification",
+      "variant": "default"
+    },
+    {
+      "id": "submit",
+      "from": "worker",
+      "to": "smtp",
+      "y": 460,
+      "label": "SMTP submit, attempt 1",
+      "variant": "emphasis"
+    },
+    {
+      "id": "transient",
+      "from": "smtp",
+      "to": "worker",
+      "y": 488,
+      "label": "4xx or timeout: wait 5 s",
+      "variant": "return"
+    },
+    {
+      "id": "retry",
+      "from": "worker",
+      "to": "smtp",
+      "y": 522,
+      "label": "SMTP submit, attempt 2",
+      "variant": "dashed"
+    },
+    {
+      "id": "ok",
+      "from": "smtp",
+      "to": "worker",
+      "y": 552,
+      "label": "250 accepted: Delivered",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "entra",
+      "from": 166,
+      "to": 202,
+      "type": "security"
+    },
+    {
+      "participant": "api",
+      "from": 230,
+      "to": 396,
+      "type": "backend"
+    },
+    {
+      "participant": "redis",
+      "from": 258,
+      "to": 294,
+      "type": "database"
+    },
+    {
+      "participant": "worker",
+      "from": 424,
+      "to": 558,
+      "type": "backend"
+    },
+    {
+      "participant": "smtp",
+      "from": 456,
+      "to": 556,
+      "type": "external"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Accept inside the call",
+      "items": [
+        "Before queueing: template, recipient `to` and tokens are checked (400)",
+        "Values are HTML-encoded before they fill the body",
+        "A full queue answers 503; a skipped channel answers 202 and logs a warning",
+        "202 means accepted, never delivered"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Deliver after the call",
+      "items": [
+        "The worker retries only transient failures, at most 3 attempts",
+        "An SMTP 5xx reply ends Failed at once",
+        "Delivered and Failed are log entries; the caller cannot query them"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Best effort",
+      "items": [
+        "A process stop loses queued notifications",
+        "A timeout after the provider took the message can send it twice"
+      ]
+    }
+  ]
+}

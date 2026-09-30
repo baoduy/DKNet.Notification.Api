@@ -1,0 +1,22 @@
+# ADR-0005: Send email over SMTP with MailKit
+
+- **Status:** Accepted
+- **Context:**
+  - The brief leaves the email provider to the design.
+  - The service must run locally, in tests and in any hosting.
+  - Most mail providers accept authenticated SMTP submission, including Azure Communication Services, SendGrid and Microsoft 365.
+  - Microsoft's documentation does not recommend the built-in `SmtpClient` for new work, and points to MailKit.
+  - No DKNet package sends email.
+- **Decision:**
+  - Send email by SMTP submission with MailKit, over STARTTLS or TLS, with credentials from settings.
+  - The deployment picks the provider by setting host, port and credentials.
+  - Local runs and tests use Mailpit, an SMTP catcher, in the Aspire AppHost and in Testcontainers.
+  - Classify replies: SMTP 4xx and connection errors are transient; SMTP 5xx is permanent.
+- **Alternatives:**
+  - *A provider SDK, such as Azure Communication Services Email or SendGrid.* Rejected: it ties the service to one vendor, and local runs need a cloud account.
+  - *The built-in `SmtpClient`.* Rejected: Microsoft does not recommend it for new development.
+  - *Microsoft Graph `sendMail`.* Rejected: it needs a mailbox and an Entra app permission to send as it; it ties email to Microsoft 365.
+- **Consequences:**
+  - Easier: any SMTP provider works; tests run fully offline.
+  - Harder: MailKit is a new third-party dependency in the DKNet repos.
+  - Harder: SMTP gives no delivery result beyond acceptance by the provider.

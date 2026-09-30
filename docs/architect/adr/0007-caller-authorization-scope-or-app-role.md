@@ -1,0 +1,21 @@
+# ADR-0007: Authorize callers by scope or app role `notifications.send`
+
+- **Status:** Accepted
+- **Context:**
+  - The brief asks for the same auth model as DKNet.Accounts.Api: Entra ID, JWT bearer, machine identities.
+  - DKNet.Accounts.Api checks one policy per scope, reading only the `scp` or `scope` claim.
+  - Its Entra setup exposes delegated scopes only. It documents no app roles.
+  - An Entra token from the client-credentials flow carries app roles in `roles`, not `scp`.
+  - Every caller of this service is a backend service, so it will usually use client credentials.
+- **Decision:**
+  - One permission: `notifications.send`.
+  - Expose it on the API's Entra app registration both as a delegated scope and as an application role.
+  - Grant it when the token carries `notifications.send` in `scp`, `scope` or `roles`.
+  - Otherwise follow DKNet.Accounts.Api: plain JWT bearer, no claim remapping, default deny, and scope declared per endpoint.
+- **Alternatives:**
+  - *Read `scp` and `scope` only, exactly as DKNet.Accounts.Api.* Rejected: a real client-credentials token from Entra ID would never pass.
+  - *Read `roles` only.* Rejected: it drops the delegated path that DKNet.Accounts.Api's tooling uses.
+  - *Any authenticated caller may send.* Rejected: any app in the tenant with a token for this API could send email as the platform.
+- **Consequences:**
+  - Easier: real machine identities work with no workaround.
+  - Harder: this is a small departure from DKNet.Accounts.Api. Its authorization check is not copied as is.
