@@ -90,13 +90,15 @@ Responses:
 | 400 | — | `Idempotency-Key` is missing or breaks its rule. |
 | 401 | — | No token, or the token is invalid. Empty body. |
 | 403 | — | The token lacks `notifications.send`. Empty body. |
-| 409 | — | The same key from the same caller is still in flight, or was refused under 30 seconds ago. |
+| 409 | — | The same key from the same caller is still in flight, or got a non-2xx answer under 30 seconds ago. A 409 never means accepted. |
 | 413 | — | The body is above 64 KB. |
-| 503 | `QUEUE_FULL` | The delivery queue holds 1,000 notifications. `Retry-After: 5` is sent. |
+| 503 | `QUEUE_FULL` | The delivery queue holds 1,000 notifications. `Retry-After: 30` is sent. |
 
 Error bodies are problem details with `errors[]` and `traceId`, the shape DKNet.AspCore.Extensions builds for DKNet.Accounts.Api.
 
-A repeated call with the same key from the same caller within 4 hours gets the first 202 again, with the same `notificationId`. Nothing is sent twice. Only 2xx responses are kept. After a 4xx, the key is free again after 30 seconds.
+A repeated call with the same key from the same caller within 4 hours gets the first 202 again, with the same `notificationId`. Nothing is sent twice. Only 2xx responses are kept.
+
+After any non-2xx answer, the key stays reserved for up to 30 seconds from the first call. To retry, wait 30 seconds and send the same key again. If the first call was accepted, its 202 is then replayed; if not, the call runs afresh.
 
 ### Evaluation order
 
@@ -169,7 +171,7 @@ Failure paths:
 
 - Step 4 finds no `to`, or a bad address: 400. Nothing is queued.
 - Step 5 finds a token with no parameter: 400 `PARAMETER_MISSING`. Nothing is queued.
-- Step 6 finds the queue full: 503 `QUEUE_FULL`. The caller retries after 5 seconds with a new key.
+- Step 6 finds the queue full: 503 `QUEUE_FULL`. The caller retries after 30 seconds with the same key.
 - Step 7 gets a transient failure: the worker waits 5 seconds, then 30 seconds, and tries again. After attempt 3 the notification ends Failed.
 - Step 7 gets a permanent failure: the notification ends Failed at once.
 
@@ -185,6 +187,8 @@ Failure paths:
 
 The same flow runs when the channel is supported but not configured, when the template has no version for the channel, and when the Teams destination name is not set in this deployment.
 
+![Sequence of a call for an unsupported channel: checks 1 to 4 pass, the channel check fails, a warning is logged without personal data, and the caller gets 202.](diagrams/channel-skipped.svg)
+
 ### Flow 3 — Post to Microsoft Teams
 
 1. A caller posts `channel: teams`, a template id and parameters holding `teamsDestination`.
@@ -199,3 +203,5 @@ Failure paths:
 - Step 2 finds no destination with that name: Skipped, as in Flow 2.
 - Step 6 gets 429: the worker waits for the `Retry-After` value, at most 60 seconds, then retries within the 3 attempts.
 - Step 6 gets 404 or another non-retryable 4xx: the notification ends Failed.
+
+![Sequence of a Teams notification: the destination name resolves to a webhook URL, the card is queued and 202 returned, then the worker posts it, waits out a 429 and delivers on attempt 2.](diagrams/send-teams.svg)

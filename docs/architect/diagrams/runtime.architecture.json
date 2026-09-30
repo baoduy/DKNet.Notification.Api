@@ -2,43 +2,304 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "DKNet Notification — Runtime Architecture (design revision 1)",
+    "title": "DKNet Notification \u2014 Runtime Architecture (design revision 1)",
     "output": "runtime.html",
     "quality_profile": "showcase"
   },
   "components": [
-    { "id": "caller", "type": "external", "label": "Backend caller", "sublabel": "e.g. Accounts.Api", "pos": [20, 295], "size": [120, 64] },
-    { "id": "entra", "type": "security", "label": "Microsoft Entra ID", "sublabel": "OIDC keys", "pos": [305, 110], "size": [130, 64] },
-    { "id": "api", "type": "backend", "label": "Notification API", "sublabel": "POST /v1/notifications", "pos": [240, 292], "size": [260, 70], "tag": ":8080" },
-    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "idempotency, 4 h", "pos": [230, 470], "size": [130, 60] },
-    { "id": "catalogue", "type": "database", "label": "Template catalogue", "sublabel": "in image, read-only", "pos": [380, 470], "size": [130, 60] },
-    { "id": "queue", "type": "messagebus", "label": "Delivery queue", "sublabel": "in memory, 1,000", "pos": [600, 297], "size": [130, 60] },
-    { "id": "worker", "type": "backend", "label": "Delivery worker", "sublabel": "3 attempts", "pos": [800, 297], "size": [130, 60] },
-    { "id": "email", "type": "backend", "label": "Email sender", "sublabel": "MailKit", "pos": [1000, 195], "size": [140, 60] },
-    { "id": "teams", "type": "backend", "label": "Teams sender", "sublabel": "Adaptive Card", "pos": [1000, 399], "size": [140, 60] },
-    { "id": "smtp", "type": "external", "label": "SMTP provider", "sublabel": "STARTTLS / TLS", "pos": [1240, 195], "size": [140, 60] },
-    { "id": "webhook", "type": "cloud", "label": "Teams Workflows", "sublabel": "webhook URL", "pos": [1240, 399], "size": [140, 60] }
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "Backend caller",
+      "sublabel": "e.g. Accounts.Api",
+      "pos": [
+        20,
+        295
+      ],
+      "size": [
+        120,
+        64
+      ]
+    },
+    {
+      "id": "entra",
+      "type": "security",
+      "label": "Microsoft Entra ID",
+      "sublabel": "OIDC keys",
+      "pos": [
+        305,
+        110
+      ],
+      "size": [
+        130,
+        64
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Notification API",
+      "sublabel": "POST /v1/notifications",
+      "pos": [
+        240,
+        292
+      ],
+      "size": [
+        260,
+        70
+      ],
+      "tag": ":8080"
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "idempotency, 4 h",
+      "pos": [
+        230,
+        470
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "catalogue",
+      "type": "database",
+      "label": "Template catalogue",
+      "sublabel": "in image, read-only",
+      "pos": [
+        380,
+        470
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "queue",
+      "type": "messagebus",
+      "label": "Delivery queue",
+      "sublabel": "in memory, 1,000",
+      "pos": [
+        600,
+        297
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Delivery worker",
+      "sublabel": "3 attempts",
+      "pos": [
+        800,
+        297
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "email",
+      "type": "backend",
+      "label": "Email sender",
+      "sublabel": "MailKit",
+      "pos": [
+        1000,
+        195
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "teams",
+      "type": "backend",
+      "label": "Teams sender",
+      "sublabel": "Adaptive Card",
+      "pos": [
+        1000,
+        399
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "smtp",
+      "type": "external",
+      "label": "SMTP provider",
+      "sublabel": "STARTTLS / TLS",
+      "pos": [
+        1240,
+        195
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "webhook",
+      "type": "cloud",
+      "label": "Teams Workflows",
+      "sublabel": "webhook URL",
+      "pos": [
+        1240,
+        399
+      ],
+      "size": [
+        140,
+        60
+      ]
+    }
   ],
   "boundaries": [
-    { "kind": "region", "label": "DKNet.Notification container (per replica)", "wraps": ["api", "catalogue", "queue", "worker", "email", "teams"] }
+    {
+      "kind": "region",
+      "label": "DKNet.Notification container (per replica)",
+      "wraps": [
+        "api",
+        "catalogue",
+        "queue",
+        "worker",
+        "email",
+        "teams"
+      ]
+    }
   ],
   "connections": [
-    { "id": "caller-token", "from": "caller", "to": "entra", "label": "get token", "variant": "security", "fromSide": "top", "toSide": "left" },
-    { "id": "caller-post", "from": "caller", "to": "api", "label": "HTTPS POST", "variant": "emphasis" },
-    { "id": "api-keys", "from": "api", "to": "entra", "label": "validate JWT", "variant": "security", "fromSide": "top", "toSide": "bottom" },
-    { "id": "api-redis", "from": "api", "to": "redis", "label": "key", "fromSide": "bottom", "toSide": "top" },
-    { "id": "api-catalogue", "from": "api", "to": "catalogue", "label": "render", "fromSide": "bottom", "toSide": "top" },
-    { "id": "api-queue", "from": "api", "to": "queue", "label": "enqueue", "variant": "emphasis" },
-    { "id": "queue-worker", "from": "queue", "to": "worker", "label": "take", "variant": "emphasis" },
-    { "id": "worker-email", "from": "worker", "to": "email", "label": "email", "variant": "emphasis", "fromSide": "top", "toSide": "left" },
-    { "id": "worker-teams", "from": "worker", "to": "teams", "label": "teams", "fromSide": "bottom", "toSide": "left" },
-    { "id": "email-smtp", "from": "email", "to": "smtp", "label": "SMTP", "variant": "emphasis" },
-    { "id": "teams-webhook", "from": "teams", "to": "webhook", "label": "HTTPS POST" }
+    {
+      "id": "caller-token",
+      "from": "caller",
+      "to": "entra",
+      "label": "get token",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "caller-post",
+      "from": "caller",
+      "to": "api",
+      "label": "HTTPS POST",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-keys",
+      "from": "api",
+      "to": "entra",
+      "label": "validate JWT",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "api-redis",
+      "from": "api",
+      "to": "redis",
+      "label": "key",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "api-catalogue",
+      "from": "api",
+      "to": "catalogue",
+      "label": "render",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "api-queue",
+      "from": "api",
+      "to": "queue",
+      "label": "enqueue",
+      "variant": "emphasis"
+    },
+    {
+      "id": "queue-worker",
+      "from": "queue",
+      "to": "worker",
+      "label": "take",
+      "variant": "emphasis"
+    },
+    {
+      "id": "worker-email",
+      "from": "worker",
+      "to": "email",
+      "label": "email",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "worker-teams",
+      "from": "worker",
+      "to": "teams",
+      "label": "teams",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "email-smtp",
+      "from": "email",
+      "to": "smtp",
+      "label": "SMTP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "teams-webhook",
+      "from": "teams",
+      "to": "webhook",
+      "label": "HTTPS POST"
+    }
   ],
   "cards": [
-    { "dot": "rose", "title": "Trust boundaries", "items": ["Service edge: every call except /healthz needs an Entra ID token with notifications.send (scp, scope or roles)", "Callers name a Teams destination, never a URL", "Out: SMTP with TLS and credentials; HTTPS to webhook URLs from settings only"] },
-    { "dot": "cyan", "title": "Accept, then deliver", "items": ["The API validates and renders inside the call, then answers 202", "Unsupported or unconfigured channel: 202, warning log, nothing sent", "Full queue: 503 with Retry-After 5"] },
-    { "dot": "amber", "title": "Best effort", "items": ["Retries: 5 s then 30 s, at most 3 attempts", "A process stop loses queued notifications", "No database; notifications live in memory only"] },
-    { "dot": "violet", "title": "Settings and secrets", "items": ["One set of channel settings per deployment", "SMTP password and webhook URLs: environment variables or Azure App Configuration", "Local run: Aspire AppHost with Redis and Mailpit"] }
+    {
+      "dot": "rose",
+      "title": "Trust boundaries",
+      "items": [
+        "Service edge: every call except /healthz needs an Entra ID token with notifications.send (scp, scope or roles)",
+        "Callers name a Teams destination, never a URL",
+        "Out: SMTP with TLS and credentials; HTTPS to webhook URLs from settings only"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Accept, then deliver",
+      "items": [
+        "The API validates and renders inside the call, then answers 202",
+        "Unsupported or unconfigured channel: 202, warning log, nothing sent",
+        "Full queue: 503 with Retry-After 30"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Best effort",
+      "items": [
+        "Retries: 5 s then 30 s, at most 3 attempts",
+        "A process stop loses queued notifications",
+        "No database; notifications live in memory only"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Settings and secrets",
+      "items": [
+        "One set of channel settings per deployment",
+        "SMTP password and webhook URLs: environment variables or Azure App Configuration",
+        "Local run: Aspire AppHost with Redis and Mailpit"
+      ]
+    }
   ]
 }

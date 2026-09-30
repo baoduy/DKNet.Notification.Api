@@ -9,7 +9,7 @@
   - The scaffold carries SlimMessageBus with an in-memory bus and an optional Azure Service Bus.
 - **Decision:**
   - Validate and render inside the API call. Answer 400 for invalid requests and 202 for the rest.
-  - Put the rendered notification in a bounded in-process queue: 1,000 per replica. A full queue answers 503 with `Retry-After: 5`.
+  - Put the rendered notification in a bounded in-process queue: 1,000 per replica. A full queue answers 503 with `Retry-After: 30`, the same time the idempotency key stays reserved.
   - One delivery worker per replica sends one notification at a time.
   - Retry transient failures: at most 3 attempts, waiting 5 seconds and then 30 seconds.
   - The guarantee is best effort:
