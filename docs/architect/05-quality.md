@@ -26,7 +26,7 @@
 
 - Every endpoint declares its scope with the DKNet.AspCore.Extensions endpoint scope declaration, as DKNet.Accounts.Api does.
 - A caller's identity is the first of its `client_id`, `azp` and `appid` claims, the order DKNet.Accounts.Api uses.
-- Idempotency keys are scoped by that caller identity. Two callers can use the same key without clashing.
+- Idempotency keys are scoped by that caller identity, through the `KeyScopeResolver` setting (ADR-0008). Two callers can use the same key without clashing.
 
 ### Content safety
 
@@ -124,6 +124,8 @@ Metrics and traces go out through the scaffold's OpenTelemetry wiring, behind it
 | Evaluation order, every 400, 409 and 503 case | Integration, through HTTP | Redis (Testcontainers) | Entra ID: a test authentication handler, as DKNet.Accounts.Api does |
 | Skip rule: all 4 reasons answer 202 and log a warning | Integration | Redis | Entra ID |
 | Idempotent replay: same key gives the same `notificationId` and one send | Integration | Redis, Mailpit | Entra ID |
+| Two callers, same key: each call is processed on its own, and each caller gets its own `notificationId` | Integration | Redis, Mailpit | Entra ID: two test identities with different `client_id` values |
+| Same caller, same key, after a token refresh: the first 202 is replayed and nothing is sent twice | Integration | Redis, Mailpit | Entra ID: two tokens with the same `client_id` |
 | Email delivery, HTML encoding, subject clean-up | Integration | Mailpit (Testcontainers); its API shows the received mail | Entra ID |
 | SMTP retry and give-up | Integration | Mailpit stopped, then started | Entra ID |
 | Teams card shape, 429 and 404 handling | Integration | — | Teams webhook: a local HTTP stub that records posts and answers 2xx, 429 or 404 |
@@ -132,6 +134,6 @@ Metrics and traces go out through the scaffold's OpenTelemetry wiring, behind it
 
 ## Runtime architecture
 
-![A backend caller gets an Entra ID token and posts to the Notification API; the API checks the idempotency record in Redis, renders from the template catalogue in the image, queues the message and answers 202; the delivery worker sends it through the email sender to the SMTP provider or through the Teams sender to a Workflows webhook.](diagrams/runtime.svg)
+![A backend caller gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container behind its own data-store boundary and is shared by all replicas, renders from the in-image template catalogue, queues the message and answers 202; the delivery worker sends it across the delivery-target boundary to the SMTP provider or a Teams Workflows webhook.](diagrams/runtime.svg)
 
 The first docs ticket after the scaffold draws the code-derived diagram at `docs/diagrams/`. It reports any difference from this one as a design question.

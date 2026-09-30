@@ -25,7 +25,7 @@
 - Render the message from the template version and the parameters.
 - Encode parameter values safely for the target format.
 - Deliver the message to the channel, with a bounded retry on transient failures.
-- Refuse a repeated call with the same idempotency key from the same caller.
+- Replay the first 202 to a repeated call with the same idempotency key from the same caller, and send nothing again.
 - Hold the channel settings and Teams destinations for its deployment.
 - Log every outcome without personal data.
 

@@ -28,18 +28,19 @@ DKNet Notification turns one registered template plus caller parameters into one
   - [ADR-0005](adr/0005-email-over-smtp-with-mailkit.md) — Send email over SMTP with MailKit.
   - [ADR-0006](adr/0006-teams-through-workflows-webhooks.md) — Post to Teams through Workflows webhooks.
   - [ADR-0007](adr/0007-caller-authorization-scope-or-app-role.md) — Authorize callers by scope or app role.
+  - [ADR-0008](adr/0008-idempotency-caller-scoped-replay.md) — Idempotency keys scoped by caller, repeated calls replayed.
 - [diagrams/](diagrams/) — archify IR (`.json`) and render (`.svg`) for every diagram.
 
 ## Runtime architecture
 
-![A backend caller gets an Entra ID token, posts to the Notification API, which checks the idempotency record in Redis, renders the template from the in-image catalogue, queues the message and returns 202; the delivery worker then sends it to the SMTP provider or a Teams Workflows webhook.](diagrams/runtime.svg)
+![A backend caller gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container behind its own data-store boundary and is shared by all replicas, renders from the in-image template catalogue, queues the message and answers 202; the delivery worker sends it across the delivery-target boundary to the SMTP provider or a Teams Workflows webhook.](diagrams/runtime.svg)
 
 ## Delivery slices
 
 Each slice is one future Workflow B ticket, delivered in this order.
 
 1. **Scaffold** — generate the solution with `dotnet new dknet-minimal`, remove the two sample features, remove the relational database (ADR-0002), and add CI build and container publish. Realises: README, 04 Storage, 05 Packaging and deployment.
-2. **Send API and template catalogue** — `POST /v1/notifications` with authorization, idempotency, the evaluation order, rendering, the skip rule, the delivery queue and the delivery worker. No channel sender exists yet, so every valid call ends Skipped. Realises: 02, 03 Exposed API and Main flows 1 and 2, 05 Security and Observability.
-3. **Email channel** — the SMTP channel sender, its settings, the retry rule, and a local SMTP catcher (Mailpit) in the AppHost. Realises: 03 Main flow 3, ADR-0005.
-4. **Microsoft Teams channel** — the Teams channel sender, named Teams destinations, the Adaptive Card payload and the retry rule. Realises: 03 Main flow 3, ADR-0006.
+2. **Send API, template catalogue and skip rule** — `POST /v1/notifications` with authorization, idempotency with its three non-default settings (ADR-0008), evaluation steps 1 to 5, the template catalogue and its start-up checks, and the skip log entry. No channel sender exists yet, so every valid call ends Skipped at step 5; that is the behaviour this slice ships and tests. Realises: 02 NotificationTemplate, 03 Exposed API, Evaluation order steps 1 to 5 and Main flow 2, 05 Security and Observability, ADR-0007, ADR-0008.
+3. **Email channel, rendering and delivery** — the email recipient check, rendering with HTML encoding, the delivery queue and delivery worker with the retry rule, the SMTP channel sender and its settings, and a local SMTP catcher (Mailpit) in the AppHost. Email is the first channel that reaches steps 6 to 10, so rendering, the queue and the worker ship with it. Realises: 02 Notification lifecycle, 03 Evaluation order steps 6 and 8 to 10 and Main flow 1, ADR-0003, ADR-0004, ADR-0005.
+4. **Microsoft Teams channel** — the Teams recipient check, named Teams destinations, the Adaptive Card payload with its 28 KB check, and the Teams channel sender with 429 handling. It reuses the queue and worker from slice 3. Realises: 03 Evaluation order steps 6 to 8 for Teams and Main flow 3, ADR-0006.
 5. **Helm chart and operator guide** — a Helm chart like DKNet.Accounts.Api's, plus the configuration reference for channels, destinations and templates. Realises: 05 Packaging and deployment.

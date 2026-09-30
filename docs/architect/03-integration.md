@@ -96,7 +96,15 @@ Responses:
 
 Error bodies are problem details with `errors[]` and `traceId`, the shape DKNet.AspCore.Extensions builds for DKNet.Accounts.Api.
 
-A repeated call with the same key from the same caller within 4 hours gets the first 202 again, with the same `notificationId`. Nothing is sent twice. Only 2xx responses are kept.
+A repeated call with the same key from the same caller within 4 hours gets the first 202 replayed, with the same `notificationId`. Nothing is sent twice. Only 2xx responses are kept.
+
+This needs 3 DKNet.AspCore.Idempotency settings that are not the package defaults (ADR-0008):
+
+| Setting | Value | Package default | Why |
+|---|---|---|---|
+| `KeyScopeResolver` | Returns the caller id: the first of the `client_id`, `azp`, `appid` claims | Not set: user name id, then an HMAC of the `Authorization` header, then empty | Two callers never share a key, and a token refresh keeps the same scope |
+| `ConflictHandling` | `CachedResult` | `ConflictResponse` (409) | A repeated call gets the first 202 replayed, not a 409 |
+| `IdempotencyHeaderKey` | `Idempotency-Key` | `X-Idempotency-Key` | Same header name as DKNet.Accounts.Api |
 
 After any non-2xx answer, the key stays reserved for up to 30 seconds from the first call. To retry, wait 30 seconds and send the same key again. If the first call was accepted, its 202 is then replayed; if not, the call runs afresh.
 
@@ -105,7 +113,7 @@ After any non-2xx answer, the key stays reserved for up to 30 seconds from the f
 Each check runs only when the one before it passed.
 
 1. Authenticate the token (401), then check the scope or app role (403).
-2. Check `Idempotency-Key` (400). Replay a kept 202, or refuse an in-flight key (409).
+2. Check `Idempotency-Key` (400). Replay a kept 202, or answer 409 for a key still in flight.
 3. Check the body against the field rules (413, then 400 `INVALID_REQUEST`).
 4. Find the template (400 `TEMPLATE_NOT_FOUND`).
 5. Resolve the channel. It ends **Skipped** when:
@@ -117,6 +125,8 @@ Each check runs only when the one before it passed.
 8. Render the template version (400 `PARAMETER_MISSING`, 400 `MESSAGE_TOO_LARGE`).
 9. Put the notification in the delivery queue (503 `QUEUE_FULL`).
 10. Answer 202.
+
+The idempotency check is an endpoint filter, so it runs after the request body is bound. A malformed or oversized body (step 3) can therefore be answered before step 2. No key is reserved in that case, so the order makes no difference to the caller.
 
 `channel` is never bound to a fixed list at the API edge. A fixed list would turn an unknown channel into a 400, which breaks the skip rule.
 
@@ -135,7 +145,7 @@ The service consumes no events.
 | SMTP provider | SMTP submission | Deliver email | Transient failure: retried. After attempt 3 the notification ends Failed and is logged. |
 | Teams Workflows webhook | HTTPS POST | Deliver the Teams card | 429, 5xx and timeouts are retried. Other 4xx, such as a deleted workflow, end Failed. |
 | DKNet.Svc.Transformation | Token replacement | Render template versions | In process; not a runtime dependency. |
-| DKNet.AspCore.Idempotency and its Redis store | Idempotency filter and store | Refuse repeated calls | In process; depends on Redis above. |
+| DKNet.AspCore.Idempotency and its Redis store | Idempotency filter and store | Replay the first 202 to repeated calls | In process; depends on Redis above. |
 | DKNet.AspCore.Extensions | Problem-details error bodies, endpoint scope declarations | One error shape with DKNet.Accounts.Api | In process; not a runtime dependency. |
 
 ## Dependencies

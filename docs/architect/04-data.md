@@ -108,7 +108,7 @@ The in-memory idempotency store is allowed only for local runs and tests. The pa
 
 | Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
 |---|---|---|---|---|---|---|
-| Key | string | — | Yes | Unique | — | Caller id + route + method + `Idempotency-Key` |
+| Key | string | — | Yes | Unique | — | Caller id (from the `KeyScopeResolver` setting, ADR-0008) + route + method + `Idempotency-Key` |
 | StatusCode | integer | — | Yes | — | 102 while in flight | 202 once kept |
 | Body | string | — | No | — | — | The 202 body: `notificationId` only |
 | ContentType | string | — | Yes | — | — | `application/json` |
