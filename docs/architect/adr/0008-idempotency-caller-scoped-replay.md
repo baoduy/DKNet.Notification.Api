@@ -1,0 +1,23 @@
+# ADR-0008: Idempotency keys scoped by caller, repeated calls replayed
+
+- **Status:** Accepted
+- **Context:**
+  - A caller that times out retries with the same `Idempotency-Key`. It must not cause a second send.
+  - Two callers may pick the same key by chance. One must never block or swallow the other's message.
+  - DKNet.AspCore.Idempotency builds the record key from a caller scope, the route, the method and the key.
+  - Its default scope tries, in order: the user name id claim, an HMAC of the `Authorization` header when a secret is set, the client IP when opted in, and otherwise an empty scope.
+  - This service keeps inbound claims unmapped (05-quality), so the user name id claim is empty on an Entra ID machine token.
+  - With an empty scope, two callers share every key. With the HMAC scope, the scope changes on every token refresh.
+  - The package's default conflict handling answers 409 to a repeated call. DKNet.Accounts.Api also uses that default.
+- **Decision:**
+  - Set `KeyScopeResolver` to return the caller id: the first of the `client_id`, `azp`, `appid` claims. This is the claim order DKNet.Accounts.Api uses.
+  - Set `ConflictHandling` to `CachedResult`, so a repeated call gets the first 202 replayed.
+  - Set `IdempotencyHeaderKey` to `Idempotency-Key`, the header name DKNet.Accounts.Api uses.
+  - Keep the package defaults for the rest: 4-hour keep, 30-second in-flight reservation, 2xx-only caching, key length and pattern.
+- **Alternatives:**
+  - *Package default scope.* Rejected: an empty scope lets callers collide, and an HMAC scope breaks replay after a token refresh.
+  - *Scope by client IP.* Rejected: callers behind one gateway share an IP, and one caller can move between IPs.
+  - *`ConflictResponse`, as DKNet.Accounts.Api does.* Rejected: a caller retrying after a timeout would get 409 and could not tell whether its message was accepted.
+- **Consequences:**
+  - Easier: a retry is always safe; the caller gets the same `notificationId` back.
+  - Harder: the service departs from two package defaults and from DKNet.Accounts.Api's conflict setting. Slice 2 must test both, with the two-callers and token-refresh rows in 05-quality.

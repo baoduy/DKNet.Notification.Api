@@ -1,0 +1,28 @@
+# ADR-0004: Render templates with DKNet.Svc.Transformation and `{{name}}` tokens
+
+- **Status:** Accepted
+- **Context:**
+  - Templates are HTML files for email and Markdown files for Teams, registered in `appsettings.json`.
+  - DKNet.Svc.Transformation already replaces tokens in a string from a string map.
+  - It supports four token styles: `[name]`, `{name}`, `<name>` and `{{name}}`. Its default is `[name]` only.
+  - `[name]` breaks Markdown links, `{name}` breaks CSS in HTML, and `<name>` breaks HTML.
+  - It matches names without case.
+  - By default it fails on a token with no value. It can also leave or remove the token.
+  - It does not HTML-encode values.
+  - It reads a map only when the map is string to string.
+- **Decision:**
+  - Use DKNet.Svc.Transformation for every body, subject and title.
+  - Use `{{name}}` as the only token style. Square brackets and single braces stay literal text.
+  - Fail on a missing value, and answer 400 `PARAMETER_MISSING` with the first missing name.
+  - HTML-encode every value before it fills an HTML body. The service does this before rendering.
+  - Accept only string parameter values at the API edge.
+  - The email version must be HTML and the Teams version must be Markdown. No Markdown-to-HTML conversion in version 1.
+  - Load and check every registered file at start-up. A missing file stops the host.
+- **Alternatives:**
+  - *A full template engine, such as Scriban or Razor.* Rejected: loops and conditions are not asked for, and a new dependency is not needed while a DKNet package does the job.
+  - *Leave or remove missing tokens.* Rejected: a message with a hole or a raw `{{name}}` reaches a customer silently.
+  - *Markdown for email, converted to HTML.* Rejected for version 1: it needs a Markdown library. Add it in a later revision if template authors ask.
+- **Consequences:**
+  - Easier: no new rendering dependency; one token rule for all formats.
+  - Harder: templates cannot loop or branch; the caller pre-formats lists and amounts as strings.
+  - Harder: only the first missing name is reported per call.

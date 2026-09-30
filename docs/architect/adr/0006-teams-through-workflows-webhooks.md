@@ -1,0 +1,25 @@
+# ADR-0006: Post to Microsoft Teams through Workflows webhooks
+
+- **Status:** Accepted
+- **Context:**
+  - The brief leaves Teams delivery to the design: an incoming webhook or Microsoft Graph.
+  - Microsoft Graph lets an application post a channel message only for data migration. Normal posting needs a signed-in user.
+  - Microsoft 365 Connectors, the old incoming webhooks, are nearing retirement.
+  - The Teams Workflows app replaces them. Its trigger "When a Teams webhook request is received" gives a URL that accepts an Adaptive Card message.
+  - Microsoft states a 28 KB message limit and throttling above 4 requests per second.
+  - Anyone who holds a webhook URL can post to that channel.
+- **Decision:**
+  - Deliver Teams messages by HTTPS POST of an Adaptive Card message to a Workflows webhook URL.
+  - Operators map a destination name to each webhook URL in the deployment settings. Callers send only the name, in `teamsDestination`.
+  - A name that is not set in this deployment ends Skipped, like an unconfigured channel.
+  - The card holds an optional title text block and one Markdown text block for the body.
+  - Retry 429, 5xx and timeouts. Other 4xx answers end Failed.
+- **Alternatives:**
+  - *Microsoft Graph channel messages.* Rejected: application permission is for migration only; posting as a user needs a stored user credential.
+  - *A Teams bot with the Bot Framework.* Rejected for version 1: it needs a bot registration and an app install per team, for one-way messages.
+  - *Microsoft 365 Connectors.* Rejected: they are being retired.
+  - *Caller sends the webhook URL.* Rejected: callers would hold secrets, and the service could be made to call any URL.
+- **Consequences:**
+  - Easier: no Graph permissions; a new Teams channel is a settings change.
+  - Harder: each workflow has a human owner in Teams. If the owner leaves with no co-owner, the workflow can stop, and posts end Failed.
+  - Harder: Teams shows a limited Markdown set; template authors must test their cards in Teams.

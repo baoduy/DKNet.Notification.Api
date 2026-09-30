@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Channel Unavailable: Accept, Log, Skip",
+    "output": "channel-skipped.html",
+    "viewBox": [1080, 690],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "caller", "type": "external", "label": "Backend caller", "sublabel": "notifications.send" },
+    { "id": "api", "type": "backend", "label": "Notification API", "sublabel": "POST /v1/notifications" },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "idempotency records" },
+    { "id": "catalogue", "type": "database", "label": "Template catalogue", "sublabel": "in image" },
+    { "id": "settings", "type": "security", "label": "Channel settings", "sublabel": "this deployment" },
+    { "id": "logs", "type": "messagebus", "label": "Log pipeline", "sublabel": "OpenTelemetry" }
+  ],
+  "segments": [
+    { "from": 160, "to": 300, "label": "Checks 1-4" },
+    { "from": 312, "to": 470, "label": "Step 5: resolve channel" },
+    { "from": 482, "to": 580, "label": "Answer" }
+  ],
+  "messages": [
+    { "id": "post", "from": "caller", "to": "api", "y": 180, "label": "POST channel=whatsapp", "variant": "emphasis", "note": "token and scope already checked" },
+    { "id": "reserve", "from": "api", "to": "redis", "y": 216, "label": "reserve key", "variant": "default" },
+    { "id": "reserved", "from": "redis", "to": "api", "y": 244, "label": "new key", "variant": "return" },
+    { "id": "find", "from": "api", "to": "catalogue", "y": 276, "label": "templateId registered?", "variant": "default" },
+    { "id": "found", "from": "catalogue", "to": "api", "y": 304, "label": "yes", "variant": "return", "note": "no: 400 TEMPLATE_NOT_FOUND" },
+    { "id": "resolve", "from": "api", "to": "settings", "y": 340, "label": "channel supported + configured?", "variant": "default" },
+    { "id": "unavailable", "from": "settings", "to": "api", "y": 368, "label": "no", "variant": "return" },
+    { "id": "log", "from": "api", "to": "logs", "y": 420, "label": "NotificationSkipped, warning", "variant": "dashed", "note": "id, template, channel, reason; no parameters, no recipient" },
+    { "id": "keep", "from": "api", "to": "redis", "y": 500, "label": "keep 202, 4 h", "variant": "dashed" },
+    { "id": "accepted", "from": "api", "to": "caller", "y": 540, "label": "202 notificationId", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "api", "from": 180, "to": 546, "type": "backend" },
+    { "participant": "redis", "from": 212, "to": 248, "type": "database" },
+    { "participant": "catalogue", "from": 272, "to": 308, "type": "database" },
+    { "participant": "settings", "from": 336, "to": 372, "type": "security" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Skip reasons", "items": ["ChannelNotSupported: no sender in this release", "ChannelNotConfigured: sender exists but is disabled here", "NoTemplateVersion: template has no version for the channel", "TeamsDestinationNotConfigured: name not set in this deployment"] },
+    { "dot": "amber", "title": "The requester's rule", "items": ["The caller gets 202, the same answer as a queued call", "Nothing is queued and nothing is sent"] }
+  ]
+}

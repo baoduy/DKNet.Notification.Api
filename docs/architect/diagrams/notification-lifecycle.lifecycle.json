@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Notification Lifecycle",
+    "output": "notification-lifecycle.html",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "main", "label": "Accepted and delivered" },
+    { "id": "waiting", "label": "Retry wait" },
+    { "id": "terminal", "label": "Ends" }
+  ],
+  "states": [
+    { "id": "received", "type": "start", "label": "Received", "sublabel": "POST /v1/notifications", "lane": "main", "col": 0, "step": "01" },
+    { "id": "queued", "type": "waiting", "label": "Queued", "sublabel": "rendered, 202 returned", "lane": "main", "col": 1, "step": "02" },
+    { "id": "delivering", "type": "active", "label": "Delivering", "sublabel": "one send attempt", "lane": "main", "col": 2, "step": "03" },
+    { "id": "delivered", "type": "success", "label": "Delivered", "sublabel": "provider accepted", "lane": "main", "col": 3, "step": "04" },
+    { "id": "retry_waiting", "type": "waiting", "label": "Retry Waiting", "sublabel": "transient failure", "lane": "waiting", "col": 2 },
+    { "id": "rejected", "type": "failure", "label": "Rejected", "sublabel": "400 or 503 returned", "lane": "terminal", "col": 0 },
+    { "id": "skipped", "type": "neutral", "label": "Skipped", "sublabel": "202 returned, logged", "lane": "terminal", "col": 1 },
+    { "id": "failed", "type": "failure", "label": "Failed", "sublabel": "logged as error", "lane": "terminal", "col": 2 }
+  ],
+  "transitions": [
+    { "from": "received", "to": "queued", "label": "valid + rendered" },
+    { "from": "queued", "to": "delivering", "label": "worker takes it" },
+    { "from": "delivering", "to": "delivered", "label": "sent" },
+    { "from": "received", "to": "rejected", "variant": "security", "label": "invalid" },
+    { "from": "received", "to": "skipped", "variant": "dashed", "label": "channel unavailable" },
+    { "from": "delivering", "to": "retry_waiting", "variant": "dashed", "label": "transient" },
+    { "from": "retry_waiting", "to": "delivering", "label": "wait over", "route": "left-channel" },
+    { "from": "delivering", "to": "failed", "variant": "security", "label": "permanent or 3rd attempt", "route": "right-channel" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Accept-time states", "items": ["Received, Rejected and Skipped are decided inside the API call", "Rejected: invalid request, unknown template, bad recipient, missing parameter (400) or full queue (503)", "Skipped: unsupported or unconfigured channel, no template version, unknown Teams destination"] },
+    { "dot": "amber", "title": "Delivery-time states", "items": ["Queued, Delivering, Retry Waiting, Delivered and Failed happen after the 202", "At most 3 attempts; waits of 5 s then 30 s between them", "The caller never sees these states: there is no status API in version 1"] },
+    { "dot": "rose", "title": "Kept in memory only", "items": ["No state is stored: a process stop loses Queued and Retry Waiting items", "Each state change is one structured log entry carrying the notification id"] }
+  ]
+}
