@@ -5,16 +5,17 @@
 | Neighbour | Direction | How they talk |
 |---|---|---|
 | Backend callers (DKNet.Accounts.Api is a likely first) | Caller → this service | HTTPS REST, Entra ID bearer token |
-| Microsoft Entra ID | This service → Entra ID | OpenID Connect metadata and signing keys, read to validate tokens |
+| Microsoft Entra ID | This service → Entra ID | OpenID Connect metadata and signing keys, read to validate tokens. With the Graph sender, also a client credentials token request for Graph |
 | Redis | This service → Redis | Redis protocol, for idempotency records only |
-| SMTP provider | This service → provider | SMTP with STARTTLS or TLS, authenticated |
+| SMTP provider | This service → provider | SMTP with STARTTLS or TLS, authenticated. Only when `Sender` is `Smtp` |
+| Microsoft Graph | This service → Graph | HTTPS POST to `sendMail` with an Entra ID bearer token. Only when `Sender` is `Graph` (ADR-0009) |
 | Microsoft Teams Workflows webhook | This service → webhook | HTTPS POST of an Adaptive Card message |
 | DKNet packages (DKNet repo) | This service → packages | NuGet package references, in process |
 | DKNet.Templates | One-time, at scaffold | `dotnet new dknet-minimal`; no runtime link |
 
 This service calls no other DKNet service. No DKNet service is called by it. No library depends on it.
 
-![DKNet Notification sits between backend callers and two delivery targets, the SMTP provider and Teams Workflows webhooks, and depends on Entra ID for tokens, Redis for idempotency records, and DKNet packages at build time.](diagrams/context-map.svg)
+![DKNet Notification sits between backend callers and its delivery targets — the SMTP provider or Microsoft Graph for email, one per deployment, and Teams Workflows webhooks — and depends on Entra ID for tokens, Redis for idempotency records, and DKNet packages at build time.](diagrams/context-map.svg)
 
 ## Exposed API
 
@@ -118,7 +119,7 @@ Each check runs only when the one before it passed.
 4. Find the template (400 `TEMPLATE_NOT_FOUND`).
 5. Resolve the channel. It ends **Skipped** when:
    - the channel is not supported by this release, or
-   - the channel is not configured in this deployment, or
+   - the channel is not configured in this deployment (for email: `EmailChannelSettings` in 04-data), or
    - the template has no version for the channel.
 6. Check the recipient key (400 `RECIPIENT_MISSING`, 400 `RECIPIENT_INVALID`).
 7. Teams only: the destination name is not set in this deployment → **Skipped**.
@@ -142,11 +143,54 @@ The service consumes no events.
 |---|---|---|---|
 | Microsoft Entra ID | OpenID Connect metadata and signing keys | Validate caller tokens | Keys already loaded keep working. With no keys loaded, calls fail with 401. |
 | Redis | Idempotency records | Detect repeated calls across replicas | Calls fail with 500 until Redis returns. The package does not catch store errors. |
-| SMTP provider | SMTP submission | Deliver email | Transient failure: retried. After attempt 3 the notification ends Failed and is logged. |
+| SMTP provider | SMTP submission | Deliver email when `Sender` is `Smtp` | Transient failure: retried. After attempt 3 the notification ends Failed and is logged. |
+| Microsoft Entra ID token endpoint | Client credentials token for `https://graph.microsoft.com/.default` | Sign in to Graph when `Sender` is `Graph` (ADR-0010) | A timeout, a lost connection or HTTP 5xx is transient and retried. HTTP 4xx, such as `invalid_client`, ends Failed at once. |
+| Microsoft Graph | `POST /users/{Mailbox}/sendMail` | Deliver email when `Sender` is `Graph` (ADR-0009) | 408, 429, 5xx and timeouts are retried. Other 4xx, such as 403 for a mailbox outside the app's scope, end Failed. |
 | Teams Workflows webhook | HTTPS POST | Deliver the Teams card | 429, 5xx and timeouts are retried. Other 4xx, such as a deleted workflow, end Failed. |
 | DKNet.Svc.Transformation | Token replacement | Render template versions | In process; not a runtime dependency. |
 | DKNet.AspCore.Idempotency and its Redis store | Idempotency filter and store | Replay the first 202 to repeated calls | In process; depends on Redis above. |
 | DKNet.AspCore.Extensions | Problem-details error bodies, endpoint scope declarations | One error shape with DKNet.Accounts.Api | In process; not a runtime dependency. |
+
+### Outbound call — Microsoft Graph `sendMail`
+
+The Graph sender makes one call per delivery attempt. The token comes first; the service reuses it until it is close to expiry.
+
+```http
+POST https://graph.microsoft.com/v1.0/users/notify@contoso.com/sendMail
+Authorization: Bearer eyJ...
+Content-Type: application/json
+
+{
+  "message": {
+    "subject": "Your account is open",
+    "body": { "contentType": "HTML", "content": "<p>Dear Jane, ...</p>" },
+    "toRecipients": [ { "emailAddress": { "address": "jane@example.com" } } ]
+  }
+}
+```
+
+```http
+HTTP/1.1 202 Accepted
+```
+
+- The path names the `Mailbox` setting. The caller never names the mailbox.
+- `toRecipients` holds exactly the one `to` address. No CC, BCC, attachment or `from` value is sent.
+- `saveToSentItems` is left out, so Graph saves the mail to Sent Items, its default (ADR-0009).
+- A 202 means Graph accepted the mail. It does not mean the mail reached the recipient.
+
+How each answer counts for the retry rule (ADR-0003, ADR-0009):
+
+| Step | Answer | Kind | What the worker does |
+|---|---|---|---|
+| Token request | Token issued | — | Goes on to `sendMail` |
+| Token request | Timeout, lost connection, HTTP 5xx | Transient | Waits 5 seconds, then 30 seconds; at most 3 attempts |
+| Token request | HTTP 4xx, such as `invalid_client` or a federated credential that does not match | Permanent | Ends Failed at once |
+| `sendMail` | 202 | — | Ends Delivered |
+| `sendMail` | 429 | Transient | Waits for `Retry-After`, at most 60 seconds; without the header, waits as below |
+| `sendMail` | 408, 5xx, timeout, lost connection | Transient | Waits 5 seconds, then 30 seconds; at most 3 attempts |
+| `sendMail` | 400, 401, 403, 404, any other 4xx | Permanent | Ends Failed at once. A 403 most often means the mailbox is outside the app's `Mail.Send` scope |
+
+No library retries inside an attempt. The worker's rule is the only retry, so `AttemptCount` stays at most 3.
 
 ## Dependencies
 
@@ -156,10 +200,12 @@ The service consumes no events.
 | DKNet.AspCore.Idempotency, DKNet.AspCore.Idempotency.RedisStore | NuGet library | service → library | Same packages DKNet.Accounts.Api uses |
 | DKNet.AspCore.Extensions | NuGet library | service → library | Error responses, endpoint scopes |
 | MailKit | NuGet library (third party) | service → library | New to the DKNet repos. ADR-0005 |
+| Azure.Identity | NuGet library (third party) | service → library | Graph token, both credential modes. DKNet.Accounts.Api pins it too. ADR-0010 |
 | DKNet.Templates | Solution template | one-time scaffold | Not referenced after slice 1 |
 | Microsoft Entra ID | External service | service → Entra ID | Token validation only |
 | Redis | External store | service → Redis | ADR-0002 |
 | SMTP provider | External service | service → provider | ADR-0005 |
+| Microsoft Graph and the sending mailbox | External service | service → Graph | ADR-0009, ADR-0010 |
 | Microsoft Teams Workflows | External service | service → webhook | ADR-0006 |
 
 Every arrow points from this service to a library or an external system. No library points back. No DKNet repo depends on this service at build time, so there is no cycle. DKNet.SlimBus.Extensions is not used (ADR-0003).
@@ -184,6 +230,8 @@ Failure paths:
 - Step 6 finds the queue full: 503 `QUEUE_FULL`. The caller retries after 30 seconds with the same key.
 - Step 7 gets a transient failure: the worker waits 5 seconds, then 30 seconds, and tries again. After attempt 3 the notification ends Failed.
 - Step 7 gets a permanent failure: the notification ends Failed at once.
+
+This flow is the SMTP sender. With `Sender` set to `Graph`, steps 7 and 8 run as in Flow 4.
 
 ![Sequence of one email notification from the caller through token check, idempotency reservation, rendering, queueing and 202, then the worker's SMTP submission with its retry path.](diagrams/send-email.svg)
 
@@ -215,3 +263,24 @@ Failure paths:
 - Step 6 gets 404 or another non-retryable 4xx: the notification ends Failed.
 
 ![Sequence of a Teams notification: the destination name resolves to a webhook URL, the card is queued and 202 returned, then the worker posts it, waits out a 429 and delivers on attempt 2.](diagrams/send-teams.svg)
+
+### Flow 4 — Send an email through Microsoft Graph
+
+The deployment sets `Sender` to `Graph`. Steps 1 to 6 are those of Flow 1, and the caller sees the same 202.
+
+1. The delivery worker takes the notification from the queue.
+2. The worker asks Entra ID for a token for `https://graph.microsoft.com/.default`, as the mail-sender app. It skips this step while the token it holds is still valid.
+3. Entra ID checks the app's credential: the Kubernetes service account token (`WorkloadIdentity`) or the client secret. It returns an access token.
+4. The worker posts the message to `sendMail` on the sending mailbox.
+5. Graph answers 202. The notification ends Delivered, and one log entry records it. Graph saves a copy in Sent Items.
+
+Failure paths:
+
+- Graph selected but a required setting missing: the host logs `EmailSenderNotConfigured` at start-up. Every email call ends Skipped at step 5 of the evaluation order, as in Flow 2.
+- Step 2 gets a timeout or HTTP 5xx: transient, retried within the 3 attempts.
+- Step 2 gets HTTP 4xx: permanent. The notification ends Failed.
+- Step 4 gets 429: the worker waits for `Retry-After`, at most 60 seconds, then retries within the 3 attempts.
+- Step 4 gets 403: the mailbox is outside the app's scope, or the scope is still being applied. The notification ends Failed.
+- Step 4 times out after Graph already took the mail: the retry can send it twice (ADR-0003).
+
+![Sequence of one email through Microsoft Graph: the API accepts and queues it as in Flow 1, then the worker gets an Entra ID token as the mail-sender app, posts to sendMail on the one mailbox, waits out a 429 and gets 202 on attempt 2.](diagrams/send-email-graph.svg)

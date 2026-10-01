@@ -1,0 +1,40 @@
+# ADR-0009: Add a Microsoft Graph email sender, one email sender per deployment
+
+- **Status:** Accepted. It supersedes the rejected *Microsoft Graph `sendMail`* alternative in ADR-0005. The SMTP decision in ADR-0005 stays.
+- **Context:**
+  - The requester asked for a second email sender that signs in with Microsoft Entra ID (DRK-1961).
+  - The requester's rule: a channel may have more than one sender, but a deployment turns on only one. Two email senders are never active at the same time.
+  - The API does not change. The request, the recipient rule (exactly one `to`), the responses and the skip rule stay as they are.
+  - ADR-0005 rejected Graph because it needs a mailbox and an Entra app permission, and ties email to Microsoft 365. Some deployments already run on Microsoft 365 and want exactly that.
+  - Graph `POST /users/{id | userPrincipalName}/sendMail` needs the `Mail.Send` application permission. It answers `202 Accepted`, which means accepted, not delivered (Microsoft Learn, "user: sendMail").
+  - The same page states that the message is saved to Sent Items by default.
+  - Microsoft Graph answers `429 Too Many Requests` with a `Retry-After` header when it throttles (Microsoft Learn, "Microsoft Graph throttling guidance").
+  - The same page states that the Graph SDKs retry throttled requests by themselves. A retry inside an attempt would break the 3-attempt limit (ADR-0003).
+  - DKNet.Accounts.Api already pins `Azure.Identity` (`Directory.Packages.props:44`). It does not use a Microsoft Graph package.
+  - The requester's other codebase skips with a warning when Graph is not configured, sends from one mailbox and saves to Sent Items. It is used for behaviour only; none of its code enters this public repo (DRK-1961 decision 3).
+- **Decision:**
+  - Email has two senders: SMTP (ADR-0005) and Microsoft Graph.
+  - The setting `Sender` in the email channel settings picks one: `Smtp` or `Graph`. The default is `Smtp`, so a revision 1 deployment behaves the same.
+  - Only the selected sender is created at start-up. The other sender's settings are not read.
+  - The Graph sender sends from one mailbox, named in the settings. It calls `sendMail` on that mailbox with the rendered subject, the HTML body and the one `to` address. It sends no CC, BCC, attachment or `from` value.
+  - Sent mail is saved to the mailbox's Sent Items, the Graph default. There is no setting for it.
+  - The Graph sender is a plain HTTPS POST of a JSON body, as the Teams sender is. It gets its token through `Azure.Identity` (ADR-0010). No Microsoft Graph SDK is used.
+  - The delivery worker's rule is the only retry. No library retries inside an attempt.
+  - Graph answers are classified like other HTTP answers (02-domain): 408, 429, 5xx, a timeout and a lost connection are transient; any other 4xx is permanent. A 429 waits for `Retry-After`, at most 60 seconds, as Teams does.
+  - The token request is part of the attempt. A timeout, a lost connection or an HTTP 5xx from the token endpoint is transient. An HTTP 4xx from it, such as `invalid_client`, is permanent.
+  - Graph selected but a required setting missing: the host still starts. It logs one warning that names the missing settings, never their values. Email counts as not configured, so every email call ends Skipped with the existing reason `ChannelNotConfigured`. The same rule applies to SMTP.
+- **Alternatives:**
+  - *Keep SMTP only.* Rejected: the requester asked for an Entra ID sender.
+  - *Microsoft 365 SMTP AUTH with OAuth through the existing SMTP sender.* Rejected: it still needs an Entra app and a mailbox permission, and adds an OAuth path to MailKit for the same result.
+  - *Both senders active, with fail-over from one to the other.* Rejected: the requester's rule allows only one active sender per channel.
+  - *The Microsoft Graph .NET SDK.* Rejected: it is a large new dependency for one endpoint, and its built-in retry handler would retry inside an attempt.
+  - *Fail start-up when a Graph setting is missing.* Rejected: the requester's skip rule says to log and deliver nothing, not to stop.
+  - *A new skip reason for a missing sender setting.* Rejected: it would change the log contract for a case `ChannelNotConfigured` already names.
+  - *A setting to turn off saving to Sent Items.* Rejected for revision 2: no one asked for it, and the mailbox owner keeps the only record of what was sent.
+- **Consequences:**
+  - Easier: a Microsoft 365 deployment sends from its own mailbox with no SMTP password.
+  - Easier: callers change nothing, and revision 1 deployments change nothing.
+  - Harder: the Graph path needs Microsoft 365 setup: an app registration, a scoped `Mail.Send` grant and a mailbox (ADR-0010, 05-quality).
+  - Harder: no offline Graph exists. Tests use a local HTTP stub, and a real tenant is checked only by hand (05-quality).
+  - Harder: a copy of every Graph email, with its personal data, stays in Sent Items under the tenant's retention.
+  - Harder: one mailbox caps sending at 30 messages per minute and 10,000 recipients per day (Microsoft Learn, "Exchange Online limits").

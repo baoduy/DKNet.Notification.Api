@@ -14,14 +14,16 @@ The service never writes:
 - Recipients' contact data. Callers own it and pass it per call.
 - Any account, customer or ledger data. DKNet.Accounts.Api owns it.
 - Identities and tokens. Microsoft Entra ID owns them.
-- Delivered mail and Teams posts. The SMTP provider and Teams own them after hand-off.
+- Delivered mail and Teams posts. The SMTP provider, Microsoft 365 and Teams own them after hand-off.
+- The copy of each Graph email in the sending mailbox's Sent Items. The Microsoft 365 tenant owns it, under its own retention (ADR-0009).
+- The mail-sender app registration, its credential and its `Mail.Send` grant. The tenant's Entra ID and Exchange Online administrators own them (ADR-0010).
 
 ## Storage
 
 | Data | Store | Why |
 |---|---|---|
 | Template catalogue | `appsettings.json` registrations plus files in the API project's `Templates` folder, copied into the image | The requester's rule: templates change only by release (ADR-0004) |
-| Channel settings and Teams destinations | Configuration: `appsettings.json` for non-secret values; environment variables or Azure App Configuration for secrets | One set per deployment. Same configuration order as DKNet.Accounts.Api |
+| Channel settings, email sender settings and Teams destinations | Configuration: `appsettings.json` for non-secret values; environment variables or Azure App Configuration for secrets | One set per deployment. Same configuration order as DKNet.Accounts.Api |
 | Idempotency records | Redis | Shared by all replicas; expires on its own (ADR-0002) |
 | Notifications | Process memory only | No status tracking in version 1 (ADR-0002, ADR-0003) |
 
@@ -72,14 +74,32 @@ The in-memory idempotency store is allowed only for local runs and tests. The pa
 | Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
 |---|---|---|---|---|---|---|
 | Enabled | boolean | — | Yes | — | `false` | `false` means not configured: every email call ends Skipped |
-| Host | string | ≤ 255 | When enabled | — | — | SMTP host |
-| Port | integer | 1–65535 | When enabled | — | 587 | |
-| Security | enum | — | When enabled | — | `StartTls` | `StartTls` or `Tls`. No plain-text option |
+| Sender | enum | — | Yes | — | `Smtp` | `Smtp` or `Graph`. Picks the one email sender of this deployment (ADR-0009). Any other value means not configured |
+| TimeoutSeconds | integer | 1–120 | Yes | — | 30 | Per delivery attempt, for either sender. With Graph it covers the token request and the send |
+
+Email is configured when `Enabled` is `true`, `Sender` is `Smtp` or `Graph`, and every required field of that sender's settings is set. Otherwise every email call ends Skipped with reason `ChannelNotConfigured`. The host still starts, and logs `EmailSenderNotConfigured` once (05-quality).
+
+### SmtpSenderSettings (configuration, read only when `Sender` is `Smtp`)
+
+| Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
+|---|---|---|---|---|---|---|
+| Host | string | ≤ 255 | Yes | — | — | SMTP host |
+| Port | integer | 1–65535 | Yes | — | 587 | |
+| Security | enum | — | Yes | — | `StartTls` | `StartTls` or `Tls`. No plain-text option |
 | UserName | string | ≤ 256 | No | — | Empty | |
 | Password | string | ≤ 512 | No | — | Empty | **Secret.** Environment variable or Azure App Configuration only |
-| FromAddress | string | ≤ 254 | When enabled | — | — | Sender address for every email |
+| FromAddress | string | ≤ 254 | Yes | — | — | Sender address for every email |
 | FromName | string | ≤ 100 | No | — | `DKNet Notification` | Sender display name |
-| TimeoutSeconds | integer | 1–120 | Yes | — | 30 | Per delivery attempt |
+
+### GraphSenderSettings (configuration, read only when `Sender` is `Graph`)
+
+| Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
+|---|---|---|---|---|---|---|
+| TenantId | GUID | — | Yes | — | — | Directory (tenant) id of the Microsoft 365 tenant |
+| ClientId | GUID | — | Yes | — | — | Application (client) id of the mail-sender app registration. Never the API's own registration (ADR-0010) |
+| Credential | enum | — | Yes | — | `WorkloadIdentity` | `WorkloadIdentity` or `ClientSecret` (ADR-0010) |
+| ClientSecret | string | ≤ 512 | When `Credential` is `ClientSecret` | — | Empty | **Secret.** Environment variable or Azure App Configuration only; user secrets for local runs. Ignored with `WorkloadIdentity` |
+| Mailbox | string | ≤ 254 | Yes | — | — | User principal name of the one sending mailbox, in `local@domain` form. Every Graph email is sent from it. The sender's display name is the mailbox's own |
 
 ### TeamsChannelSettings (configuration, one per deployment)
 
@@ -123,4 +143,5 @@ The in-memory idempotency store is allowed only for local runs and tests. The pa
 | Idempotency record in flight | 30 seconds | Redis expiry |
 | Idempotency record kept | 4 hours | Redis expiry |
 | Template catalogue and settings | Until the next release or configuration change | The release or the operator |
+| Graph email copy in Sent Items | The Microsoft 365 tenant's retention | The tenant, not this service |
 | Log entries | The log platform's retention | The log platform. No personal data is in them |
