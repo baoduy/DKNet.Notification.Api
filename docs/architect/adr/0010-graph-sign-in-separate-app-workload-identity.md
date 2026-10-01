@@ -22,7 +22,7 @@
   - A tenant that already limits apps with an application access policy may use one instead. It then grants `Mail.Send` in Entra and restricts it to a mail-enabled security group that holds only the sending mailbox.
 - **Alternatives:**
   - *Reuse the API's own app registration.* Rejected: it mixes the inbound trust of callers with the outbound permission to send mail. A leaked credential would reach both, and the two cannot be rotated or scoped apart.
-  - *A user-assigned managed identity.* Rejected: it works only on Azure hosts and cannot hold a client secret. One app registration covers both credential modes.
+  - *A user-assigned managed identity.* Rejected: it cannot hold a client secret, so it cannot cover the `ClientSecret` mode. One app registration covers both credential modes.
   - *A certificate credential.* Rejected for revision 2: it adds certificate storage and rotation to every deployment. Workload identity needs no secret, and a client secret covers the other hosts. Add it when a host outside Kubernetes needs more than a secret.
   - *Client secret only.* Rejected: every deployment would hold and rotate a long-lived secret.
   - *Grant `Mail.Send` in Entra and rely on the mailbox setting alone.* Rejected: the app could still send as any mailbox in the tenant.

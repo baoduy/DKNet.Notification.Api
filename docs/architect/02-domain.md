@@ -27,7 +27,7 @@
 | Skipped | The outcome when the channel is unavailable: the call is accepted with 202, logged, and nothing is delivered. | Rejected. |
 | Rejected | The outcome when the request is invalid: the call gets an error response and nothing is queued. | Skipped. |
 | Delivery attempt | One try to hand the rendered message to the SMTP provider, Microsoft Graph or the Teams webhook. With Graph, the token request is part of the attempt. | A caller's retry of the API call. |
-| Transient failure | A failure that may pass: a timeout, a lost connection, HTTP 429 or 5xx, or an SMTP 4xx reply. | A permanent failure. |
+| Transient failure | A failure that may pass: a timeout, a lost connection, HTTP 408, 429 or 5xx, or an SMTP 4xx reply. | A permanent failure. |
 | Permanent failure | A failure that will not pass: an SMTP 5xx reply, or HTTP 4xx other than 408 and 429. | A transient failure. |
 | Caller | The backend system that sent the request, known by its token's `client_id`, `azp` or `appid` claim. | The recipient. |
 
