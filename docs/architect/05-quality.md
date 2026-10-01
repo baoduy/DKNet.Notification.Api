@@ -9,6 +9,7 @@
 | Service edge | The Notification API and its delivery worker | Callers | Every call except `/healthz` needs a valid Entra ID bearer token |
 | Data store | Redis | The service | Password and TLS where the platform offers them; idempotency records only |
 | Delivery targets | SMTP provider, Teams Workflows | The service | SMTP with STARTTLS or TLS and credentials; HTTPS only to webhook URLs from settings |
+| Microsoft 365 tenant | Microsoft Graph and the sending mailbox | The service, as the mail-sender app | HTTPS with an Entra ID token for `https://graph.microsoft.com/.default`, issued to the mail-sender app; `Mail.Send` scoped to the one sending mailbox (ADR-0010) |
 
 ### Authentication
 
@@ -28,6 +29,28 @@
 - A caller's identity is the first of its `client_id`, `azp` and `appid` claims, the order DKNet.Accounts.Api uses.
 - Idempotency keys are scoped by that caller identity, through the `KeyScopeResolver` setting (ADR-0008). Two callers can use the same key without clashing.
 
+### Graph sign-in
+
+- The Graph sender signs in as the mail-sender app, its own Entra app registration. It never uses the API's registration (ADR-0010).
+- `Credential` = `WorkloadIdentity`: the app trusts the service's Kubernetes service account through a federated identity credential. No secret exists.
+- `Credential` = `ClientSecret`: the app proves itself with a client secret. Use it only on a host without workload identity, or for a manual check.
+
+### Graph mailbox scope — required setup step
+
+The `Mail.Send` application permission lets an app send as any mailbox in the tenant. Every Graph deployment limits it to the one sending mailbox before it turns the Graph sender on. The operator guide (slice 6) carries these steps.
+
+1. Register the mail-sender app in Entra ID. Do not reuse the API's registration.
+2. Give it its credential: a federated identity credential with issuer = the cluster's OIDC issuer, subject = `system:serviceaccount:<namespace>:<service account>`, audience = `api://AzureADTokenExchange`. Or, off Kubernetes, a client secret.
+3. Do **not** grant or consent `Mail.Send` for the app in Entra ID. An Entra grant is tenant-wide, and an Exchange scope cannot narrow it: the two grants add up.
+4. In Exchange Online, as an Exchange administrator:
+   - add the app's service principal with `New-ServicePrincipal`;
+   - create a management scope with `New-ManagementScope` whose recipient filter matches only the sending mailbox;
+   - assign the role with `New-ManagementRoleAssignment -Role "Application Mail.Send" -App <app> -CustomResourceScope <scope>`.
+5. Check it with `Test-ServicePrincipalAuthorization -Identity <app> -Resource <mailbox>`. It must show `InScope` true for the sending mailbox and false for any other mailbox.
+6. Allow 30 minutes to 2 hours before the first send. Exchange caches app permissions for that long, so an early 403 is expected.
+
+A tenant that already uses application access policies may use one instead of steps 3 and 4. It grants `Mail.Send` in Entra ID, then runs `New-ApplicationAccessPolicy -AccessRight RestrictAccess` against a mail-enabled security group that holds only the sending mailbox. A shared mailbox cannot be the policy's target directly. Microsoft says not to create new application access policies, so a new tenant uses RBAC for Applications.
+
 ### Content safety
 
 - Email: every parameter value is HTML-encoded before it fills an HTML body. A value cannot inject markup or script.
@@ -40,7 +63,8 @@
 ### Personal data
 
 - Personal data: email addresses, and any parameter value, such as a name or an account number.
-- It flows: caller → API → memory → SMTP provider or Teams. It is never stored.
+- It flows: caller → API → memory → SMTP provider, Microsoft Graph or Teams. This service never stores it.
+- With the Graph sender, the sending mailbox keeps a copy of each email in Sent Items, under the tenant's retention (ADR-0009).
 - Logs, metrics and traces never hold a parameter value, a recipient or a rendered body.
 - Idempotency records hold only the 202 body: the `notificationId`.
 
@@ -49,22 +73,25 @@
 | Secret | Where it lives |
 |---|---|
 | SMTP password | Environment variable or Azure App Configuration; user secrets for local runs |
+| Graph client secret (only with `Credential` = `ClientSecret`) | Environment variable or Azure App Configuration; user secrets for local runs |
 | Teams webhook URLs | Environment variable or Azure App Configuration; user secrets for local runs |
 | Redis connection string | `ConnectionStrings:Redis`, from the same sources |
 
 No secret is in `appsettings.json` or the image. This is the configuration order DKNet.Accounts.Api documents.
+
+With `Credential` = `WorkloadIdentity`, the Graph sender holds no secret. Kubernetes projects the service account token into the pod, and Entra ID exchanges it for an access token. No log entry ever holds a token or a secret.
 
 ## Observability
 
 ### Health
 
 - `GET /healthz` reports liveness only.
-- It does not check SMTP or Teams. An outage there must not restart the service; it is retried and logged instead.
+- It does not check SMTP, Microsoft Graph, the Entra ID token endpoint or Teams. An outage there must not restart the service; it is retried and logged instead.
 - It does not check a database, because there is none (ADR-0002).
 
 ### Logs
 
-One structured entry per state change. Every entry carries `notificationId`, template id, channel, caller id and trace id.
+One structured entry per state change. Every notification entry carries `notificationId`, template id, channel, caller id and trace id. The two start-up entries carry none of them.
 
 | Event | Level | Extra fields |
 |---|---|---|
@@ -74,6 +101,8 @@ One structured entry per state change. Every entry carries `notificationId`, tem
 | NotificationAttemptFailed | Warning | Attempt number, failure kind (transient or permanent), provider status code |
 | NotificationDelivered | Information | Attempt number, duration |
 | NotificationFailed | Error | Attempt count, last provider status code |
+| EmailSenderStarted | Information | Once at start-up: the selected sender (`Smtp` or `Graph`). No `notificationId` |
+| EmailSenderNotConfigured | Warning | Once at start-up, only when email `Enabled` is `true`: the names of the missing settings, or `Sender` when its value is unknown. Never a setting's value. No `notificationId` |
 
 ### Metrics
 
@@ -104,17 +133,20 @@ Metrics and traces go out through the scaffold's OpenTelemetry wiring, behind it
 | Teams webhook rate | Throttled above 4 requests per second | Microsoft Learn, "Create an Incoming Webhook" |
 | Teams message size | 28 KB maximum | Microsoft Learn, "Create an Incoming Webhook" |
 | Queue capacity | 1,000 notifications per replica | This design (DeliverySettings) |
+| Graph sending mailbox | 30 messages per minute; 10,000 recipients per day | Microsoft Learn, "Exchange Online limits" (message rate limit, recipient rate limit) |
 
 - The delivery worker sends one notification at a time. This keeps Teams under its rate limit. Raise it only when a measured volume needs it.
 - Replicas scale acceptance. Each replica has its own queue and worker. Redis keeps idempotency shared.
+- With the Graph sender, every replica sends from the same mailbox. Its limits are shared by all replicas.
 
 ## Packaging and deployment
 
 - **Container image:** multi-arch (`linux-x64`, `linux-arm64`), built with the .NET SDK container publish on an `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` base, non-root. Published to `ghcr.io/baoduy/dknet.notification-api`, like DKNet.Accounts.Api's `ghcr.io/baoduy/dknet.accounts-api`.
 - **Version:** computed by the publish pipeline from tags. Never hand-edited.
 - **CI:** build and test on every push and pull request to `dev`; image publish on push to `main`. The same two workflows DKNet.Accounts.Api runs.
-- **Helm chart:** one chart for the API, like DKNet.Accounts.Api's `helm/dknet-accounts` (slice 5). It sets the channel settings, the destinations and the secret references.
-- **Local run:** the Aspire AppHost starts Redis, a Mailpit SMTP catcher and the API.
+- **Helm chart:** one chart for the API, like DKNet.Accounts.Api's `helm/dknet-accounts` (slice 6). It sets the channel settings, the email sender, the destinations and the secret references.
+- **Workload identity:** for `Credential` = `WorkloadIdentity`, the chart's service account carries the `azure.workload.identity/client-id` annotation with the mail-sender app's client id. DKNet.Accounts.Api's chart sets the same annotation for its own identity. The pod template also carries the label `azure.workload.identity/use: "true"`; without it the workload identity webhook injects no token. DKNet.Accounts.Api's chart sets no such label.
+- **Local run:** the Aspire AppHost starts Redis, a Mailpit SMTP catcher and the API, with `Sender` = `Smtp`. Graph has no local stand-in in the AppHost.
 - **No NuGet package:** callers use plain HTTP. A typed client package is out of scope for version 1.
 
 ## Testing approach
@@ -129,11 +161,22 @@ Metrics and traces go out through the scaffold's OpenTelemetry wiring, behind it
 | Email delivery, HTML encoding, subject clean-up | Integration | Mailpit (Testcontainers); its API shows the received mail | Entra ID |
 | SMTP retry and give-up | Integration | Mailpit stopped, then started | Entra ID |
 | Teams card shape, 429 and 404 handling | Integration | — | Teams webhook: a local HTTP stub that records posts and answers 2xx, 429 or 404 |
+| Graph request shape: mailbox in the path, one `to`, HTML body, subject, no CC, BCC, attachment or `from`, no `saveToSentItems` | Integration | Redis | Entra ID inbound: test handler. Graph: a local HTTP stub that records each request and answers 202. Graph token: a fixed test token |
+| Graph retry: 429 with `Retry-After`, 503 and a timeout are retried; a third transient answer ends Failed | Integration | Redis | Graph stub answers in a set order |
+| Graph permanent answers: 400, 403 and 404 end Failed after 1 attempt | Integration | Redis | Graph stub |
+| Graph token step: token 408, 429 (with `Retry-After`), 5xx and a timeout are retried; another 4xx, such as `invalid_client`, ends Failed after 1 attempt; the credential makes 1 token request per attempt, with no retry of its own | Integration | Redis | Entra ID token endpoint: a local HTTP stub that answers in a set order and counts requests |
+| Graph token reuse: 2 notifications in a row ask for 1 token | Integration | Redis | Graph token source counts its calls |
+| One sender per deployment: with `Sender` = `Graph`, Mailpit receives nothing; with `Sender` = `Smtp`, the Graph stub receives nothing | Integration | Redis, Mailpit | Graph stub |
+| Missing sender setting: with `Sender` = `Graph` and no `Mailbox`, the host starts, logs `EmailSenderNotConfigured` naming `Mailbox`, and email calls answer 202 and end Skipped | Integration | Redis | Entra ID |
 | Template catalogue start-up checks | Unit | — | File system: a temporary `Templates` folder |
-| No personal data in logs | Integration | Redis, Mailpit | Log sink captures entries; the test searches them for the recipient and each value |
+| No personal data or secret in logs | Integration | Redis, Mailpit, Graph stub | Log sink captures entries; the test searches them for the recipient, each value, the Graph token and the client secret |
+
+- No test reaches a live Microsoft 365 tenant, and none runs in CI.
+- The test host points the Graph sender at the Graph stub. It replaces the token source with a fixed test token, or, for the token-step row, points a `ClientSecret` credential at the token endpoint stub. Production has no setting for any of these.
+- A real tenant is checked by hand, with the steps in the operator guide (slice 6): `Test-ServicePrincipalAuthorization`, then one test notification.
 
 ## Runtime architecture
 
-![A backend caller gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container behind its own data-store boundary and is shared by all replicas, renders from the in-image template catalogue, queues the message and answers 202; the delivery worker sends it across the delivery-target boundary to the SMTP provider or a Teams Workflows webhook.](diagrams/runtime.svg)
+![A backend caller gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container and is shared by all replicas, renders, queues the message and answers 202; the delivery worker hands email to the one active sender — the SMTP sender to the SMTP provider, or the Graph sender, which gets an Entra ID token as the mail-sender app and posts to Microsoft Graph — and Teams messages to a Teams Workflows webhook.](diagrams/runtime.svg)
 
 The first docs ticket after the scaffold draws the code-derived diagram at `docs/diagrams/`. It reports any difference from this one as a design question.

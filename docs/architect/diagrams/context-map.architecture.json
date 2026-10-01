@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "DKNet Notification \u2014 Context Map",
+    "title": "DKNet Notification — Context Map (design revision 2)",
     "output": "context-map.html",
     "quality_profile": "showcase"
   },
@@ -14,7 +14,7 @@
       "sublabel": "Accounts.Api likely first",
       "pos": [
         20,
-        262
+        288
       ],
       "size": [
         150,
@@ -42,11 +42,11 @@
       "sublabel": "Notification Delivery",
       "pos": [
         300,
-        260
+        215
       ],
       "size": [
         300,
-        68
+        210
       ]
     },
     {
@@ -70,7 +70,7 @@
       "sublabel": "idempotency records",
       "pos": [
         300,
-        450
+        520
       ],
       "size": [
         140,
@@ -84,7 +84,7 @@
       "sublabel": "Transformation, Idempotency",
       "pos": [
         460,
-        450
+        520
       ],
       "size": [
         160,
@@ -95,14 +95,28 @@
       "id": "smtp",
       "type": "external",
       "label": "SMTP provider",
-      "sublabel": "per deployment",
+      "sublabel": "Sender = Smtp",
       "pos": [
-        760,
-        170
+        780,
+        217
       ],
       "size": [
-        140,
-        60
+        170,
+        56
+      ]
+    },
+    {
+      "id": "graph",
+      "type": "cloud",
+      "label": "Microsoft Graph",
+      "sublabel": "Sender = Graph, 1 mailbox",
+      "pos": [
+        780,
+        292
+      ],
+      "size": [
+        170,
+        56
       ]
     },
     {
@@ -111,12 +125,12 @@
       "label": "Teams Workflows",
       "sublabel": "webhook per channel",
       "pos": [
-        760,
-        360
+        780,
+        367
       ],
       "size": [
-        150,
-        60
+        170,
+        56
       ]
     }
   ],
@@ -141,7 +155,7 @@
       "id": "notification-entra",
       "from": "notification",
       "to": "entra",
-      "label": "OIDC keys",
+      "label": "OIDC keys, Graph token",
       "variant": "security",
       "fromSide": "top",
       "toSide": "bottom"
@@ -177,18 +191,21 @@
       "from": "notification",
       "to": "smtp",
       "label": "SMTP",
-      "variant": "emphasis",
-      "fromSide": "right",
-      "toSide": "left"
+      "variant": "emphasis"
+    },
+    {
+      "id": "notification-graph",
+      "from": "notification",
+      "to": "graph",
+      "label": "HTTPS sendMail",
+      "variant": "emphasis"
     },
     {
       "id": "notification-teams",
       "from": "notification",
       "to": "teams",
       "label": "HTTPS POST",
-      "variant": "emphasis",
-      "fromSide": "right",
-      "toSide": "left"
+      "variant": "emphasis"
     }
   ],
   "cards": [
@@ -205,7 +222,9 @@
       "dot": "emerald",
       "title": "Downstream",
       "items": [
-        "SMTP provider and Teams Workflows receive finished messages",
+        "Email goes to the SMTP provider or Microsoft Graph: one sender per deployment",
+        "Teams Workflows receives finished Teams cards",
+        "Graph needs a mail-sender app with Mail.Send scoped to one mailbox",
         "One set of channel settings per deployment"
       ]
     },

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "DKNet Notification \u2014 Runtime Architecture (design revision 1)",
+    "title": "DKNet Notification — Runtime Architecture (design revision 2)",
     "output": "runtime.html",
     "quality_profile": "showcase"
   },
@@ -25,13 +25,13 @@
       "id": "entra",
       "type": "security",
       "label": "Microsoft Entra ID",
-      "sublabel": "OIDC keys",
+      "sublabel": "JWT keys, Graph token",
       "pos": [
-        305,
-        110
+        560,
+        20
       ],
       "size": [
-        130,
+        160,
         64
       ]
     },
@@ -56,22 +56,8 @@
       "label": "Redis",
       "sublabel": "shared by replicas",
       "pos": [
-        230,
-        640
-      ],
-      "size": [
-        130,
-        60
-      ]
-    },
-    {
-      "id": "catalogue",
-      "type": "database",
-      "label": "Template catalogue",
-      "sublabel": "in image, read-only",
-      "pos": [
-        380,
-        470
+        305,
+        620
       ],
       "size": [
         130,
@@ -107,16 +93,30 @@
       ]
     },
     {
-      "id": "email",
+      "id": "graphsender",
       "type": "backend",
-      "label": "Email sender",
-      "sublabel": "MailKit",
+      "label": "Graph sender",
+      "sublabel": "mail-sender app",
       "pos": [
-        1000,
-        195
+        1010,
+        150
       ],
       "size": [
-        140,
+        150,
+        60
+      ]
+    },
+    {
+      "id": "smtpsender",
+      "type": "backend",
+      "label": "SMTP sender",
+      "sublabel": "MailKit",
+      "pos": [
+        1010,
+        297
+      ],
+      "size": [
+        150,
         60
       ]
     },
@@ -126,11 +126,25 @@
       "label": "Teams sender",
       "sublabel": "Adaptive Card",
       "pos": [
-        1000,
-        399
+        1010,
+        444
       ],
       "size": [
-        140,
+        150,
+        60
+      ]
+    },
+    {
+      "id": "graph",
+      "type": "cloud",
+      "label": "Microsoft Graph",
+      "sublabel": "sendMail, 1 mailbox",
+      "pos": [
+        1260,
+        150
+      ],
+      "size": [
+        150,
         60
       ]
     },
@@ -140,11 +154,11 @@
       "label": "SMTP provider",
       "sublabel": "STARTTLS / TLS",
       "pos": [
-        1240,
-        195
+        1260,
+        297
       ],
       "size": [
-        140,
+        150,
         60
       ]
     },
@@ -154,11 +168,11 @@
       "label": "Teams Workflows",
       "sublabel": "webhook URL",
       "pos": [
-        1240,
-        399
+        1260,
+        444
       ],
       "size": [
-        140,
+        150,
         60
       ]
     }
@@ -169,10 +183,10 @@
       "label": "DKNet.Notification container (per replica)",
       "wraps": [
         "api",
-        "catalogue",
         "queue",
         "worker",
-        "email",
+        "graphsender",
+        "smtpsender",
         "teams"
       ]
     },
@@ -196,6 +210,13 @@
       "wraps": [
         "smtp",
         "webhook"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Microsoft 365 tenant: Mail.Send on 1 mailbox",
+      "wraps": [
+        "graph"
       ]
     }
   ],
@@ -234,14 +255,6 @@
       "toSide": "top"
     },
     {
-      "id": "api-catalogue",
-      "from": "api",
-      "to": "catalogue",
-      "label": "render",
-      "fromSide": "bottom",
-      "toSide": "top"
-    },
-    {
       "id": "api-queue",
       "from": "api",
       "to": "queue",
@@ -256,13 +269,19 @@
       "variant": "emphasis"
     },
     {
-      "id": "worker-email",
+      "id": "worker-graph",
       "from": "worker",
-      "to": "email",
-      "label": "email",
-      "variant": "emphasis",
+      "to": "graphsender",
+      "label": "Sender=Graph",
       "fromSide": "top",
       "toSide": "left"
+    },
+    {
+      "id": "worker-smtp",
+      "from": "worker",
+      "to": "smtpsender",
+      "label": "Sender=Smtp",
+      "variant": "emphasis"
     },
     {
       "id": "worker-teams",
@@ -273,8 +292,23 @@
       "toSide": "left"
     },
     {
-      "id": "email-smtp",
-      "from": "email",
+      "id": "graph-token",
+      "from": "graphsender",
+      "to": "entra",
+      "label": "client credentials",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "right"
+    },
+    {
+      "id": "graph-send",
+      "from": "graphsender",
+      "to": "graph",
+      "label": "HTTPS POST"
+    },
+    {
+      "id": "smtp-send",
+      "from": "smtpsender",
       "to": "smtp",
       "label": "SMTP",
       "variant": "emphasis"
@@ -292,15 +326,25 @@
       "title": "Trust boundaries",
       "items": [
         "Service edge: every call except /healthz needs an Entra ID token with notifications.send (scp, scope or roles)",
-        "Callers name a Teams destination, never a URL",
-        "Out: SMTP with TLS and credentials; HTTPS to webhook URLs from settings only"
+        "Microsoft 365 tenant: the Graph sender signs in as its own mail-sender app, never the API's registration",
+        "Mail.Send is scoped to the one sending mailbox with RBAC for Applications",
+        "Callers name a Teams destination, never a URL"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "One email sender",
+      "items": [
+        "Sender = Smtp (default) or Graph; only the selected sender is created",
+        "A missing sender setting: start-up warning, email ends Skipped (ChannelNotConfigured)",
+        "Graph saves each mail to the mailbox's Sent Items"
       ]
     },
     {
       "dot": "cyan",
       "title": "Accept, then deliver",
       "items": [
-        "The API validates and renders inside the call, then answers 202",
+        "The API validates and renders from the in-image template catalogue, then answers 202",
         "Unsupported or unconfigured channel: 202, warning log, nothing sent",
         "Full queue: 503 with Retry-After 30"
       ]
@@ -309,9 +353,9 @@
       "dot": "amber",
       "title": "Best effort",
       "items": [
-        "Retries: 5 s then 30 s, at most 3 attempts",
-        "A process stop loses queued notifications",
-        "No database; notifications live in memory only"
+        "Retries: 5 s then 30 s, at most 3 attempts; a 429 waits for Retry-After, at most 60 s",
+        "The Graph token request is part of the attempt",
+        "A process stop loses queued notifications; no database"
       ]
     },
     {
@@ -319,8 +363,9 @@
       "title": "Settings and secrets",
       "items": [
         "One set of channel settings per deployment",
-        "SMTP password and webhook URLs: environment variables or Azure App Configuration",
-        "Local run: Aspire AppHost with Redis and Mailpit"
+        "SMTP password, Graph client secret and webhook URLs: environment variables or Azure App Configuration",
+        "Graph with workload identity holds no secret",
+        "Local run: Aspire AppHost with Redis and Mailpit, Sender = Smtp"
       ]
     }
   ]

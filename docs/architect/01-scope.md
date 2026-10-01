@@ -27,6 +27,7 @@
 - Deliver the message to the channel, with a bounded retry on transient failures.
 - Replay the first 202 to a repeated call with the same idempotency key from the same caller, and send nothing again.
 - Hold the channel settings and Teams destinations for its deployment.
+- Use exactly one email sender per deployment, SMTP or Microsoft Graph, picked in the settings.
 - Log every outcome without personal data.
 
 ## Non-goals
@@ -46,7 +47,9 @@
 | Implements token replacement | DKNet.Svc.Transformation in the DKNet repo |
 | Implements the idempotency store | DKNet.AspCore.Idempotency and its Redis store in the DKNet repo |
 | Issues tokens or manages identities | Microsoft Entra ID |
-| Runs a mail server | The SMTP provider set for the deployment |
+| Runs a mail server or a mailbox | The SMTP provider set for the deployment, or Microsoft 365 for the Graph sender's mailbox |
+| Keeps a copy of sent mail | No one with SMTP; the sending mailbox's Sent Items with Graph, under the tenant's retention |
+| Grants or scopes its own mail permission | The tenant's Entra ID and Exchange Online administrators (05-quality, required setup step) |
 | Keeps Teams webhooks alive | The Teams Workflows app; each workflow has a human owner |
 
 ## Boundaries
@@ -58,4 +61,5 @@
 | DKNet.Accounts.Api | Accounts decides that a customer must be told and calls this API. This service decides nothing about accounts. |
 | Microsoft Entra ID | Entra ID issues and signs caller tokens. This service validates them and checks the scope or app role. |
 | SMTP provider | The provider relays the email. This service builds and submits it. |
+| Microsoft Graph and Microsoft 365 | Graph sends the email from the sending mailbox. This service builds the message and posts it to `sendMail`. |
 | Microsoft Teams Workflows | A workflow posts the card into a channel. This service builds the card and posts it to the workflow's webhook. |

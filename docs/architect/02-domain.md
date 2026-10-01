@@ -11,7 +11,10 @@
 | Notification | One accepted request to deliver one message to one channel. | A domain event. This service publishes none. |
 | Channel | The delivery route named in a request. Version 1 knows `email` and `teams`. | A Teams channel inside a team. That is a Teams destination. |
 | Supported channel | A channel this release has a channel sender for. | A configured channel. |
-| Configured channel | A supported channel whose settings are present and enabled in this deployment. | A supported channel. |
+| Configured channel | A supported channel whose settings are present and enabled in this deployment. For email, the selected email sender's required settings must be present too. | A supported channel. |
+| Email sender | The way this deployment hands email over: `Smtp` (an SMTP provider) or `Graph` (Microsoft Graph). Exactly one is active per deployment. | The sending mailbox. |
+| Sending mailbox | The one Microsoft 365 mailbox the Graph email sender sends from, named in the settings. | The recipient. |
+| Mail-sender app | The Entra app registration the Graph email sender signs in as. It holds `Mail.Send`, scoped to the sending mailbox. | The API's own app registration, which callers request tokens for. |
 | Template | A registered message design, known by its template id. | A template version. |
 | Template id | The stable name of a template, for example `account-opened`. | The file name of a template version. |
 | Template version | The template's content for one channel: an HTML file for email, a Markdown file for Teams. | A release version of the service. |
@@ -23,8 +26,8 @@
 | Rendered message | The finished subject or title plus body, after every token is filled. | The template version. |
 | Skipped | The outcome when the channel is unavailable: the call is accepted with 202, logged, and nothing is delivered. | Rejected. |
 | Rejected | The outcome when the request is invalid: the call gets an error response and nothing is queued. | Skipped. |
-| Delivery attempt | One try to hand the rendered message to the SMTP provider or the Teams webhook. | A caller's retry of the API call. |
-| Transient failure | A failure that may pass: a timeout, a lost connection, HTTP 429 or 5xx, or an SMTP 4xx reply. | A permanent failure. |
+| Delivery attempt | One try to hand the rendered message to the SMTP provider, Microsoft Graph or the Teams webhook. With Graph, the token request is part of the attempt, and its answers follow the same transient and permanent rules. | A caller's retry of the API call. |
+| Transient failure | A failure that may pass: a timeout, a lost connection, HTTP 408, 429 or 5xx, or an SMTP 4xx reply. | A permanent failure. |
 | Permanent failure | A failure that will not pass: an SMTP 5xx reply, or HTTP 4xx other than 408 and 429. | A transient failure. |
 | Caller | The backend system that sent the request, known by its token's `client_id`, `azp` or `appid` claim. | The recipient. |
 
@@ -84,7 +87,7 @@ None in version 1. No aggregate is stored, and no other service consumes an outc
 | Queued | The rendered message waits in the delivery queue. The caller has its 202. | Rendering succeeded and the queue had room. |
 | Delivering | The delivery worker runs one delivery attempt. | The worker takes the notification from the queue, or a retry wait ends. |
 | Retry Waiting | A transient failure happened and attempts remain. | Transient failure with `AttemptCount` below 3. |
-| Delivered (end) | The SMTP provider or the Teams webhook accepted the message. | SMTP accepted the message, or the webhook answered 2xx. |
+| Delivered (end) | The SMTP provider, Microsoft Graph or the Teams webhook accepted the message. | SMTP accepted the message, Graph answered 202, or the webhook answered 2xx. |
 | Failed (end) | Delivery gave up. It is logged as an error. | Permanent failure, or a transient failure on attempt 3. |
 
 A process stop loses every notification in Queued or Retry Waiting. No state records the loss (ADR-0003).

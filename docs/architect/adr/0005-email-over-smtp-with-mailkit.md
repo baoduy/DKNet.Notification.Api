@@ -1,6 +1,6 @@
 # ADR-0005: Send email over SMTP with MailKit
 
-- **Status:** Accepted
+- **Status:** Accepted. Its rejected *Microsoft Graph `sendMail`* alternative is superseded by ADR-0009 (design revision 2); the SMTP decision stays.
 - **Context:**
   - The brief leaves the email provider to the design.
   - The service must run locally, in tests and in any hosting.
