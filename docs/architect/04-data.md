@@ -77,7 +77,7 @@ The in-memory idempotency store is allowed only for local runs and tests. The pa
 | Sender | enum | — | Yes | — | `Smtp` | `Smtp` or `Graph`. Picks the one email sender of this deployment (ADR-0009). Any other value means not configured |
 | TimeoutSeconds | integer | 1–120 | Yes | — | 30 | Per delivery attempt, for either sender. With Graph it covers the token request and the send |
 
-Email is configured when `Enabled` is `true`, `Sender` is `Smtp` or `Graph`, and every required field of that sender's settings is set. Otherwise every email call ends Skipped with reason `ChannelNotConfigured`. The host still starts, and logs `EmailSenderNotConfigured` once (05-quality).
+Email is configured when `Enabled` is `true`, `Sender` is `Smtp` or `Graph`, and every required field of that sender's settings is set. Otherwise every email call ends Skipped with reason `ChannelNotConfigured`, and the host still starts. When `Enabled` is `true` and email is still not configured, the host logs `EmailSenderNotConfigured` once (05-quality). It names the missing settings, or `Sender` when its value is unknown, and never a setting's value. With `Enabled` = `false` no start-up warning is logged, as in revision 1.
 
 ### SmtpSenderSettings (configuration, read only when `Sender` is `Smtp`)
 

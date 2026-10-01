@@ -199,9 +199,10 @@
       "dot": "amber",
       "title": "Retry rule",
       "items": [
-        "Transient: 408, 429, 5xx, timeouts, token endpoint 5xx; at most 3 attempts",
-        "Permanent: other 4xx, a token 4xx such as invalid_client",
-        "No library retries inside an attempt; Graph keeps a copy in Sent Items"
+        "Transient, for the token request and sendMail: 408, 429, 5xx, timeouts; at most 3 attempts",
+        "A 429 waits for Retry-After, at most 60 s",
+        "Permanent: any other 4xx, such as a token invalid_client or a 403",
+        "No library retries inside an attempt: Azure.Identity retry is off"
       ]
     }
   ]

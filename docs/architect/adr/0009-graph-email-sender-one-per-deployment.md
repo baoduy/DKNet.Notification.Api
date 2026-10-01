@@ -21,7 +21,8 @@
   - The Graph sender is a plain HTTPS POST of a JSON body, as the Teams sender is. It gets its token through `Azure.Identity` (ADR-0010). No Microsoft Graph SDK is used.
   - The delivery worker's rule is the only retry. No library retries inside an attempt.
   - Graph answers are classified like other HTTP answers (02-domain): 408, 429, 5xx, a timeout and a lost connection are transient; any other 4xx is permanent. A 429 waits for `Retry-After`, at most 60 seconds, as Teams does.
-  - The token request is part of the attempt. A timeout, a lost connection or an HTTP 5xx from the token endpoint is transient. An HTTP 4xx from it, such as `invalid_client`, is permanent.
+  - The token request is part of the attempt and follows the same rule. From the token endpoint, 408, 429, 5xx, a timeout and a lost connection are transient; a 429 waits for `Retry-After`, at most 60 seconds. Any other HTTP 4xx, such as `invalid_client`, is permanent.
+  - The `Azure.Identity` credential is built with its retry turned off (`Retry.MaxRetries` = 0). Its default retries 3 times, which would also break the 3-attempt limit.
   - Graph selected but a required setting missing: the host still starts. It logs one warning that names the missing settings, never their values. Email counts as not configured, so every email call ends Skipped with the existing reason `ChannelNotConfigured`. The same rule applies to SMTP.
 - **Alternatives:**
   - *Keep SMTP only.* Rejected: the requester asked for an Entra ID sender.

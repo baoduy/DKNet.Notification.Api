@@ -8,8 +8,8 @@
 |---|---|---|---|
 | Service edge | The Notification API and its delivery worker | Callers | Every call except `/healthz` needs a valid Entra ID bearer token |
 | Data store | Redis | The service | Password and TLS where the platform offers them; idempotency records only |
-| Delivery targets | SMTP provider, Microsoft Graph, Teams Workflows | The service | SMTP with STARTTLS or TLS and credentials; HTTPS to Graph with an Entra ID token; HTTPS only to webhook URLs from settings |
-| Microsoft 365 tenant | Entra ID token endpoint, Microsoft Graph, the sending mailbox | The service, as the mail-sender app | Client credentials token for `https://graph.microsoft.com/.default`; `Mail.Send` scoped to the one sending mailbox (ADR-0010) |
+| Delivery targets | SMTP provider, Teams Workflows | The service | SMTP with STARTTLS or TLS and credentials; HTTPS only to webhook URLs from settings |
+| Microsoft 365 tenant | Microsoft Graph and the sending mailbox | The service, as the mail-sender app | HTTPS with an Entra ID token for `https://graph.microsoft.com/.default`, issued to the mail-sender app; `Mail.Send` scoped to the one sending mailbox (ADR-0010) |
 
 ### Authentication
 
@@ -102,7 +102,7 @@ One structured entry per state change. Every notification entry carries `notific
 | NotificationDelivered | Information | Attempt number, duration |
 | NotificationFailed | Error | Attempt count, last provider status code |
 | EmailSenderStarted | Information | Once at start-up: the selected sender (`Smtp` or `Graph`). No `notificationId` |
-| EmailSenderNotConfigured | Warning | Once at start-up: the selected sender and the names of the missing settings, never their values. No `notificationId` |
+| EmailSenderNotConfigured | Warning | Once at start-up, only when email `Enabled` is `true`: the names of the missing settings, or `Sender` when its value is unknown. Never a setting's value. No `notificationId` |
 
 ### Metrics
 
@@ -145,7 +145,7 @@ Metrics and traces go out through the scaffold's OpenTelemetry wiring, behind it
 - **Version:** computed by the publish pipeline from tags. Never hand-edited.
 - **CI:** build and test on every push and pull request to `dev`; image publish on push to `main`. The same two workflows DKNet.Accounts.Api runs.
 - **Helm chart:** one chart for the API, like DKNet.Accounts.Api's `helm/dknet-accounts` (slice 6). It sets the channel settings, the email sender, the destinations and the secret references.
-- **Workload identity:** for `Credential` = `WorkloadIdentity`, the chart's service account carries the `azure.workload.identity/client-id` annotation with the mail-sender app's client id. DKNet.Accounts.Api's chart sets the same annotation for its own identity.
+- **Workload identity:** for `Credential` = `WorkloadIdentity`, the chart's service account carries the `azure.workload.identity/client-id` annotation with the mail-sender app's client id. DKNet.Accounts.Api's chart sets the same annotation for its own identity. The pod template also carries the label `azure.workload.identity/use: "true"`; without it the workload identity webhook injects no token. DKNet.Accounts.Api's chart sets no such label.
 - **Local run:** the Aspire AppHost starts Redis, a Mailpit SMTP catcher and the API, with `Sender` = `Smtp`. Graph has no local stand-in in the AppHost.
 - **No NuGet package:** callers use plain HTTP. A typed client package is out of scope for version 1.
 
@@ -164,7 +164,7 @@ Metrics and traces go out through the scaffold's OpenTelemetry wiring, behind it
 | Graph request shape: mailbox in the path, one `to`, HTML body, subject, no CC, BCC, attachment or `from`, no `saveToSentItems` | Integration | Redis | Entra ID inbound: test handler. Graph: a local HTTP stub that records each request and answers 202. Graph token: a fixed test token |
 | Graph retry: 429 with `Retry-After`, 503 and a timeout are retried; a third transient answer ends Failed | Integration | Redis | Graph stub answers in a set order |
 | Graph permanent answers: 400, 403 and 404 end Failed after 1 attempt | Integration | Redis | Graph stub |
-| Graph token step: a transient token failure is retried; a 4xx token failure ends Failed after 1 attempt | Integration | Redis | Graph token source faked to fail, then succeed |
+| Graph token step: token 408, 429 (with `Retry-After`), 5xx and a timeout are retried; another 4xx, such as `invalid_client`, ends Failed after 1 attempt; the credential makes 1 token request per attempt, with no retry of its own | Integration | Redis | Entra ID token endpoint: a local HTTP stub that answers in a set order and counts requests |
 | Graph token reuse: 2 notifications in a row ask for 1 token | Integration | Redis | Graph token source counts its calls |
 | One sender per deployment: with `Sender` = `Graph`, Mailpit receives nothing; with `Sender` = `Smtp`, the Graph stub receives nothing | Integration | Redis, Mailpit | Graph stub |
 | Missing sender setting: with `Sender` = `Graph` and no `Mailbox`, the host starts, logs `EmailSenderNotConfigured` naming `Mailbox`, and email calls answer 202 and end Skipped | Integration | Redis | Entra ID |
@@ -172,7 +172,7 @@ Metrics and traces go out through the scaffold's OpenTelemetry wiring, behind it
 | No personal data or secret in logs | Integration | Redis, Mailpit, Graph stub | Log sink captures entries; the test searches them for the recipient, each value, the Graph token and the client secret |
 
 - No test reaches a live Microsoft 365 tenant, and none runs in CI.
-- The test host points the Graph sender at the stub and replaces its token source. Production has no setting for either.
+- The test host points the Graph sender at the Graph stub. It replaces the token source with a fixed test token, or, for the token-step row, points a `ClientSecret` credential at the token endpoint stub. Production has no setting for any of these.
 - A real tenant is checked by hand, with the steps in the operator guide (slice 6): `Test-ServicePrincipalAuthorization`, then one test notification.
 
 ## Runtime architecture

@@ -208,9 +208,15 @@
       "kind": "security-group",
       "label": "Delivery targets: TLS / HTTPS",
       "wraps": [
-        "graph",
         "smtp",
         "webhook"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Microsoft 365 tenant: Mail.Send on 1 mailbox",
+      "wraps": [
+        "graph"
       ]
     }
   ],
@@ -320,7 +326,7 @@
       "title": "Trust boundaries",
       "items": [
         "Service edge: every call except /healthz needs an Entra ID token with notifications.send (scp, scope or roles)",
-        "Graph sender signs in as its own mail-sender app, never the API's registration",
+        "Microsoft 365 tenant: the Graph sender signs in as its own mail-sender app, never the API's registration",
         "Mail.Send is scoped to the one sending mailbox with RBAC for Applications",
         "Callers name a Teams destination, never a URL"
       ]

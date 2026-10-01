@@ -144,7 +144,7 @@ The service consumes no events.
 | Microsoft Entra ID | OpenID Connect metadata and signing keys | Validate caller tokens | Keys already loaded keep working. With no keys loaded, calls fail with 401. |
 | Redis | Idempotency records | Detect repeated calls across replicas | Calls fail with 500 until Redis returns. The package does not catch store errors. |
 | SMTP provider | SMTP submission | Deliver email when `Sender` is `Smtp` | Transient failure: retried. After attempt 3 the notification ends Failed and is logged. |
-| Microsoft Entra ID token endpoint | Client credentials token for `https://graph.microsoft.com/.default` | Sign in to Graph when `Sender` is `Graph` (ADR-0010) | A timeout, a lost connection or HTTP 5xx is transient and retried. HTTP 4xx, such as `invalid_client`, ends Failed at once. |
+| Microsoft Entra ID token endpoint | Client credentials token for `https://graph.microsoft.com/.default` | Sign in to Graph when `Sender` is `Graph` (ADR-0010) | 408, 429, 5xx, a timeout and a lost connection are transient and retried; a 429 waits for `Retry-After`, at most 60 seconds. Other 4xx, such as `invalid_client`, end Failed at once. |
 | Microsoft Graph | `POST /users/{Mailbox}/sendMail` | Deliver email when `Sender` is `Graph` (ADR-0009) | 408, 429, 5xx and timeouts are retried. Other 4xx, such as 403 for a mailbox outside the app's scope, end Failed. |
 | Teams Workflows webhook | HTTPS POST | Deliver the Teams card | 429, 5xx and timeouts are retried. Other 4xx, such as a deleted workflow, end Failed. |
 | DKNet.Svc.Transformation | Token replacement | Render template versions | In process; not a runtime dependency. |
@@ -183,14 +183,15 @@ How each answer counts for the retry rule (ADR-0003, ADR-0009):
 | Step | Answer | Kind | What the worker does |
 |---|---|---|---|
 | Token request | Token issued | — | Goes on to `sendMail` |
-| Token request | Timeout, lost connection, HTTP 5xx | Transient | Waits 5 seconds, then 30 seconds; at most 3 attempts |
-| Token request | HTTP 4xx, such as `invalid_client` or a federated credential that does not match | Permanent | Ends Failed at once |
+| Token request | HTTP 429 | Transient | Waits for `Retry-After`, at most 60 seconds; without the header, waits as below |
+| Token request | HTTP 408, 5xx, timeout, lost connection | Transient | Waits 5 seconds, then 30 seconds; at most 3 attempts |
+| Token request | Any other HTTP 4xx, such as `invalid_client` or a federated credential that does not match | Permanent | Ends Failed at once |
 | `sendMail` | 202 | — | Ends Delivered |
 | `sendMail` | 429 | Transient | Waits for `Retry-After`, at most 60 seconds; without the header, waits as below |
 | `sendMail` | 408, 5xx, timeout, lost connection | Transient | Waits 5 seconds, then 30 seconds; at most 3 attempts |
 | `sendMail` | 400, 401, 403, 404, any other 4xx | Permanent | Ends Failed at once. A 403 most often means the mailbox is outside the app's `Mail.Send` scope |
 
-No library retries inside an attempt. The worker's rule is the only retry, so `AttemptCount` stays at most 3.
+No library retries inside an attempt. The `Azure.Identity` credential is built with its retry turned off (`Retry.MaxRetries` = 0); its default would retry 3 times. The worker's rule is the only retry, so `AttemptCount` stays at most 3.
 
 ## Dependencies
 
@@ -202,7 +203,7 @@ No library retries inside an attempt. The worker's rule is the only retry, so `A
 | MailKit | NuGet library (third party) | service → library | New to the DKNet repos. ADR-0005 |
 | Azure.Identity | NuGet library (third party) | service → library | Graph token, both credential modes. DKNet.Accounts.Api pins it too. ADR-0010 |
 | DKNet.Templates | Solution template | one-time scaffold | Not referenced after slice 1 |
-| Microsoft Entra ID | External service | service → Entra ID | Token validation only |
+| Microsoft Entra ID | External service | service → Entra ID | Token validation; with the Graph sender, also the mail-sender app's token request |
 | Redis | External store | service → Redis | ADR-0002 |
 | SMTP provider | External service | service → provider | ADR-0005 |
 | Microsoft Graph and the sending mailbox | External service | service → Graph | ADR-0009, ADR-0010 |
@@ -277,8 +278,8 @@ The deployment sets `Sender` to `Graph`. Steps 1 to 6 are those of Flow 1, and t
 Failure paths:
 
 - Graph selected but a required setting missing: the host logs `EmailSenderNotConfigured` at start-up. Every email call ends Skipped at step 5 of the evaluation order, as in Flow 2.
-- Step 2 gets a timeout or HTTP 5xx: transient, retried within the 3 attempts.
-- Step 2 gets HTTP 4xx: permanent. The notification ends Failed.
+- Step 2 gets 408, 429, 5xx or a timeout: transient, retried within the 3 attempts. A 429 waits for `Retry-After`, at most 60 seconds.
+- Step 2 gets any other HTTP 4xx: permanent. The notification ends Failed.
 - Step 4 gets 429: the worker waits for `Retry-After`, at most 60 seconds, then retries within the 3 attempts.
 - Step 4 gets 403: the mailbox is outside the app's scope, or the scope is still being applied. The notification ends Failed.
 - Step 4 times out after Graph already took the mail: the retry can send it twice (ADR-0003).
