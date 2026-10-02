@@ -105,8 +105,9 @@ public sealed class EmailDeliverySteps(SendScenario scenario)
     [Given(@"^the template ""([^""]*)"" has the email subject ""([^""]*)""$")]
     public async Task GivenTheTemplateHasTheEmailSubject(string templateId, string subject)
     {
-        // Index 90 keeps the entry clear of the released registrations. The loader takes released files only, so
-        // the body is the released one, and the call gives its account number too.
+        // Index 90 keeps the entry clear of the released registrations. The loader reads the release's template
+        // folder, where a test file would ship too, so the body is the released one and the call gives its account
+        // number too.
         var settings = new Dictionary<string, string?>(Catcher.EmailSettings(), StringComparer.Ordinal)
         {
             ["Notifications:Templates:90:TemplateId"] = templateId,
