@@ -1,0 +1,41 @@
+name: Build & Test
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+concurrency:
+  # One run of this pipeline per branch at a time; a newer commit cancels the older in-flight run.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  Project_Path: 'DKNet.Notification.sln'
+  Dotnet_Version: 10.x
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.Dotnet_Version }}
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.Project_Path }}
+
+      - name: Build
+        run: dotnet build ${{ env.Project_Path }} --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test ${{ env.Project_Path }} --no-build --configuration Release --verbosity minimal

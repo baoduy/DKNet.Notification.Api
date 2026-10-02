@@ -8,7 +8,10 @@
         <ContainerRepository>baoduy/dknet.notification-api</ContainerRepository>
         <ContainerImageTags>1.0.0;latest</ContainerImageTags>
         <ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:10.0-alpine</ContainerBaseImage>
-        <ContainerUser>$APP_UID</ContainerUser>
+        <!-- The base image's own non-root user (uid 1654). Named literally, not as $APP_UID: that is the
+             image's environment variable, not an MSBuild property, so it reaches the image as the literal
+             string "$APP_UID" and docker fails with "unable to find user $APP_UID". -->
+        <ContainerUser>app</ContainerUser>
       <UserSecretsId>F5FED893-2457-4AAF-BB5A-0FB28856581D</UserSecretsId>
   </PropertyGroup>
 
