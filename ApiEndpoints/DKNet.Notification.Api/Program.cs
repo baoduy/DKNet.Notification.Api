@@ -15,7 +15,7 @@ builder.AddFluentValidationConfig();
 // Add services to the container.
 builder.Services
     .AddOptions(builder.Configuration)
-    .AddAppConfig(feature, builder.Configuration)
+    .AddAppConfig(feature, builder.Configuration, builder.Environment)
     // Populates [FromClaim] request members before validation and before the handler, from the
     // authenticated caller's own claims.
     .AddContextualRequestPopulation();

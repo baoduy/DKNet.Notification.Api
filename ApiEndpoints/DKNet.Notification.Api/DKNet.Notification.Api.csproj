@@ -44,6 +44,11 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- Template files are read at start-up from <content root>/Templates, in the build and publish output. -->
+        <None Update="Templates/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="DKNet.Notification.App.Tests" />
         <InternalsVisibleTo Include="DKNet.Notification.App.TestSupport" />
         <InternalsVisibleTo Include="DKNet.Templates.ScaffoldTests" />

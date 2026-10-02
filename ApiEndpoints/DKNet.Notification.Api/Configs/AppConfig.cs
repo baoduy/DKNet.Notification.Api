@@ -15,7 +15,8 @@ internal static class AppConfig
     public static IServiceCollection AddAppConfig(
         this IServiceCollection services,
         FeatureOptions features,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         if (features.EnableAntiforgery)
         {
@@ -63,11 +64,20 @@ internal static class AppConfig
                 redisConnectionString,
                 o => o.ConflictHandling = IdempotentConflictHandling.ConflictResponse);
         }
-        else
+        else if (environment.IsDevelopment() || environment.IsEnvironment("Testing"))
         {
-            //InMemory store
+            //InMemory store, local runs and test hosts only
             services.AddIdempotentKey(o => o.ConflictHandling = IdempotentConflictHandling.ConflictResponse);
         }
+        else
+        {
+            // Names the setting only, never a configuration value.
+            throw new InvalidOperationException(
+                $"The ConnectionStrings:{SharedConsts.RedisConnectionString} setting is missing. " +
+                "Only Development and Testing run without Redis.");
+        }
+
+        services.AddTemplateConfig(configuration, environment);
 
         return services
             .AddCrosConfig(configuration)

@@ -7,7 +7,7 @@
     <PackageProjectUrl>https://github.com/baoduy/DKNet</PackageProjectUrl>
     <RepositoryUrl>https://github.com/baoduy/DKNet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>aspnetcore,aws,azure,cloud,ddd,efcore,entityframework,events,extensions,generator,password,pdf,random,storage,string</PackageTags>
+    <PackageTags>aspnetcore,aws,azure,cloud,ddd,events,extensions,generator,password,pdf,random,storage,string</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <LangVersion>default</LangVersion>
     <NeutralLanguage>en</NeutralLanguage>
