@@ -62,12 +62,12 @@ internal static class AppConfig
         {
             services.AddIdempotencyWithRedisStore(
                 redisConnectionString,
-                o => o.ConflictHandling = IdempotentConflictHandling.ConflictResponse);
+                ConfigureIdempotency);
         }
         else if (environment.IsDevelopment() || environment.IsEnvironment("Testing"))
         {
             //InMemory store, local runs and test hosts only
-            services.AddIdempotentKey(o => o.ConflictHandling = IdempotentConflictHandling.ConflictResponse);
+            services.AddIdempotentKey(ConfigureIdempotency);
         }
         else
         {
@@ -83,6 +83,17 @@ internal static class AppConfig
             .AddCrosConfig(configuration)
             .AddAllAppServices()
             .AddHealthzConfig(features);
+    }
+
+    /// <summary>
+    ///     A repeat of a kept call gets its first answer, and every key is scoped by the caller id, so 2 callers never
+    ///     share one. The expiry (4 hours) and the hold on a running or refused call (30 seconds) keep their defaults.
+    /// </summary>
+    private static void ConfigureIdempotency(IdempotencyOptions options)
+    {
+        options.ConflictHandling = IdempotentConflictHandling.CachedResult;
+        options.IdempotencyHeaderKey = "Idempotency-Key";
+        options.KeyScopeResolver = context => CallerIdentity.Resolve(context.User);
     }
 
     public static Task UseAppConfig(this WebApplication app, Action<WebApplication>? extra = null)

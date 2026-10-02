@@ -47,7 +47,8 @@ internal static class LogConfigs
             {
                 metrics
                     .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation();
+                    .AddHttpClientInstrumentation()
+                    .AddMeter(NotificationMetrics.MeterName);
                 if (isConsoleExportEnvironment)
                 {
                     metrics.AddConsoleExporter();

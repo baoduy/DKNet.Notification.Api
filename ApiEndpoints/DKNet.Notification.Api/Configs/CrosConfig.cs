@@ -8,9 +8,9 @@ internal static class CrosConfig
     // DELETE deliberately excluded, and no tracing header (traceparent, X-Request-Id, ...) enumerated.
     private static readonly string[] DefaultAllowedMethods = ["GET", "POST", "PUT", "PATCH"];
 
-    // "X-Idempotency-Key" is DKNet.AspCore.Idempotency's IdempotencyOptions.IdempotencyHeaderKey default.
+    // "Idempotency-Key" is the header AppConfig sets as IdempotencyOptions.IdempotencyHeaderKey.
     private static readonly string[] DefaultAllowedHeaders =
-        ["Authorization", "Content-Type", "Accept", "X-Idempotency-Key"];
+        ["Authorization", "Content-Type", "Accept", "Idempotency-Key"];
 
     #endregion
 
