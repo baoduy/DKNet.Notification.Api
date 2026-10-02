@@ -52,6 +52,12 @@ internal sealed class SendNotificationBody
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        // A declared size over the limit is refused unread: past the host's own limit, reading it would throw.
+        if (context.Request.ContentLength > MaxBytes)
+        {
+            return TooLarge;
+        }
+
         var buffer = new byte[MaxBytes + 1];
         var length = 0;
         int read;

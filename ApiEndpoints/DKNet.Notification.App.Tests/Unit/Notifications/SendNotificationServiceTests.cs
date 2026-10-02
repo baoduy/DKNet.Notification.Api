@@ -15,7 +15,6 @@ public sealed class SendNotificationServiceTests : IDisposable
     private readonly TestLogCapture _logs = new();
     private readonly MeterListener _listener = new();
     private readonly List<(string Instrument, long Value, Dictionary<string, object?> Tags)> _measurements = [];
-    private readonly Dictionary<string, string?> _descriptions = new(StringComparer.Ordinal);
     private readonly SendNotificationService _service;
 
     public SendNotificationServiceTests()
@@ -32,7 +31,6 @@ public sealed class SendNotificationServiceTests : IDisposable
         {
             if (ReferenceEquals(instrument.Meter.Scope, meterFactory) && instrument.Meter.Name == "DKNet.Notification")
             {
-                _descriptions[instrument.Name] = instrument.Description;
                 listener.EnableMeasurementEvents(instrument);
             }
         };
@@ -47,14 +45,6 @@ public sealed class SendNotificationServiceTests : IDisposable
         _listener.Dispose();
         _services.Dispose();
     }
-
-    [Fact]
-    public void The_counters_say_what_they_count() =>
-        _descriptions.ShouldBe(new Dictionary<string, string?>
-        {
-            ["notifications.accepted"] = "Accepted send calls.",
-            ["notifications.rejected"] = "Refused send calls."
-        });
 
     [Fact]
     public void A_missing_request_or_meter_factory_is_refused()

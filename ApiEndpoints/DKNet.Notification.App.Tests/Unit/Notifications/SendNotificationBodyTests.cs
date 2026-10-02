@@ -55,6 +55,39 @@ public sealed class SendNotificationBodyTests
     }
 
     [Theory]
+    [InlineData(65_537)]
+    [InlineData(2_000_000)]
+    public async Task A_declared_size_over_64_KB_is_too_large_without_a_read(long declared)
+    {
+        var context = new DefaultHttpContext
+        {
+            RequestServices = new ServiceCollection().AddOptions().BuildServiceProvider(),
+            Request = { Body = new UnreadableStream(), ContentLength = declared }
+        };
+
+        var body = (await SendNotificationBody.BindAsync(context)).ShouldNotBeNull();
+
+        body.IsTooLarge.ShouldBeTrue();
+        body.Request.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_declared_size_of_exactly_64_KB_is_read()
+    {
+        var bytes = Encoding.UTF8.GetBytes(Padded(65_536));
+        var context = new DefaultHttpContext
+        {
+            RequestServices = new ServiceCollection().AddOptions().BuildServiceProvider(),
+            Request = { Body = new MemoryStream(bytes), ContentLength = bytes.Length }
+        };
+
+        var body = (await SendNotificationBody.BindAsync(context)).ShouldNotBeNull();
+
+        body.IsTooLarge.ShouldBeFalse();
+        body.Request.ShouldNotBeNull().TemplateId.ShouldBe("account-opened");
+    }
+
+    [Theory]
     [InlineData("this is not JSON")]
     [InlineData("")]
     [InlineData("""{"channel":"email","templateId":"account-opened","parameters":{"amount":100}}""")]
@@ -73,6 +106,13 @@ public sealed class SendNotificationBodyTests
         var request = (await Bind("""{"channel":"email","templateId":"account-opened"}""")).Request.ShouldNotBeNull();
 
         request.Parameters.ShouldBeNull();
+    }
+
+    /// <summary>A body stream that fails on read, as the host does past its own size limit.</summary>
+    private sealed class UnreadableStream : MemoryStream
+    {
+        public override ValueTask<int> ReadAsync(Memory<byte> destination, CancellationToken cancellationToken = default) =>
+            throw new IOException("The body is larger than the host allows.");
     }
 
     /// <summary>A body stream that hands out at most <paramref name="chunk" /> bytes per read, as a network does.</summary>

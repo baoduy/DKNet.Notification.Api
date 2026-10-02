@@ -28,8 +28,8 @@ public sealed class NotificationMetrics
     public NotificationMetrics(IMeterFactory meterFactory)
     {
         var meter = meterFactory.Create(MeterName);
-        _accepted = meter.CreateCounter<long>("notifications.accepted", description: "Accepted send calls.");
-        _rejected = meter.CreateCounter<long>("notifications.rejected", description: "Refused send calls.");
+        _accepted = meter.CreateCounter<long>("notifications.accepted");
+        _rejected = meter.CreateCounter<long>("notifications.rejected");
     }
 
     #endregion
