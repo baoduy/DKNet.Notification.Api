@@ -13,6 +13,7 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
     private const string TeamsFile = "account-opened.teams.md";
     private const string EmailBody = "<p>Dear {{customerName}}.</p>";
     private const string TeamsBody = "**Dear {{customerName}}.**";
+    private const string IdRule = "R1 the id must match ^[a-z0-9-]{1,100}$.";
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"drk-2017-templates-{Guid.NewGuid():N}");
     private readonly string _templateFolder;
@@ -123,7 +124,7 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
     {
         var id = new string('a', 101);
 
-        ShouldBreak(Template(id, Email(EmailFile)), $"^Template '{id}': R1 the id must match");
+        ShouldBreakWith(Template(id, Email(EmailFile)), $"Template '{id}': {IdRule}");
     }
 
     [Theory]
@@ -131,12 +132,12 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
     [InlineData("account-opened\n")]
     [InlineData("account opened")]
     public void AnIdOutsideThePatternIsRefused(string id) =>
-        ShouldBreak(Template(id, Email(EmailFile)), "^Template '[^']*': R1 the id must match");
+        ShouldBreakWith(Template(id, Email(EmailFile)), $"Template '{id}': {IdRule}");
 
     [Fact]
     public void AnIdTheConfigurationLeftNullIsRefused() =>
-        ShouldBreak(new TemplateRegistration { TemplateId = null!, Versions = { Email(EmailFile) } },
-            "^Template '': R1 the id must match");
+        ShouldBreakWith(new TemplateRegistration { TemplateId = null!, Versions = { Email(EmailFile) } },
+            $"Template '': {IdRule}");
 
     [Theory]
     [InlineData("Email")]
@@ -287,6 +288,10 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
 
         error.Message.ShouldMatch(messagePattern);
     }
+
+    private void ShouldBreakWith(TemplateRegistration template, string message) =>
+        Should.Throw<InvalidOperationException>(() => TemplateCatalogueLoader.Load([template], _templateFolder))
+            .Message.ShouldBe(message);
 
     private static TemplateRegistration Template(string id, params TemplateVersionRegistration[] versions)
     {
