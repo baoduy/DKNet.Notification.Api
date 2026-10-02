@@ -14,6 +14,14 @@ public sealed class CallerIdentityTests
         CallerIdentity.Resolve(new ClaimsPrincipal(new ClaimsIdentity([new Claim("client_id", "treasury-ops")])))
             .ShouldBe("System");
 
+    [Fact]
+    public void A_missing_user_is_refused() =>
+        Should.Throw<ArgumentNullException>(() => CallerIdentity.Resolve(null!)).ParamName.ShouldBe("user");
+
+    [Fact]
+    public void A_caller_with_no_identity_is_System() =>
+        CallerIdentity.Resolve(new ClaimsPrincipal()).ShouldBe("System");
+
     [Theory]
     [InlineData("client_id", "treasury-ops")]
     [InlineData("azp", "console-app")]
