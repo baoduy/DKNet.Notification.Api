@@ -31,6 +31,8 @@
         <PackageReference Include="NUnit3TestAdapter"/>
         <PackageReference Include="Reqnroll.NUnit" />
         <PackageReference Include="Shouldly" />
+        <!-- A real Redis for the idempotency scenarios (DRK-2013 §3b). Tests only. -->
+        <PackageReference Include="Testcontainers.Redis" />
     </ItemGroup>
 
     <ItemGroup>
