@@ -11,6 +11,13 @@ namespace DKNet.Notification.Domains.Notifications;
     Justification = "The design's aggregate name (docs/architect/02-domain.md); the clash is with the service's own root namespace.")]
 public sealed class Notification
 {
+    #region Fields
+
+    /// <summary>The delivery attempts a notification gets at most, whatever the settings say.</summary>
+    public const int MaxAttempts = 3;
+
+    #endregion
+
     #region Constructors
 
     [SuppressMessage(
@@ -59,6 +66,21 @@ public sealed class Notification
     /// <summary>Gets why the notification is skipped; <see langword="null" /> unless <see cref="Status" /> is Skipped.</summary>
     public SkipReason? SkipReason { get; private set; }
 
+    /// <summary>Gets the error code the call was refused with; <see langword="null" /> unless <see cref="Status" /> is Rejected.</summary>
+    public string? ErrorCode { get; private set; }
+
+    /// <summary>Gets the request field at fault, as the error body names it; <see langword="null" /> unless Rejected.</summary>
+    public string? ErrorField { get; private set; }
+
+    /// <summary>Gets the one address the email goes to; <see langword="null" /> until the notification is queued.</summary>
+    public EmailRecipient? Recipient { get; private set; }
+
+    /// <summary>Gets the filled subject and body; <see langword="null" /> until the notification is queued.</summary>
+    public RenderedMessage? RenderedMessage { get; private set; }
+
+    /// <summary>Gets how many delivery attempts were made: 0 to 3.</summary>
+    public int AttemptCount { get; private set; }
+
     #endregion
 
     #region Methods
@@ -76,11 +98,21 @@ public sealed class Notification
         string callerId) =>
         new(templateId, channel, parameters, callerId);
 
-    /// <summary>Rejects the call: it named no registered template.</summary>
+    /// <summary>Rejects the call: nothing is queued.</summary>
     public void Reject()
     {
         EnsureReceived();
         Status = NotificationStatus.Rejected;
+    }
+
+    /// <summary>Rejects the call with the error it is refused with: nothing is queued.</summary>
+    /// <param name="errorCode">The error code the call is refused with.</param>
+    /// <param name="errorField">The request field at fault, as the error body names it.</param>
+    public void Reject(string errorCode, string errorField)
+    {
+        Reject();
+        ErrorCode = errorCode;
+        ErrorField = errorField;
     }
 
     /// <summary>Accepts the call without delivering it.</summary>
@@ -90,6 +122,55 @@ public sealed class Notification
         EnsureReceived();
         Status = NotificationStatus.Skipped;
         SkipReason = reason;
+    }
+
+    /// <summary>Queues the call for delivery, rendered once, here, before it is queued.</summary>
+    /// <param name="recipient">The one address the email goes to.</param>
+    /// <param name="renderedMessage">The filled subject and body.</param>
+    public void Queue(EmailRecipient recipient, RenderedMessage renderedMessage)
+    {
+        ArgumentNullException.ThrowIfNull(recipient);
+        ArgumentNullException.ThrowIfNull(renderedMessage);
+        EnsureReceived();
+        Status = NotificationStatus.Queued;
+        Recipient = recipient;
+        RenderedMessage = renderedMessage;
+    }
+
+    /// <summary>Starts a delivery attempt: Queued or RetryWaiting to Delivering, one more attempt, never more than 3.</summary>
+    public void StartAttempt()
+    {
+        if (Status is not (NotificationStatus.Queued or NotificationStatus.RetryWaiting))
+        {
+            throw new InvalidOperationException($"A notification that is {Status} cannot start a delivery attempt.");
+        }
+
+        if (AttemptCount >= MaxAttempts)
+        {
+            throw new InvalidOperationException($"A notification never gets more than {MaxAttempts} delivery attempts.");
+        }
+
+        Status = NotificationStatus.Delivering;
+        AttemptCount++;
+    }
+
+    /// <summary>Ends the running attempt Delivered: the provider accepted the message.</summary>
+    public void Deliver() => EndAttempt(NotificationStatus.Delivered);
+
+    /// <summary>Ends the running attempt with a transient failure: the notification waits for its next attempt.</summary>
+    public void WaitForRetry() => EndAttempt(NotificationStatus.RetryWaiting);
+
+    /// <summary>Ends the running attempt Failed: a permanent failure, or a transient failure on the last attempt.</summary>
+    public void Fail() => EndAttempt(NotificationStatus.Failed);
+
+    private void EndAttempt(NotificationStatus end)
+    {
+        if (Status != NotificationStatus.Delivering)
+        {
+            throw new InvalidOperationException($"A notification that is {Status} has no delivery attempt to end.");
+        }
+
+        Status = end;
     }
 
     private void EnsureReceived()

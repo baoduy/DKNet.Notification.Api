@@ -10,7 +10,11 @@
     <ItemGroup>
         <!-- Both already ship with the Api (FluentValidation through its DependencyInjectionExtensions, logging
              through the ASP.NET Core shared framework); referenced here for the validators and log entries. -->
+        <!-- Template rendering (ADR-0004). -->
+        <PackageReference Include="DKNet.Svc.Transformation" />
         <PackageReference Include="FluentValidation" />
+        <!-- SMTP submission (ADR-0005). -->
+        <PackageReference Include="MailKit" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     </ItemGroup>
 

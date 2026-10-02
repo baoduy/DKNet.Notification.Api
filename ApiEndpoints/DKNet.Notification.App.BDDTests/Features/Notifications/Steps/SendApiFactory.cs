@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
+using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Templates;
 using Microsoft.AspNetCore.Hosting;
@@ -17,7 +18,12 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications.Steps;
 /// standing in for Entra ID.</param>
 /// <param name="redisConnection">The Redis the idempotency store uses; null keeps the in-memory store.</param>
 /// <param name="environment">The host environment: <c>Testing</c>, or <c>Development</c> for a local run.</param>
-public sealed class SendApiFactory(bool signIn, string? redisConnection, string environment = "Testing")
+/// <param name="settings">More settings, such as the email settings, set the same way before the host is built.</param>
+public sealed class SendApiFactory(
+    bool signIn,
+    string? redisConnection,
+    string environment = "Testing",
+    IReadOnlyDictionary<string, string?>? settings = null)
     : TestApiFactoryBase
 {
     /// <summary>A settings source above every other one, changed while the service runs.</summary>
@@ -33,6 +39,11 @@ public sealed class SendApiFactory(bool signIn, string? redisConnection, string 
         builder.UseEnvironment(environment);
         builder.UseSetting("FeatureManagement:RequireAuthorization", signIn ? "true" : "false");
         builder.UseSetting("ConnectionStrings:Redis", redisConnection ?? string.Empty);
+        foreach (var (key, value) in settings ?? new Dictionary<string, string?>())
+        {
+            builder.UseSetting(key, value);
+        }
+
         builder.ConfigureAppConfiguration((_, config) => config.Add(Settings));
         builder.ConfigureTestServices(services =>
         {
@@ -40,6 +51,9 @@ public sealed class SendApiFactory(bool signIn, string? redisConnection, string 
             {
                 TestAuthHandler.Register(services);
             }
+
+            // The test mail servers' authority, through the trust seam only: no setting can do this (DRK-2020 R6).
+            services.AddSingleton(new SmtpTrustedRoots([TestCertificateAuthority.Trusted.Certificate]));
 
             var released = services.Last(d => d.ServiceType == typeof(ITemplateCatalogue));
             services.Remove(released);
@@ -126,6 +140,16 @@ public sealed class NotificationMetricsCapture : IDisposable
             .Where(m => m.Instrument == instrument)
             .Where(m => tags.All(t => m.Tags.TryGetValue(t.Key, out var value) && value == t.Value))
             .Sum(m => m.Value);
+
+    /// <summary>
+    /// The current value of a gauge: observable instruments are read now, then the last measurement is taken, so
+    /// this works for an observable and for a recorded gauge alike. Null when the gauge never reported.
+    /// </summary>
+    public double? Current(string instrument)
+    {
+        _listener.RecordObservableInstruments();
+        return Measurements.LastOrDefault(m => m.Instrument == instrument)?.Value;
+    }
 
     public void Dispose() => _listener.Dispose();
 

@@ -56,7 +56,8 @@ public sealed class EmptyServiceScaffoldTests
     private const string DesignDocumentsFolder = "docs/architect/";
 
     private static readonly string[] DesignDKNetPackages =
-        ["DKNet.AspCore.Extensions", "DKNet.AspCore.Idempotency", "DKNet.AspCore.Idempotency.RedisStore"];
+        // DKNet.Svc.Transformation: the renderer, DRK-2020 §3b and ADR-0004.
+        ["DKNet.AspCore.Extensions", "DKNet.AspCore.Idempotency", "DKNet.AspCore.Idempotency.RedisStore", "DKNet.Svc.Transformation"];
 
     private const string DesignDKNetPackageVersion = "13.1.3";
 
@@ -83,9 +84,9 @@ public sealed class EmptyServiceScaffoldTests
         offenders.ShouldBeEmpty($"Removed parts still referenced:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
     }
 
-    /// <summary>§5 contract row "package" — the only direct DKNet packages are the 3 the design names, at 13.1.3.</summary>
+    /// <summary>§5 contract row "package" — the only direct DKNet packages are the 4 the design names, at 13.1.3.</summary>
     [Fact]
-    public void TheOnlyDirectDKNetPackagesAreTheThreeTheDesignNames_At13_1_3()
+    public void TheOnlyDirectDKNetPackagesAreTheFourTheDesignNames_At13_1_3()
     {
         DirectPackageReferences()
             .Select(r => r.Id)

@@ -16,8 +16,10 @@
         <GenerateDocumentationFile>false</GenerateDocumentationFile>
         <!-- ASPIRE010: dashboard/DCP deprecation warning, understood and deliberately deferred —
              AspireUseCliBundle requires the Aspire CLI on PATH, which breaks a bare `dotnet build`
-             on a clean scaffolded machine. NoWarn keeps the template buildable everywhere. -->
-        <NoWarn>$(NoWarn);CS1591;SA1600;ASPIRE010</NoWarn>
+             on a clean scaffolded machine. NoWarn keeps the template buildable everywhere.
+             ASPIRECERTIFICATES001: the developer-certificate API Mailpit's STARTTLS uses (DRK-2020 Local run) is
+             marked for evaluation; it is the local run's only way to a certificate the machine already trusts. -->
+        <NoWarn>$(NoWarn);CS1591;SA1600;ASPIRE010;ASPIRECERTIFICATES001</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

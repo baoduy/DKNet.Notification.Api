@@ -11,5 +11,17 @@ public static class NotificationErrorCodes
     /// <summary>The template id names no registered template.</summary>
     public const string TemplateNotFound = "TEMPLATE_NOT_FOUND";
 
+    /// <summary>The <c>to</c> parameter of an email call is absent or empty.</summary>
+    public const string RecipientMissing = "RECIPIENT_MISSING";
+
+    /// <summary>The <c>to</c> parameter of an email call breaks its rule.</summary>
+    public const string RecipientInvalid = "RECIPIENT_INVALID";
+
+    /// <summary>A template token has no parameter.</summary>
+    public const string ParameterMissing = "PARAMETER_MISSING";
+
+    /// <summary>The replica's delivery queue is full.</summary>
+    public const string QueueFull = "QUEUE_FULL";
+
     #endregion
 }

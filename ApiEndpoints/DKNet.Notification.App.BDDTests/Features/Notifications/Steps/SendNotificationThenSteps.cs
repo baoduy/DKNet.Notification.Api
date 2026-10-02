@@ -36,9 +36,7 @@ public sealed class SendNotificationThenSteps(SendScenario scenario)
     [Then(@"^exactly 1 skip warning is logged with reason ""([^""]*)"" and caller ""([^""]*)""$")]
     public void ThenExactly1SkipWarningIsLoggedWithReasonAndCaller(string reason, string caller)
     {
-        var entry = scenario.SingleSkipEntry();
-        ShouldBeSkipEntry(entry, NotificationIdOf(scenario.LastAnswer), "account-opened", "email", caller);
-        entry.Value("Reason").ShouldBe(reason);
+        ShouldBeSkipEntry(scenario.SingleSkipEntry(), NotificationIdOf(scenario.LastAnswer), "account-opened", "email", caller, reason);
     }
 
     [Then(@"^the skip warning names channel ""([^""]*)"" and reason ""([^""]*)""$")]
@@ -57,6 +55,7 @@ public sealed class SendNotificationThenSteps(SendScenario scenario)
     public void ThenTheSkipWarningNamesCaller(string caller) =>
         scenario.SingleSkipEntry().Value("CallerId").ShouldBe(caller);
 
+    // DRK-2020 §3 Step 5: these hosts keep email off, so an email call is skipped with ChannelNotConfigured.
     [Then(@"^exactly 1 skip warning is logged$")]
     public void ThenExactly1SkipWarningIsLogged() =>
         ShouldBeSkipEntry(
@@ -64,7 +63,8 @@ public sealed class SendNotificationThenSteps(SendScenario scenario)
             NotificationIdOf(scenario.Answers[0]),
             "account-opened",
             "email",
-            "treasury-ops");
+            "treasury-ops",
+            "ChannelNotConfigured");
 
     [Then(@"^exactly 1 skip warning is logged, and the accepted count rose by 1$")]
     public void ThenExactly1SkipWarningIsLoggedAndTheAcceptedCountRoseBy1()
@@ -87,7 +87,8 @@ public sealed class SendNotificationThenSteps(SendScenario scenario)
                 NotificationIdOf(answer),
                 "account-opened",
                 "email",
-                caller);
+                caller,
+                "ChannelNotConfigured");
         }
     }
 

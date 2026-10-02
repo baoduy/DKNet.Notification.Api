@@ -1,4 +1,5 @@
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using DKNet.Notification.AppServices.Delivery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -37,7 +38,8 @@ internal static class LogConfigs
             {
                 tracing
                     .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation();
+                    .AddHttpClientInstrumentation()
+                    .AddSource(DeliveryWorker.ActivitySourceName);
                 if (isConsoleExportEnvironment)
                 {
                     tracing.AddConsoleExporter();
