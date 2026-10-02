@@ -1,6 +1,7 @@
 using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Notifications;
+using DKNet.Notification.Domains.Templates;
 using DKNet.Notification.Share.Extensions;
 using Microsoft.Extensions.Logging;
 
@@ -64,6 +65,32 @@ public sealed class SendNotificationService(
             return Skip(notification, SkipReason.ChannelNotSupported, traceId);
         }
 
+        return SendEmail(notification, template, traceId);
+    }
+
+    /// <summary>Logs and counts a call refused with <see cref="NotificationErrorCodes.InvalidRequest" />.</summary>
+    /// <param name="callerId">The calling application's id.</param>
+    /// <param name="traceId">The request's trace id, as its error body carries it.</param>
+    public void RejectInvalid(string callerId, string traceId)
+    {
+        // The call never becomes a notification, so its id is new here and is never returned to the caller.
+        logger.NotificationRejected(
+            Guid.CreateVersion7(),
+            NotificationErrorCodes.InvalidRequest,
+            callerId.SanitizeForLogging(),
+            traceId,
+            templateId: null,
+            channel: null);
+        metrics.Rejected(NotificationErrorCodes.InvalidRequest);
+    }
+
+    /// <summary>Steps 5 to 9 of an <c>email</c> call to a registered template.</summary>
+    private Domains.Notifications.Notification SendEmail(
+        Domains.Notifications.Notification notification,
+        NotificationTemplate template,
+        string traceId)
+    {
+        // Step 5, for email — the sender is set up, then the template has an email version.
         if (!_emailConfigured)
         {
             return Skip(notification, SkipReason.ChannelNotConfigured, traceId);
@@ -112,22 +139,6 @@ public sealed class SendNotificationService(
             traceId);
         metrics.Accepted(notification.Channel, "queued");
         return notification;
-    }
-
-    /// <summary>Logs and counts a call refused with <see cref="NotificationErrorCodes.InvalidRequest" />.</summary>
-    /// <param name="callerId">The calling application's id.</param>
-    /// <param name="traceId">The request's trace id, as its error body carries it.</param>
-    public void RejectInvalid(string callerId, string traceId)
-    {
-        // The call never becomes a notification, so its id is new here and is never returned to the caller.
-        logger.NotificationRejected(
-            Guid.CreateVersion7(),
-            NotificationErrorCodes.InvalidRequest,
-            callerId.SanitizeForLogging(),
-            traceId,
-            templateId: null,
-            channel: null);
-        metrics.Rejected(NotificationErrorCodes.InvalidRequest);
     }
 
     private Domains.Notifications.Notification Reject(
