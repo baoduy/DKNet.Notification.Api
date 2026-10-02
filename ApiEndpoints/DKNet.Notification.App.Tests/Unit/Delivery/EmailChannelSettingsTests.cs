@@ -135,4 +135,29 @@ public sealed class EmailChannelSettingsTests
 
         Bind(settings).BadSettings().ShouldBe(["Notifications:Email:Sender"]);
     }
+
+    [Fact]
+    public void An_unconvertible_setting_is_reported_before_the_rules_it_breaks()
+    {
+        var settings = SetUp();
+        settings.Remove("Notifications:Email:Smtp:Host");
+        var email = Bind(settings);
+        email.BadSettings().ShouldBe(["Notifications:Email:Smtp:Host"]);
+
+        email.AddUnconvertibleSetting("Notifications:Email:Smtp:Port");
+
+        email.BadSettings().ShouldBe(["Notifications:Email:Smtp:Port", "Notifications:Email:Smtp:Host"]);
+    }
+
+    [Fact]
+    public void A_sender_other_than_Smtp_hides_an_unconvertible_setting()
+    {
+        var settings = SetUp();
+        settings["Notifications:Email:Sender"] = "Graph";
+        var email = Bind(settings);
+
+        email.AddUnconvertibleSetting("Notifications:Email:Smtp:Port");
+
+        email.BadSettings().ShouldBe(["Notifications:Email:Sender"]);
+    }
 }

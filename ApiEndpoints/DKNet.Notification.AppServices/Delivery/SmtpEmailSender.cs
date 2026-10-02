@@ -41,7 +41,8 @@ public sealed class SmtpEmailSender(EmailChannelSettings email, SmtpTrustedRoots
         using var client = new SmtpClient();
         if (trustedRoots.Certificates.Count > 0)
         {
-            client.ServerCertificateValidationCallback = TrustedByExtraRoots;
+            client.ServerCertificateValidationCallback = (_, certificate, _, errors) =>
+                IsTrusted(certificate, errors, trustedRoots.Certificates);
         }
 
         var smtp = email.Smtp;
@@ -124,7 +125,10 @@ public sealed class SmtpEmailSender(EmailChannelSettings email, SmtpTrustedRoots
     ///     The machine's own check first; a chain that fails it is built again on the extra authorities only. A name
     ///     mismatch, or a certificate the server did not send, is never accepted.
     /// </summary>
-    private bool TrustedByExtraRoots(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors errors)
+    internal static bool IsTrusted(
+        X509Certificate? certificate,
+        SslPolicyErrors errors,
+        IReadOnlyCollection<X509Certificate2> extraRoots)
     {
         if (errors == SslPolicyErrors.None)
         {
@@ -138,7 +142,7 @@ public sealed class SmtpEmailSender(EmailChannelSettings email, SmtpTrustedRoots
 
         using var extraChain = new X509Chain();
         extraChain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-        extraChain.ChainPolicy.CustomTrustStore.AddRange(trustedRoots.Certificates.ToArray());
+        extraChain.ChainPolicy.CustomTrustStore.AddRange(extraRoots.ToArray());
         // The extra authorities are test authorities: they publish no revocation list.
         extraChain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
         using var serverCertificate = new X509Certificate2(certificate);
