@@ -22,6 +22,9 @@ public sealed class ScaffoldApiFactory(string environment, bool withValidCaller)
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(environment);
+        // A deployment refuses to start without a Redis setting (DRK-2013). The store connects lazily, and no
+        // scaffold scenario sends an idempotent call, so this placeholder never opens a connection.
+        builder.UseSetting("ConnectionStrings:Redis", "localhost:6379,abortConnect=false");
 
         if (withValidCaller)
         {
