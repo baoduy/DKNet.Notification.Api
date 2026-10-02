@@ -1,0 +1,85 @@
+name: Publish Docker Image
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+
+concurrency:
+  # One run of this pipeline per branch at a time; a newer commit cancels the older in-flight run.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  Project_Path: 'ApiEndpoints/DKNet.Notification.Api/DKNet.Notification.Api.csproj'
+  Image_Repository: 'baoduy/dknet.notification-api'
+  Dotnet_Version: 10.x
+
+jobs:
+  publish-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.Dotnet_Version }}
+
+      - name: Calculate version
+        id: version
+        uses: paulhatch/semantic-version@v6.0.2
+        with:
+          tag_prefix: "v"
+          major_pattern: "(MAJOR)"
+          minor_pattern: "(MINOR)"
+          version_format: "${major}.${minor}.${patch}"
+          bump_each_commit: false
+          search_commit_body: false
+
+      - name: Set NEXT_VERSION
+        run: echo "NEXT_VERSION=${{ steps.version.outputs.version }}" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The .NET SDK builds and pushes the image itself (container properties live
+      # in the csproj), so there is no Dockerfile to keep in sync.
+      # ContainerRuntimeIdentifiers replaces --runtime: the SDK builds one image per RID
+      # and pushes a manifest list, so each tag serves amd64 and arm64 hosts.
+      - name: Build & push image
+        run: |
+          dotnet publish ${{ env.Project_Path }} \
+            --configuration Release \
+            --self-contained false \
+            /t:PublishContainer \
+            -p:ContainerRuntimeIdentifiers='"linux-x64;linux-arm64"' \
+            -p:ContainerRegistry=ghcr.io \
+            -p:ContainerRepository=${{ env.Image_Repository }} \
+            -p:ContainerImageTags='"${{ env.NEXT_VERSION }};latest"'
+
+      - name: Release
+        uses: softprops/action-gh-release@v3.0.1
+        continue-on-error: true
+        with:
+          generate_release_notes: true
+          make_latest: true
+          tag_name: v${{ env.NEXT_VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Summary
+        run: |
+          echo "Pushed ghcr.io/${{ env.Image_Repository }}:${{ env.NEXT_VERSION }} and :latest" >> $GITHUB_STEP_SUMMARY
