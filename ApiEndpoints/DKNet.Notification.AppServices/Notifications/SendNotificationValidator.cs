@@ -40,8 +40,7 @@ internal sealed partial class SendNotificationValidator : AbstractValidator<Send
             .Must(parameter => parameter.Value is not null)
             .WithMessage("Each parameter value must be a string.").WithErrorCode(Code)
             .Must(parameter => parameter.Value is null || parameter.Value.Length <= 4000)
-            .WithMessage("Each parameter value must be at most 4,000 characters.").WithErrorCode(Code)
-            .When(r => r.Parameters is not null);
+            .WithMessage("Each parameter value must be at most 4,000 characters.").WithErrorCode(Code);
     }
 
     #endregion

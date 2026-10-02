@@ -27,8 +27,6 @@ public sealed class NotificationMetrics
         Justification = "The IMeterFactory owns the meters it creates and disposes them with the host.")]
     public NotificationMetrics(IMeterFactory meterFactory)
     {
-        ArgumentNullException.ThrowIfNull(meterFactory);
-
         var meter = meterFactory.Create(MeterName);
         _accepted = meter.CreateCounter<long>("notifications.accepted", description: "Accepted send calls.");
         _rejected = meter.CreateCounter<long>("notifications.rejected", description: "Refused send calls.");
