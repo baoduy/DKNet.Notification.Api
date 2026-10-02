@@ -31,6 +31,7 @@ public sealed class ApiHooks(IObjectContainer objectContainer)
     public static async Task AfterTestRun()
     {
         await _factory.DisposeAsync();
+        await RedisServer.StopAsync();
     }
 
     /// <summary>

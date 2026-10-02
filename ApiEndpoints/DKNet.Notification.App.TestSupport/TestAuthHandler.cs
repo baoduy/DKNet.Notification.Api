@@ -8,9 +8,18 @@ namespace DKNet.Notification.App.TestSupport;
 
 /// <summary>
 /// Fake authentication scheme standing in for the real JWT bearer scheme (which needs a live MS Graph token
-/// to validate), so the "authorization required" path can be exercised in-process. Every request is
-/// unconditionally authenticated as <see cref="CallerName" />.
+/// to validate), so the "authorization required" path can be exercised in-process. A request without the
+/// <see cref="ClaimsHeader" /> is unconditionally authenticated as <see cref="CallerName" />.
 /// </summary>
+/// <remarks>
+/// A request that sends <see cref="ClaimsHeader" /> describes its own token instead:
+/// <list type="bullet">
+/// <item>no <c>Authorization</c> header — no token, so the caller stays unauthenticated;</item>
+/// <item><c>Authorization: Bearer <see cref="InvalidToken" /></c> — a token that fails validation;</item>
+/// <item>any other <c>Authorization</c> value — a valid token holding exactly the claims the header lists, as
+/// <c>type=value</c> pairs separated by <c>;</c> (a claim type may repeat, one value per claim).</item>
+/// </list>
+/// </remarks>
 public sealed class TestAuthHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
@@ -19,6 +28,12 @@ public sealed class TestAuthHandler(
 {
     public const string SchemeName = "TestScheme";
     public const string CallerName = "test-authenticated-caller";
+
+    /// <summary>The test-only header that lists the claims of a per-request token.</summary>
+    public const string ClaimsHeader = "X-Test-Claims";
+
+    /// <summary>The bearer token value this scheme treats as invalid.</summary>
+    public const string InvalidToken = "invalid-token";
 
     /// <summary>
     /// The claim <c>PrincipalProvider</c> reads as <c>ProfileId</c> and returns from <c>GetOwnershipKey()</c>
@@ -29,15 +44,38 @@ public sealed class TestAuthHandler(
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var identity = new ClaimsIdentity(
+        if (!Request.Headers.TryGetValue(ClaimsHeader, out var claimList))
+        {
+            return Task.FromResult(Success(
             [
                 new Claim(ClaimTypes.Name, CallerName),
                 new Claim(ClaimTypes.NameIdentifier, CallerProfileId.ToString())
-            ],
-            SchemeName);
-        var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName);
-        return Task.FromResult(AuthenticateResult.Success(ticket));
+            ]));
+        }
+
+        var authorization = Request.Headers.Authorization.ToString();
+        if (string.IsNullOrEmpty(authorization))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
+        if (string.Equals(authorization, $"Bearer {InvalidToken}", StringComparison.Ordinal))
+        {
+            return Task.FromResult(AuthenticateResult.Fail("The token is invalid."));
+        }
+
+        var claims = string.Join(';', claimList.ToArray())
+            .Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split('=', 2))
+            .Select(parts => new Claim(parts[0], parts[1]))
+            .ToArray();
+        return Task.FromResult(Success(claims));
     }
+
+    private static AuthenticateResult Success(Claim[] claims) =>
+        AuthenticateResult.Success(new AuthenticationTicket(
+            new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName)),
+            SchemeName));
 
     /// <summary>
     /// Registers this scheme as the default authenticate/challenge scheme, overriding whatever the host's own

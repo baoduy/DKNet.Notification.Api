@@ -8,6 +8,13 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!-- Both already ship with the Api (FluentValidation through its DependencyInjectionExtensions, logging
+             through the ASP.NET Core shared framework); referenced here for the validators and log entries. -->
+        <PackageReference Include="FluentValidation" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\DKNet.Notification.Domains\DKNet.Notification.Domains.csproj" />
     </ItemGroup>
 

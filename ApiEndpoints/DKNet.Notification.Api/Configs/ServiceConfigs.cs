@@ -8,7 +8,9 @@ internal static class ServiceConfigs
     public static IServiceCollection AddAllAppServices(this IServiceCollection services) =>
         services
             .AddSingleton<IHttpContextAccessor, HttpContextAccessor>()
-            .AddScoped<IPrincipalProvider, PrincipalProvider>();
+            .AddScoped<IPrincipalProvider, PrincipalProvider>()
+            .AddSingleton<NotificationMetrics>()
+            .AddSingleton<SendNotificationService>();
 
     public static IServiceCollection AddOptions(this IServiceCollection services, IConfiguration configuration)
     {

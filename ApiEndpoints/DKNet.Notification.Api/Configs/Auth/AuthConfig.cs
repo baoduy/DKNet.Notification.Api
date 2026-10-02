@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 
 namespace DKNet.Notification.Api.Configs.Auth;
@@ -25,8 +24,9 @@ internal static class AuthConfig
     {
         services.MarkConfigAdded(nameof(AuthConfig));
 
+        // Claims keep their token names (scp, roles, azp, appid), the names the send permission and the caller id read.
         services.AddAuthentication()
-            .AddJwtBearer();
+            .AddJwtBearer(o => o.MapInboundClaims = false);
 
         services.AddAuthorization(options =>
         {
@@ -35,20 +35,13 @@ internal static class AuthConfig
                 .RequireAuthenticatedUser()
                 .Build();
 
-            // TODO: Replace "sample-scope" with the actual scope value from your identity provider,
-            //       then apply the policy to an endpoint with .RequireAuthorization(HasScopeRequirement.PolicyName).
+            // The policy [EndpointGroupScope] names on the send endpoint.
             options.AddPolicy(
-                HasScopeRequirement.PolicyName,
-                policy => policy.Requirements.Add(new HasScopeRequirement("sample-scope")));
+                SendPermission.Name,
+                policy => policy.RequireAuthenticatedUser().RequireAssertion(c => SendPermission.IsGranted(c.User)));
         });
 
-        // Sample IClaimsTransformation: enriches the user principal after authentication.
-        // TODO: Replace SampleClaimsTransformation with your real implementation or remove if not needed.
-        services.AddScoped<IClaimsTransformation, SampleClaimsTransformation>();
-
-        // Sample IAuthorizationHandler: evaluates HasScopeRequirement.
-        // TODO: Replace HasScopeHandler with your real handler(s) or remove if not needed.
-        services.AddScoped<IAuthorizationHandler, HasScopeHandler>();
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, CallerClaimResultHandler>();
 
         return services;
     }

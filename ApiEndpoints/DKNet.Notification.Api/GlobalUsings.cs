@@ -11,6 +11,7 @@ global using DKNet.AspCore.Extensions;
 global using DKNet.AspCore.Extensions.Endpoints;
 global using DKNet.AspCore.Extensions.ModelBinding;
 global using DKNet.Notification.AppServices;
+global using DKNet.Notification.AppServices.Notifications;
 global using DKNet.Notification.AppServices.Share;
 global using DKNet.Notification.Share;
 global using DKNet.Notification.Share.Options;

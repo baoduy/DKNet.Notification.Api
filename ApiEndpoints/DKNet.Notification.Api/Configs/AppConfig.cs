@@ -15,7 +15,8 @@ internal static class AppConfig
     public static IServiceCollection AddAppConfig(
         this IServiceCollection services,
         FeatureOptions features,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         if (features.EnableAntiforgery)
         {
@@ -61,18 +62,38 @@ internal static class AppConfig
         {
             services.AddIdempotencyWithRedisStore(
                 redisConnectionString,
-                o => o.ConflictHandling = IdempotentConflictHandling.ConflictResponse);
+                ConfigureIdempotency);
+        }
+        else if (environment.IsDevelopment() || environment.IsEnvironment("Testing"))
+        {
+            //InMemory store, local runs and test hosts only
+            services.AddIdempotentKey(ConfigureIdempotency);
         }
         else
         {
-            //InMemory store
-            services.AddIdempotentKey(o => o.ConflictHandling = IdempotentConflictHandling.ConflictResponse);
+            // Names the setting only, never a configuration value.
+            throw new InvalidOperationException(
+                $"The ConnectionStrings:{SharedConsts.RedisConnectionString} setting is missing. " +
+                "Only Development and Testing run without Redis.");
         }
+
+        services.AddTemplateConfig(configuration, environment);
 
         return services
             .AddCrosConfig(configuration)
             .AddAllAppServices()
             .AddHealthzConfig(features);
+    }
+
+    /// <summary>
+    ///     A repeat of a kept call gets its first answer, and every key is scoped by the caller id, so 2 callers never
+    ///     share one. The expiry (4 hours) and the hold on a running or refused call (30 seconds) keep their defaults.
+    /// </summary>
+    private static void ConfigureIdempotency(IdempotencyOptions options)
+    {
+        options.ConflictHandling = IdempotentConflictHandling.CachedResult;
+        options.IdempotencyHeaderKey = "Idempotency-Key";
+        options.KeyScopeResolver = context => CallerIdentity.Resolve(context.User);
     }
 
     public static Task UseAppConfig(this WebApplication app, Action<WebApplication>? extra = null)

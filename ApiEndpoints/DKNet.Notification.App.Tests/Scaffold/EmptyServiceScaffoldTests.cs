@@ -314,7 +314,11 @@ public sealed class EmptyServiceScaffoldTests
     private static async Task<(string Name, Type? HandlerType)[]> SignInMethodsAsync(string environment)
     {
         await using var factory = new WebApplicationFactory<DKNet.Notification.Api.Program>()
-            .WithWebHostBuilder(builder => builder.UseEnvironment(environment));
+            .WithWebHostBuilder(builder => builder
+                .UseEnvironment(environment)
+                // A deployment refuses to start without a Redis setting (DRK-2013). The store connects lazily
+                // and no idempotent call is sent here, so this placeholder never opens a connection.
+                .UseSetting("ConnectionStrings:Redis", "localhost:6379,abortConnect=false"));
         var provider = factory.Services.GetService<IAuthenticationSchemeProvider>();
         if (provider is null)
         {
