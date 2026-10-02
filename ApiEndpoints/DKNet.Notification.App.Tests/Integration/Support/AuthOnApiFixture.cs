@@ -10,8 +10,7 @@ namespace DKNet.Notification.App.Tests.Integration.Support;
 /// <remarks>
 /// <c>Program.cs</c> binds <c>FeatureOptions</c> from configuration in its very first lines, before
 /// <see cref="TestApiFactoryBase.ConfigureWebHost" />'s <c>ConfigureAppConfiguration</c> override is merged in
-/// (the same constraint <c>BddApiFactory</c> documents for the Redis connection string) — so a plain
-/// <see cref="AddFeatureOverrides" /> entry cannot flip a flag that early-bound code branches on. The
+/// — so a plain <see cref="AddFeatureOverrides" /> entry cannot flip a flag that early-bound code branches on. The
 /// environment variable set in the constructor is read while <c>WebApplication.CreateBuilder(args)</c> itself
 /// builds the initial configuration, ahead of that early bind, so it is what actually takes effect. This is
 /// safe only because this assembly disables collection parallelization (<c>AssemblyInfo.cs</c>) — no other

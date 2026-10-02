@@ -10,7 +10,7 @@
 - Middleware/service composition is orchestrated by `DKNet.Notification.Api/Configs/AppConfig.cs` and `DKNet.Notification.Api/Configs/ServiceConfigs.cs`.
 - Layer boundaries are strict: `Api` -> `AppServices` -> `Domains` -> `Share`.
 - `DKNet.Notification.AppHost/AppHost.cs` is Aspire host orchestration (Redis + API project), not business logic.
-- `GET /healthz` is the only route today: anonymous, status only (`{"status":"Healthy"}`), with no dependency check.
+- `GET /healthz` is the only API route today: anonymous, status only (`{"status":"Healthy"}`), with no dependency check. With `EnableSwagger` on (local Development) the OpenAPI document and `/docs` are served too.
 - Sign-in is Entra ID bearer tokens only (`AuthConfig`, JWT bearer). With `FeatureManagement:RequireAuthorization` on, every other request needs a valid token (fallback policy), including routes that do not exist. With it off (local Development, Testing) no sign-in middleware runs.
 
 ## Adding a feature

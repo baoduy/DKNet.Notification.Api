@@ -14,7 +14,7 @@ internal static class FluentValidationConfig
     #region Methods
 
     /// <summary>
-    /// R1/R3: the template's one <see cref="ErrorResponseOptions" /> registration — it answers a failed
+    /// The template's one <see cref="ErrorResponseOptions" /> registration — it answers a failed
     /// command, refused validation input and an unhandled error alike (a route resolves it via
     /// <c>[FromServices]</c>). A refusal whose error carries a
     /// <see cref="PreconditionCodes.Prefix" />-prefixed code answers 409; every other refusal keeps today's status
