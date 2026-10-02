@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.Authentication;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using NetArchTest.Rules;
+using Shouldly;
 
 namespace DKNet.Notification.App.Tests.Scaffold;
 
@@ -21,14 +23,14 @@ public sealed class EmptyServiceScaffoldTests
     /// <summary>Package-id patterns of every part §3 removes, labelled with the part they belong to.</summary>
     private static readonly (string Part, Regex PackageId)[] RemovedPackageParts =
     [
-        ("database driver", new Regex(
-            @"^(Npgsql|Microsoft\.Data\.SqlClient|System\.Data\.SqlClient|Microsoft\.Data\.Sqlite|MySqlConnector|MySql\.Data|Oracle\.)",
-            IgnoreCase)),
+        ("database driver", new Regex(@"Npgsql|SqlClient|Sqlite|MySql|Oracle\.", IgnoreCase)),
         ("database server", new Regex("PostgreSql", IgnoreCase)),
-        ("EF Core", new Regex(@"^Microsoft\.EntityFrameworkCore", IgnoreCase)),
+        // Unanchored: EF Core also arrives in packages named after their own vendor, such as
+        // Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore or LinqKit.Microsoft.EntityFrameworkCore.
+        ("EF Core", new Regex(@"EntityFrameworkCore|EFCore|\.EF$", IgnoreCase)),
         ("DKNet.EfCore", new Regex(@"^DKNet\.EfCore\.", IgnoreCase)),
         ("DKNet.SlimBus", new Regex(@"^DKNet\.SlimBus\.", IgnoreCase)),
-        ("message bus", new Regex(@"^(SlimMessageBus|Azure\.Messaging\.ServiceBus)", IgnoreCase)),
+        ("message bus", new Regex("SlimMessageBus|ServiceBus|MassTransit|RabbitMQ", IgnoreCase)),
         ("typed client", new Regex(@"^Refit", IgnoreCase))
     ];
 
@@ -138,7 +140,7 @@ public sealed class EmptyServiceScaffoldTests
     {
         var files = SettingsFiles().Concat(Documents()).ToArray();
         files.ShouldContain("ApiEndpoints/DKNet.Notification.Api/appsettings.json");
-        files.ShouldContain("AGENTS.md");
+        files.ShouldContain("README.md");
 
         var offenders = files
             .SelectMany(file => File.ReadLines(ScaffoldRepo.FullPath(file))
@@ -201,6 +203,13 @@ public sealed class EmptyServiceScaffoldTests
     [Fact]
     public async Task EntraIdBearerTokenIsTheOnlySignInMethod()
     {
+        // No demo sign-in method exists, registered or not: the service's own code holds no sign-in handler.
+        ScaffoldRepo.ServiceAssemblies()
+            .SelectMany(a => a.GetTypes())
+            .Where(t => typeof(IAuthenticationHandler).IsAssignableFrom(t))
+            .Select(t => t.FullName)
+            .ShouldBeEmpty();
+
         // Deployed (base) settings: the JWT bearer handler, which validates Entra ID tokens, and nothing else.
         (await SignInMethodsAsync("Production")).ShouldBe([("Bearer", typeof(JwtBearerHandler))]);
 
@@ -211,13 +220,6 @@ public sealed class EmptyServiceScaffoldTests
             methods.Where(m => m != ("Bearer", typeof(JwtBearerHandler))).ShouldBeEmpty(
                 $"{environment} registers: {string.Join(", ", methods)}");
         }
-
-        // No demo sign-in method exists, registered or not: the service's own code holds no sign-in handler.
-        ScaffoldRepo.ServiceAssemblies()
-            .SelectMany(a => a.GetTypes())
-            .Where(t => typeof(IAuthenticationHandler).IsAssignableFrom(t))
-            .Select(t => t.FullName)
-            .ShouldBeEmpty();
     }
 
     #endregion
