@@ -2,9 +2,6 @@
 
     <PropertyGroup>
         <IsPackable>false</IsPackable>
-        <!-- The @redis scenario needs Docker; keep it out of a bare "dotnet test" run (still runnable via an
-             explicit filter targeting TestCategory=redis). -->
-        <VSTestTestCaseFilter>TestCategory!=redis</VSTestTestCaseFilter>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -25,7 +22,6 @@
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing"/>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
         <PackageReference Include="Microsoft.NET.Test.Sdk"/>
         <PackageReference Include="NUnit"/>
         <PackageReference Include="NUnit.Analyzers">

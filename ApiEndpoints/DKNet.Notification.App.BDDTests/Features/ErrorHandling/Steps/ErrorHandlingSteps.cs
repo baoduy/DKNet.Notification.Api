@@ -1,10 +1,7 @@
-using System.Net.Http.Json;
-using DKNet.Notification.App.BDDTests.Features.PurchaseOrders.Steps;
-
 namespace DKNet.Notification.App.BDDTests.Features.ErrorHandling.Steps;
 
 [Binding]
-public sealed class ErrorHandlingSteps(HttpClient client, ScenarioState state, PurchaseOrderSteps purchaseOrderSteps)
+public sealed class ErrorHandlingSteps(HttpClient client, ScenarioState state)
 {
     #region Given
 
@@ -27,32 +24,12 @@ public sealed class ErrorHandlingSteps(HttpClient client, ScenarioState state, P
     #region When
 
     [When("storefront sends a request that raises an unexpected error")]
-    public async Task WhenStorefrontSendsARequestThatRaisesAnUnexpectedError()
-    {
-        // Creating a purchase order maps its entity to the response DTO in the same request — the
-        // trigger-aware IMapper throws there, a genuine unhandled exception from inside the handler an
-        // existing route already calls.
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/purchase-orders")
-        {
-            Content = JsonContent.Create(new
-            {
-                customerName = UnexpectedErrorTriggerMapper.TriggerValue,
-                amount = 10.00m
-            })
-        };
-        request.Headers.Add("X-Idempotency-Key", Guid.NewGuid().ToString());
-
-        state.Response = await client.SendAsync(request);
-        state.ResponseBody = await state.Response.Content.ReadAsStringAsync();
-    }
+    public Task WhenStorefrontSendsARequestThatRaisesAnUnexpectedError() =>
+        GetAsync(TestOnlyRoutes.UnexpectedErrorPath);
 
     [When(@"an endpoint of that service answers a command failure marked ""precondition""")]
-    public async Task WhenAnEndpointAnswersACommandFailureMarkedPrecondition()
-    {
-        await purchaseOrderSteps.GivenAPurchaseOrderExists("Precondition Co", 10.00m);
-        await purchaseOrderSteps.WhenICancelThatPurchaseOrder();
-        await purchaseOrderSteps.WhenICancelThatPurchaseOrder();
-    }
+    public Task WhenAnEndpointAnswersACommandFailureMarkedPrecondition() =>
+        GetAsync(TestOnlyRoutes.PreconditionFailurePath);
 
     #endregion
 
@@ -85,4 +62,10 @@ public sealed class ErrorHandlingSteps(HttpClient client, ScenarioState state, P
     }
 
     #endregion
+
+    private async Task GetAsync(string path)
+    {
+        state.Response = await client.GetAsync(path);
+        state.ResponseBody = await state.Response.Content.ReadAsStringAsync();
+    }
 }

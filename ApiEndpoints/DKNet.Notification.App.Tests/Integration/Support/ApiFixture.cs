@@ -6,10 +6,10 @@ public sealed class ApiFixture : TestApiFactoryBase, IAsyncLifetime
 {
     #region Methods
 
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
         _ = CreateClient();
-        await ResetDatabaseAsync();
+        return Task.CompletedTask;
     }
 
     Task IAsyncLifetime.DisposeAsync() => Task.CompletedTask;

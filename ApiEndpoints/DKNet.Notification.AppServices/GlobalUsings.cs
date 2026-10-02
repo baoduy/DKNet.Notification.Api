@@ -1,14 +1,1 @@
-global using DKNet.AspCore.Extensions.ModelBinding;
-global using DKNet.SlimBus.Extensions;
-global using System.ComponentModel.DataAnnotations;
-global using System.Security.Claims;
-global using System.Text.Json.Serialization;
-global using FluentResults;
-global using DKNet.Notification.Domains.Services;
-global using Microsoft.Extensions.DependencyInjection;
-global using FluentValidation;
-global using Mapster;
-global using MapsterMapper;
-global using DKNet.Notification.AppServices.Extensions;
-global using DKNet.SlimBus.Extensions.LazyMapper;
 global using DKNet.Notification.AppServices.Share;

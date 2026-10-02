@@ -11,16 +11,6 @@ public static class SharedConsts
     #region Properties
 
     /// <summary>
-    ///     Gets the connection string name for Azure Service Bus.
-    /// </summary>
-    public static string AzureBusConnectionString => "AzureBus";
-
-    /// <summary>
-    ///     Gets the connection string name for the application database.
-    /// </summary>
-    public static string DbConnectionString => "AppDb";
-
-    /// <summary>
     ///     Gets the connection string name for Redis cache.
     /// </summary>
     public static string RedisConnectionString => "Redis";
@@ -29,12 +19,6 @@ public static class SharedConsts
     ///     Gets the system account identifier.
     /// </summary>
     public static string SystemAccount => "System";
-
-    /// <summary>
-    ///     Gets the demonstration authentication provider's fixed acting-user identity. Uses the
-    ///     <c>.invalid</c> TLD (reserved by RFC 2606) so it can never resolve to a real address.
-    /// </summary>
-    public static string DemoAccount => "demo-user@not-a-real-identity.invalid";
 
     #endregion
 

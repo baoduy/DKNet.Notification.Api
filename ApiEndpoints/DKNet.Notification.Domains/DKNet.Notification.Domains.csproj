@@ -8,20 +8,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DKNet.EfCore.Abstractions"/>
-        <PackageReference Include="DKNet.EfCore.DataAuthorization"/>
-        <PackageReference Include="DKNet.EfCore.DtoGenerator">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-    </ItemGroup>
-
-    <ItemGroup>
         <ProjectReference Include="..\DKNet.Notification.Share\DKNet.Notification.Share.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <InternalsVisibleTo Include="DKNet.Notification.App.Tests"/>
-        <InternalsVisibleTo Include="DKNet.Notification.Infra"/>
     </ItemGroup>
 </Project>

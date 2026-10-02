@@ -25,36 +25,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <!-- SampleDataGenerator is internal — every other project already exposes internals to the test
-             project the same way (DKNet.Notification.Infra/DKNet.Notification.Api/DKNet.Notification.Domains/DKNet.Notification.AppServices csproj).
-             Test-only visibility, no logic change. -->
-        <InternalsVisibleTo Include="DKNet.Notification.App.Tests" />
-    </ItemGroup>
-
-    <ItemGroup>
         <PackageReference Include="Aspire.Hosting.Redis" />
-        <PackageReference Include="Aspire.Hosting.PostgreSQL" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" />
-        <PackageReference Include="Bogus" />
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
-        <PackageReference Include="DKNet.EfCore.Extensions" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\DKNet.Notification.Api\DKNet.Notification.Api.csproj" />
-        <!-- Transitive references through DKNet.Notification.Api do not surface DKNet.Notification.Domains/DKNet.Notification.Infra
-             types at compile time — needed directly for sample-data generation (Product, PurchaseOrder,
-             InfraSetup, Sequences). IsAspireProjectResource="false": these are plain library references,
-             not Aspire-orchestrated project resources (ASPIRE004). -->
-        <ProjectReference Include="..\DKNet.Notification.Domains\DKNet.Notification.Domains.csproj" IsAspireProjectResource="false" />
-        <ProjectReference Include="..\DKNet.Notification.Infra\DKNet.Notification.Infra.csproj" IsAspireProjectResource="false" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <None Update="Configs\busConfig.json">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
     </ItemGroup>
 
     <ItemGroup>

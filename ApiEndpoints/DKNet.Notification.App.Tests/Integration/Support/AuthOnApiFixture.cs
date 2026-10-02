@@ -20,12 +20,10 @@ namespace DKNet.Notification.App.Tests.Integration.Support;
 public sealed class AuthOnApiFixture : TestApiFactoryBase, IAsyncLifetime
 {
     private const string RequireAuthorizationEnvKey = "FeatureManagement__RequireAuthorization";
-    private const string EnableDemoAuthenticationEnvKey = "FeatureManagement__EnableDemoAuthentication";
 
     public AuthOnApiFixture()
     {
         Environment.SetEnvironmentVariable(RequireAuthorizationEnvKey, "true");
-        Environment.SetEnvironmentVariable(EnableDemoAuthenticationEnvKey, "false");
     }
 
     #region Methods
@@ -36,10 +34,10 @@ public sealed class AuthOnApiFixture : TestApiFactoryBase, IAsyncLifetime
         TestAuthHandler.Register(services);
     }
 
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
         _ = CreateClient();
-        await ResetDatabaseAsync();
+        return Task.CompletedTask;
     }
 
     Task IAsyncLifetime.DisposeAsync() => Task.CompletedTask;
@@ -47,7 +45,6 @@ public sealed class AuthOnApiFixture : TestApiFactoryBase, IAsyncLifetime
     protected override void Dispose(bool disposing)
     {
         Environment.SetEnvironmentVariable(RequireAuthorizationEnvKey, null);
-        Environment.SetEnvironmentVariable(EnableDemoAuthenticationEnvKey, null);
         base.Dispose(disposing);
     }
 

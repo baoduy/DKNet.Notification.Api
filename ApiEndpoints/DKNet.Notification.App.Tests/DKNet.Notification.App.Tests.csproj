@@ -20,15 +20,11 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory"/>
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk"/>
         <PackageReference Include="NetArchTest.Rules"/>
-        <PackageReference Include="AutoBogus"/>
-        <PackageReference Include="Bogus"/>
         <PackageReference Include="Moq"/>
         <PackageReference Include="Shouldly"/>
-        <PackageReference Include="Testcontainers.PostgreSql"/>
         <PackageReference Include="xunit"/>
         <PackageReference Include="xunit.runner.visualstudio">
             <PrivateAssets>all</PrivateAssets>
@@ -46,13 +42,6 @@
         <ProjectReference Include="..\DKNet.Notification.Api\DKNet.Notification.Api.csproj" />
         <ProjectReference Include="..\DKNet.Notification.App.TestSupport\DKNet.Notification.App.TestSupport.csproj" />
         <ProjectReference Include="..\DKNet.Notification.AppHost\DKNet.Notification.AppHost.csproj" />
-        <ProjectReference Include="..\DKNet.Notification.Client\DKNet.Notification.Client.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <None Update="Data\busConfig.json">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
     </ItemGroup>
 
 </Project>

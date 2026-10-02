@@ -14,7 +14,6 @@
 
     <ItemGroup>
         <PackageReference Include="Asp.Versioning.Http" />
-        <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />
         <PackageReference Include="Azure.Identity" />
         <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
         <PackageReference Include="DKNet.AspCore.Extensions" />
@@ -26,7 +25,6 @@
         <PackageReference Include="Microsoft.Azure.AppConfiguration.AspNetCore" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
-        <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
         <PackageReference Include="Microsoft.FeatureManagement.AspNetCore" />
         <PackageReference Include="OpenTelemetry" />
         <PackageReference Include="OwaspHeaders.Core" />
@@ -40,7 +38,6 @@
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\DKNet.Notification.AppServices\DKNet.Notification.AppServices.csproj" />
-        <ProjectReference Include="..\DKNet.Notification.Infra\DKNet.Notification.Infra.csproj" />
     </ItemGroup>
 
     <ItemGroup>

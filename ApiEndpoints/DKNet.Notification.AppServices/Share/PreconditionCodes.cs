@@ -12,11 +12,5 @@ public static class PreconditionCodes
 
     public const string Prefix = "precondition.";
 
-    public const string ProductNameTaken = $"{Prefix}product-name-taken";
-
-    public const string ProductDeleteWhileForSale = $"{Prefix}product-delete-while-for-sale";
-
-    public const string PurchaseOrderAlreadyCancelled = $"{Prefix}purchase-order-already-cancelled";
-
     #endregion
 }

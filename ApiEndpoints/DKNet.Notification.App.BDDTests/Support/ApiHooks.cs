@@ -34,15 +34,14 @@ public sealed class ApiHooks(IObjectContainer objectContainer)
     }
 
     /// <summary>
-    /// Resets scenario data and registers shared dependencies in Reqnroll's <see cref="IObjectContainer"/>.
+    /// Clears captured logs and registers shared dependencies in Reqnroll's <see cref="IObjectContainer"/>.
     /// Any <c>[Binding]</c> class can inject <see cref="HttpClient"/>, <see cref="ScenarioState"/>, and <see cref="BddApiFactory"/>.
     /// To add a new feature, create <c>Features/&lt;Domain&gt;/&lt;Action&gt;.feature</c> and matching
     /// <c>Features/&lt;Domain&gt;/Steps/&lt;Action&gt;Steps.cs</c>; Reqnroll auto-discovers bindings without csproj edits.
     /// </summary>
     [BeforeScenario(Order = 0)]
-    public async Task BeforeScenarioAsync()
+    public void BeforeScenario()
     {
-        await _factory.ResetDatabaseAsync();
         _factory.LogCapture.Clear();
         objectContainer.RegisterInstanceAs<HttpClient>(_client);
         objectContainer.RegisterInstanceAs(_factory);

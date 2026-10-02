@@ -5,51 +5,7 @@
         <ImplicitUsings>true</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
-        <!-- This is required for DKNet.EfCore.DtoGenerator to emit generated files -->
-        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
-        <!-- Force analyzer to reload on every build to avoid caching issues -->
-        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     </PropertyGroup>
-
-    <!-- Custom target to copy generated DTOs to project/GeneratedDtos folder, flattening structure and preserving names/extensions -->
-<!--    <Target Name="CopyGeneratedDtosToOutputFolder" AfterTargets="CoreCompile" Condition="Exists('$(CompilerGeneratedFilesOutputPath)')">-->
-<!--        <ItemGroup>-->
-<!--            <GeneratedDtoFiles Include="$(CompilerGeneratedFilesOutputPath)\**\*.g.cs"/>-->
-<!--        </ItemGroup>-->
-<!--        <MakeDir Directories="$(ProjectDir)GeneratedDtos"/>-->
-<!--        <Copy SourceFiles="@(GeneratedDtoFiles)" DestinationFiles="$(ProjectDir)GeneratedDtos\%(Filename)%(Extension)" SkipUnchangedFiles="false" OverwriteReadOnlyFiles="true"/>-->
-<!--        <Message Text="Copied %(Filename)%(Extension) to $(ProjectDir)GeneratedDtos" Importance="high"/>-->
-<!--    </Target>-->
-
-    <!-- Exclude generated DTOs from compilation, but keep them visible in Solution Explorer -->
-<!--    <ItemGroup>-->
-<!--        <Compile Remove="GeneratedDtos\**\*.cs"/>-->
-<!--        <None Include="GeneratedDtos\**\*.cs"/>-->
-<!--    </ItemGroup>-->
-
-    <ItemGroup>
-        <PackageReference Include="DKNet.EfCore.DtoGenerator">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <PackageReference Include="DKNet.EfCore.Specifications" />
-        <PackageReference Include="DKNet.EfCore.AuditLogs" />
-        <PackageReference Include="FluentValidation" />
-        <PackageReference Include="ForEvolve.FluentValidation.AspNetCore.Http"/>
-        <PackageReference Include="Mapster.DependencyInjection"/>
-        <PackageReference Include="SlimMessageBus"/>
-        <PackageReference Include="Microsoft.Extensions.Configuration.Binder"/>
-        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions"/>
-        <PackageReference Include="DKNet.SlimBus.Extensions"/>
-        <!-- [FromClaim] declaration + AddContextualRequestPopulation for the six request models' ByUser (DRK-565) -->
-        <PackageReference Include="DKNet.AspCore.Extensions"/>
-        <PackageReference Include="DKNet.Fw.Extensions"/>
-        <PackageReference Include="DKNet.SlimBus.Generators">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\DKNet.Notification.Domains\DKNet.Notification.Domains.csproj" />

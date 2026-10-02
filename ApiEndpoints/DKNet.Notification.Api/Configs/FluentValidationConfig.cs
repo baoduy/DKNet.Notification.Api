@@ -1,6 +1,5 @@
 using DKNet.AspCore.Extensions.Responses;
 using FluentValidation;
-using DKNet.Notification.Infra.Contexts;
 
 namespace DKNet.Notification.Api.Configs;
 
@@ -16,10 +15,9 @@ internal static class FluentValidationConfig
 
     /// <summary>
     /// R1/R3: the template's one <see cref="ErrorResponseOptions" /> registration — it answers a failed
-    /// command, refused validation input and an unhandled error alike (the generated CRUD routes already
-    /// resolve it via <c>[FromServices]</c>). A refusal whose error carries a
-    /// <see cref="PreconditionCodes.Prefix" />-prefixed code answers 409; an unhandled
-    /// <see cref="OwnershipRequiredException" /> answers 403; every other refusal keeps today's status
+    /// command, refused validation input and an unhandled error alike (a route resolves it via
+    /// <c>[FromServices]</c>). A refusal whose error carries a
+    /// <see cref="PreconditionCodes.Prefix" />-prefixed code answers 409; every other refusal keeps today's status
     /// (R4: the body carries only <c>traceId</c> and this service-chosen code, never a database message).
     /// </summary>
     public static WebApplicationBuilder AddFluentValidationConfig(this WebApplicationBuilder builder)
@@ -27,17 +25,10 @@ internal static class FluentValidationConfig
         builder.Services.AddErrorResponses(o =>
         {
             o.StatusCode = ctx =>
-            {
-                if (ctx.Source == ErrorSource.Unhandled && ctx.Exception is OwnershipRequiredException)
-                {
-                    return StatusCodes.Status403Forbidden;
-                }
-
-                return ctx.Errors.Any(e =>
+                ctx.Errors.Any(e =>
                     e.Code is not null && e.Code.StartsWith(PreconditionCodes.Prefix, StringComparison.Ordinal))
                     ? StatusCodes.Status409Conflict
                     : null;
-            };
 
             o.Customize = (problemDetails, ctx) =>
             {
@@ -52,7 +43,7 @@ internal static class FluentValidationConfig
                 }
             };
         });
-        builder.Services.AddValidatorsFromAssembly(typeof(AppSetup).Assembly, includeInternalTypes: true);
+        builder.Services.AddValidatorsFromAssembly(typeof(PreconditionCodes).Assembly, includeInternalTypes: true);
 
         return builder;
     }
