@@ -6,6 +6,8 @@ Feature: Send API: the send endpoint, sign-in, idempotency and skip
   #   - "A call refused for its body holds no key" is an outline, with a 413 row next to the INVALID_REQUEST row;
   #   - the caller-id outline keeps its actor name "treasury-ops" (the gate allowed, not required, a rename).
   # Every expected value in the step definitions is a literal from the spec.
+  # DRK-2020 §3 Step 5 (brief DRK-2025 row 14): this host keeps email off, so an email call is now skipped with
+  # "ChannelNotConfigured"; every other channel keeps "ChannelNotSupported".
 
   Rule: A valid call is accepted, logged and skipped
 
@@ -17,25 +19,25 @@ Feature: Send API: the send endpoint, sign-in, idempotency and skip
     Scenario: A valid email call is accepted and skipped
       When "treasury-ops" asks to email template "account-opened" to "jane@example.com" with key "k-1001"
       Then the call is accepted with a new notification id
-      And exactly 1 skip warning is logged with reason "ChannelNotSupported" and caller "treasury-ops"
+      And exactly 1 skip warning is logged with reason "ChannelNotConfigured" and caller "treasury-ops"
 
     @integration
     Scenario Outline: Every channel is skipped in this release
       When "treasury-ops" sends template "account-opened" on channel "<sent>"
       Then the call is accepted with a new notification id
-      And the skip warning names channel "<logged>" and reason "ChannelNotSupported"
+      And the skip warning names channel "<logged>" and reason "<reason>"
 
       Examples:
-        | sent     | logged   |
-        | email    | email    |
-        | Teams    | teams    |
-        | whatsapp | whatsapp |
+        | sent     | logged   | reason               |
+        | email    | email    | ChannelNotConfigured |
+        | Teams    | teams    | ChannelNotSupported  |
+        | whatsapp | whatsapp | ChannelNotSupported  |
 
     @integration
     Scenario: An email call with an empty parameter list is still skipped in this release
       When "treasury-ops" sends template "account-opened" on channel "email" with an empty parameter list
       Then the call is accepted with a new notification id
-      And the skip warning names reason "ChannelNotSupported"
+      And the skip warning names reason "ChannelNotConfigured"
 
     @integration
     Scenario: No personal data reaches the logs

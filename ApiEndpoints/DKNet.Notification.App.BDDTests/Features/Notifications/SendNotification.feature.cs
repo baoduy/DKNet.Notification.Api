@@ -120,7 +120,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A valid email call is accepted and skipped", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A valid call is accepted, logged and skipped", null, tagsOfRule);
-#line 17
+#line 19
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -130,22 +130,22 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 13
+#line 15
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 14
+#line 16
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 18
+#line 20
       await testRunner.WhenAsync("\"treasury-ops\" asks to email template \"account-opened\" to \"jane@example.com\" with" +
                         " key \"k-1001\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 19
+#line 21
       await testRunner.ThenAsync("the call is accepted with a new notification id", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 20
-      await testRunner.AndAsync("exactly 1 skip warning is logged with reason \"ChannelNotSupported\" and caller \"tr" +
-                        "easury-ops\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line 22
+      await testRunner.AndAsync("exactly 1 skip warning is logged with reason \"ChannelNotConfigured\" and caller \"t" +
+                        "reasury-ops\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -154,10 +154,10 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         [global::NUnit.Framework.TestAttribute()]
         [global::NUnit.Framework.DescriptionAttribute("Every channel is skipped in this release")]
         [global::NUnit.Framework.CategoryAttribute("integration")]
-        [global::NUnit.Framework.TestCaseAttribute("email", "email", "1", null)]
-        [global::NUnit.Framework.TestCaseAttribute("Teams", "teams", "2", null)]
-        [global::NUnit.Framework.TestCaseAttribute("whatsapp", "whatsapp", "3", null)]
-        public async global::System.Threading.Tasks.Task EveryChannelIsSkippedInThisRelease(string sent, string logged, string @__pickleIndex, string[] exampleTags)
+        [global::NUnit.Framework.TestCaseAttribute("email", "email", "ChannelNotConfigured", "1", null)]
+        [global::NUnit.Framework.TestCaseAttribute("Teams", "teams", "ChannelNotSupported", "2", null)]
+        [global::NUnit.Framework.TestCaseAttribute("whatsapp", "whatsapp", "ChannelNotSupported", "3", null)]
+        public async global::System.Threading.Tasks.Task EveryChannelIsSkippedInThisRelease(string sent, string logged, string reason, string @__pickleIndex, string[] exampleTags)
         {
             string[] @__tags = new string[] {
                     "integration"};
@@ -169,11 +169,12 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             argumentsOfScenario.Add("sent", sent);
             argumentsOfScenario.Add("logged", logged);
+            argumentsOfScenario.Add("reason", reason);
             string pickleIndex = @__pickleIndex;
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Every channel is skipped in this release", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A valid call is accepted, logged and skipped", null, tagsOfRule);
-#line 23
+#line 25
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -183,20 +184,20 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 13
+#line 15
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 14
+#line 16
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 24
+#line 26
       await testRunner.WhenAsync(string.Format("\"treasury-ops\" sends template \"account-opened\" on channel \"{0}\"", sent), ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 25
+#line 27
       await testRunner.ThenAsync("the call is accepted with a new notification id", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 26
-      await testRunner.AndAsync(string.Format("the skip warning names channel \"{0}\" and reason \"ChannelNotSupported\"", logged), ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line 28
+      await testRunner.AndAsync(string.Format("the skip warning names channel \"{0}\" and reason \"{1}\"", logged, reason), ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -214,7 +215,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("An email call with an empty parameter list is still skipped in this release", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A valid call is accepted, logged and skipped", null, tagsOfRule);
-#line 35
+#line 37
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -224,21 +225,21 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 13
+#line 15
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 14
+#line 16
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 36
+#line 38
       await testRunner.WhenAsync("\"treasury-ops\" sends template \"account-opened\" on channel \"email\" with an empty p" +
                         "arameter list", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 37
+#line 39
       await testRunner.ThenAsync("the call is accepted with a new notification id", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 38
-      await testRunner.AndAsync("the skip warning names reason \"ChannelNotSupported\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line 40
+      await testRunner.AndAsync("the skip warning names reason \"ChannelNotConfigured\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -256,7 +257,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("No personal data reaches the logs", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A valid call is accepted, logged and skipped", null, tagsOfRule);
-#line 41
+#line 43
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -266,17 +267,17 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 13
+#line 15
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 14
+#line 16
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 42
+#line 44
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\" for custome" +
                         "r \"Jane Tan\" and account \"0012345678\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 43
+#line 45
       await testRunner.ThenAsync("no log entry holds \"jane@example.com\", \"Jane Tan\" or \"0012345678\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -304,7 +305,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("The permission is read from any of its 3 claims", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("Only a signed-in caller with the permission may send", null, tagsOfRule);
-#line 51
+#line 53
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -314,16 +315,16 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 48
+#line 50
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 52
+#line 54
       await testRunner.GivenAsync(string.Format("\"card-ops\" holds a token with \"notifications.send\" in its \"{0}\" claim", claim), ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 53
+#line 55
       await testRunner.WhenAsync("\"card-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 54
+#line 56
       await testRunner.ThenAsync("the call is accepted with a new notification id", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -353,7 +354,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A caller without a good token is refused before anything else", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("Only a signed-in caller with the permission may send", null, tagsOfRule);
-#line 63
+#line 65
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -363,19 +364,19 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 48
+#line 50
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 64
+#line 66
       await testRunner.GivenAsync(string.Format("\"card-ops\" calls with {0}", credential), ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 65
+#line 67
       await testRunner.WhenAsync("\"card-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 66
+#line 68
       await testRunner.ThenAsync(string.Format("the call is refused with status {0} and an empty body", status), ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 67
+#line 69
       await testRunner.AndAsync("no skip warning is logged", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -406,7 +407,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("The caller id comes from the first caller claim", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("Only a signed-in caller with the permission may send", null, tagsOfRule);
-#line 77
+#line 79
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -416,17 +417,17 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 48
+#line 50
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 78
+#line 80
       await testRunner.GivenAsync(string.Format("\"treasury-ops\" holds a token with the permission, \"{0}\" in its \"{1}\" claim and \"{" +
                             "2}\" in its \"{3}\" claim", first, firstClaim, second, secondClaim), ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 79
+#line 81
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 80
+#line 82
       await testRunner.ThenAsync(string.Format("the skip warning names caller \"{0}\"", first), ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -445,7 +446,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A local run without sign-in shows the skip", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A local run without sign-in uses the caller \"System\"", null, tagsOfRule);
-#line 91
+#line 93
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -455,18 +456,18 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 92
+#line 94
       await testRunner.GivenAsync("a developer runs the service locally with its released template catalogue and sig" +
                         "n-in off", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 93
+#line 95
       await testRunner.WhenAsync("the developer emails template \"account-opened\" to \"jane@example.com\" with key \"k-" +
                         "3001\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 94
+#line 96
       await testRunner.ThenAsync("the call is accepted with a new notification id", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 95
+#line 97
       await testRunner.AndAsync("the skip warning names caller \"System\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -485,7 +486,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A repeated call is answered with the first answer", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A repeated call is never processed twice", null, tagsOfRule);
-#line 104
+#line 106
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -495,23 +496,23 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 100
+#line 102
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 101
+#line 103
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 105
+#line 107
       await testRunner.GivenAsync("\"treasury-ops\" emailed template \"account-opened\" to \"jane@example.com\" with key \"" +
                         "k-1002\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 106
+#line 108
       await testRunner.WhenAsync("\"treasury-ops\" sends the same call again with key \"k-1002\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 107
+#line 109
       await testRunner.ThenAsync("the second answer carries the same notification id as the first", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 108
+#line 110
       await testRunner.AndAsync("exactly 1 skip warning is logged, and the accepted count rose by 1", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -530,7 +531,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A new token for the same caller keeps the replay", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A repeated call is never processed twice", null, tagsOfRule);
-#line 111
+#line 113
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -540,23 +541,23 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 100
+#line 102
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 101
+#line 103
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 112
+#line 114
       await testRunner.GivenAsync("\"treasury-ops\" emailed template \"account-opened\" with key \"k-1003\" on its first t" +
                         "oken", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 113
+#line 115
       await testRunner.WhenAsync("\"treasury-ops\" sends the same call with key \"k-1003\" on a new token", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 114
+#line 116
       await testRunner.ThenAsync("the second answer carries the same notification id as the first", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 115
+#line 117
       await testRunner.AndAsync("exactly 1 skip warning is logged", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -575,7 +576,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("2 callers can use the same key", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A repeated call is never processed twice", null, tagsOfRule);
-#line 118
+#line 120
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -585,25 +586,25 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 100
+#line 102
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 101
+#line 103
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 119
+#line 121
       await testRunner.GivenAsync("\"card-ops\" is also a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 120
+#line 122
       await testRunner.AndAsync("\"treasury-ops\" emailed template \"account-opened\" with key \"k-2001\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 121
+#line 123
       await testRunner.WhenAsync("\"card-ops\" emails template \"account-opened\" with key \"k-2001\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 122
+#line 124
       await testRunner.ThenAsync("\"card-ops\" gets a different notification id from \"treasury-ops\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 123
+#line 125
       await testRunner.AndAsync("2 skip warnings are logged", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -632,7 +633,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A key is held for 30 seconds after a refused call", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A repeated call is never processed twice", null, tagsOfRule);
-#line 126
+#line 128
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -642,20 +643,20 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 100
+#line 102
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 101
+#line 103
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 127
+#line 129
       await testRunner.GivenAsync(string.Format("\"treasury-ops\" sent template \"account-closed\" with key \"{0}\" and was refused with" +
                             " \"TEMPLATE_NOT_FOUND\"", key), ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 128
+#line 130
       await testRunner.WhenAsync(string.Format("\"treasury-ops\" sends template \"account-opened\" with key \"{0}\" {1} later", key, wait), ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 129
+#line 131
       await testRunner.ThenAsync(string.Format("the second call {0}", result), ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -684,7 +685,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A call refused for its body holds no key", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A repeated call is never processed twice", null, tagsOfRule);
-#line 137
+#line 139
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -694,19 +695,19 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 100
+#line 102
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 101
+#line 103
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 138
+#line 140
       await testRunner.GivenAsync(string.Format("\"treasury-ops\" sent {0} and key \"{1}\" and was refused with {2}", refusedCall, key, refusal), ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 139
+#line 141
       await testRunner.WhenAsync(string.Format("\"treasury-ops\" emails template \"account-opened\" with key \"{0}\" at once", key), ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 140
+#line 142
       await testRunner.ThenAsync("the second call is accepted with a new notification id", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -725,7 +726,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A repeat of a call that is still running is refused", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A repeated call is never processed twice", null, tagsOfRule);
-#line 148
+#line 150
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -735,22 +736,22 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 100
+#line 102
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 101
+#line 103
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 149
+#line 151
       await testRunner.GivenAsync("\"treasury-ops\" emailed template \"account-opened\" with key \"k-4003\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 150
+#line 152
       await testRunner.AndAsync("the service is still working on that call", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 151
+#line 153
       await testRunner.WhenAsync("\"treasury-ops\" sends the same call again with key \"k-4003\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 152
+#line 154
       await testRunner.ThenAsync("the second call is refused with status 409", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -778,7 +779,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A bad idempotency key is refused", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A repeated call is never processed twice", null, tagsOfRule);
-#line 155
+#line 157
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -788,19 +789,19 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 100
+#line 102
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 101
+#line 103
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 156
+#line 158
       await testRunner.WhenAsync(string.Format("\"treasury-ops\" emails template \"account-opened\" with {0}", key), ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 157
+#line 159
       await testRunner.ThenAsync("the call is refused with status 400", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 158
+#line 160
       await testRunner.AndAsync("no skip warning is logged", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -819,7 +820,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A body larger than 64 KB is refused", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The body and the template are checked before the skip", null, tagsOfRule);
-#line 173
+#line 175
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -829,16 +830,16 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 169
+#line 171
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 170
+#line 172
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 174
+#line 176
       await testRunner.WhenAsync("\"treasury-ops\" sends a call whose body is 65,537 bytes", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 175
+#line 177
       await testRunner.ThenAsync("the call is refused with status 413", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -872,7 +873,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A body that breaks a field rule is refused", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The body and the template are checked before the skip", null, tagsOfRule);
-#line 178
+#line 180
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -882,19 +883,19 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 169
+#line 171
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 170
+#line 172
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 179
+#line 181
       await testRunner.WhenAsync(string.Format("\"treasury-ops\" sends a call with {0}", fault), ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 180
+#line 182
       await testRunner.ThenAsync("the call is refused with \"INVALID_REQUEST\" and a trace id", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 181
+#line 183
       await testRunner.AndAsync("1 rejection entry is logged with \"INVALID_REQUEST\", and the rejected count for it" +
                         " rose by 1", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
@@ -922,7 +923,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("An unknown template is refused", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The body and the template are checked before the skip", null, tagsOfRule);
-#line 196
+#line 198
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -932,19 +933,19 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 169
+#line 171
       await testRunner.GivenAsync("the service runs with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 170
+#line 172
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 197
+#line 199
       await testRunner.WhenAsync(string.Format("\"treasury-ops\" emails template \"{0}\" to \"jane@example.com\"", template), ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 198
+#line 200
       await testRunner.ThenAsync("the call is refused with \"TEMPLATE_NOT_FOUND\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 199
+#line 201
       await testRunner.AndAsync(string.Format("1 rejection entry is logged with \"TEMPLATE_NOT_FOUND\" and template \"{0}\"", template), ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -963,7 +964,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("The catalogue does not change while the service runs", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The service checks its set-up when it starts, and its health check stays quiet", null, tagsOfRule);
-#line 209
+#line 211
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -973,20 +974,20 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 210
+#line 212
       await testRunner.GivenAsync("the service started with its released template catalogue and sign-in on", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 211
+#line 213
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 212
+#line 214
       await testRunner.AndAsync("the template settings are changed to remove \"account-opened\" while the service ru" +
                         "ns", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 213
+#line 215
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 214
+#line 216
       await testRunner.ThenAsync("the call is accepted with a new notification id", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }

@@ -32,6 +32,7 @@ public sealed class ApiHooks(IObjectContainer objectContainer)
     {
         await _factory.DisposeAsync();
         await RedisServer.StopAsync();
+        await MailCatcher.StopSharedAsync();
     }
 
     /// <summary>

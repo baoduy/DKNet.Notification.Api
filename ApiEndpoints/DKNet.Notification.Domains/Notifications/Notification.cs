@@ -59,6 +59,15 @@ public sealed class Notification
     /// <summary>Gets why the notification is skipped; <see langword="null" /> unless <see cref="Status" /> is Skipped.</summary>
     public SkipReason? SkipReason { get; private set; }
 
+    /// <summary>Gets the one address the email goes to; <see langword="null" /> until the notification is queued.</summary>
+    public EmailRecipient? Recipient { get; private set; }
+
+    /// <summary>Gets the filled subject and body; <see langword="null" /> until the notification is queued.</summary>
+    public RenderedMessage? RenderedMessage { get; private set; }
+
+    /// <summary>Gets how many delivery attempts were made: 0 to 3.</summary>
+    public int AttemptCount { get; private set; }
+
     #endregion
 
     #region Methods
@@ -91,6 +100,12 @@ public sealed class Notification
         Status = NotificationStatus.Skipped;
         SkipReason = reason;
     }
+
+    /// <summary>Queues the call for delivery, rendered once, here, before it is queued.</summary>
+    /// <param name="recipient">The one address the email goes to.</param>
+    /// <param name="renderedMessage">The filled subject and body.</param>
+    public void Queue(EmailRecipient recipient, RenderedMessage renderedMessage) =>
+        throw new NotImplementedException();
 
     private void EnsureReceived()
     {

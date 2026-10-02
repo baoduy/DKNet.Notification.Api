@@ -55,10 +55,17 @@ public sealed class SendScenario : IAsyncDisposable
 
     public IReadOnlyList<CapturedLogEntry> RejectionEntries => Entries(RejectedEvent);
 
+    /// <summary>What the host logged while it started, kept before the capture is cleared for the scenario.</summary>
+    public IReadOnlyList<CapturedLogEntry> StartupEntries { get; private set; } = [];
+
     #region Host
 
     /// <summary>Boots a fresh host and clears what its start-up logged, so the scenario sees only its own entries.</summary>
-    public async Task StartAsync(bool signIn, bool withRedis, string environment = "Testing")
+    public async Task StartAsync(
+        bool signIn,
+        bool withRedis,
+        string environment = "Testing",
+        IReadOnlyDictionary<string, string?>? settings = null)
     {
         string? redis = null;
         if (withRedis)
@@ -67,9 +74,10 @@ public sealed class SendScenario : IAsyncDisposable
             redis = await RedisServer.ConnectionStringAsync();
         }
 
-        _factory = new SendApiFactory(signIn, redis, environment);
+        _factory = new SendApiFactory(signIn, redis, environment, settings);
         _client = _factory.CreateClient();
         _metrics = new NotificationMetricsCapture(_factory.Services.GetRequiredService<IMeterFactory>());
+        StartupEntries = _factory.LogCapture.Entries.ToArray();
         _factory.LogCapture.Clear();
     }
 
@@ -178,7 +186,10 @@ public sealed class SendScenario : IAsyncDisposable
         }
 
         using var response = await _client.SendAsync(request);
-        return new Answer(caller, response.StatusCode, await response.Content.ReadAsStringAsync());
+        return new Answer(caller, response.StatusCode, await response.Content.ReadAsStringAsync())
+        {
+            RetryAfter = response.Headers.RetryAfter?.ToString()
+        };
     }
 
     #endregion
@@ -211,9 +222,13 @@ public sealed class SendScenario : IAsyncDisposable
     }
 
     /// <summary>400 problem details with a trace id and every error carrying <paramref name="code" />.</summary>
-    public static string ShouldBeRefusedWith(Answer answer, string code)
+    public static string ShouldBeRefusedWith(Answer answer, string code) =>
+        ShouldBeRefusedWith(answer, HttpStatusCode.BadRequest, code);
+
+    /// <summary>Problem details of <paramref name="status" /> with a trace id and every error carrying <paramref name="code" />.</summary>
+    public static string ShouldBeRefusedWith(Answer answer, HttpStatusCode status, string code)
     {
-        answer.Status.ShouldBe(HttpStatusCode.BadRequest, answer.Body);
+        answer.Status.ShouldBe(status, answer.Body);
         using var json = JsonDocument.Parse(answer.Body);
         var traceId = json.RootElement.GetProperty("traceId").GetString();
         traceId.ShouldNotBeNullOrWhiteSpace();
@@ -223,20 +238,24 @@ public sealed class SendScenario : IAsyncDisposable
         return traceId!;
     }
 
-    /// <summary>One skip warning with every field the spec names.</summary>
+    /// <summary>
+    /// One skip warning with every field the spec names. DRK-2020 §3 Step 5: an <c>email</c> call to a host with
+    /// email off is skipped with <c>ChannelNotConfigured</c>; every other channel keeps <c>ChannelNotSupported</c>.
+    /// </summary>
     public static void ShouldBeSkipEntry(
         CapturedLogEntry entry,
         string notificationId,
         string templateId,
         string channel,
-        string callerId)
+        string callerId,
+        string reason)
     {
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.Value("NotificationId").ShouldBe(notificationId);
         entry.Value("TemplateId").ShouldBe(templateId);
         entry.Value("Channel").ShouldBe(channel);
         entry.Value("CallerId").ShouldBe(callerId);
-        entry.Value("Reason").ShouldBe("ChannelNotSupported");
+        entry.Value("Reason").ShouldBe(reason);
         entry.Value("TraceId").ShouldNotBeNullOrWhiteSpace();
     }
 
@@ -282,7 +301,11 @@ public sealed class SendScenario : IAsyncDisposable
 
     public sealed record SentCall(string Caller, string? Key, string? Body);
 
-    public sealed record Answer(string Caller, HttpStatusCode Status, string Body);
+    public sealed record Answer(string Caller, HttpStatusCode Status, string Body)
+    {
+        /// <summary>The <c>Retry-After</c> header as the service sent it; null when it sent none.</summary>
+        public string? RetryAfter { get; init; }
+    }
 
     private sealed class UnknownLengthStream(byte[] buffer) : MemoryStream(buffer)
     {
