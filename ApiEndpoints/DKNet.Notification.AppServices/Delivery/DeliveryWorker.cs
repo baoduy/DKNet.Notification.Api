@@ -58,22 +58,9 @@ public sealed class DeliveryWorker(
             failure = await sender.SendAsync(notification, stoppingToken);
         }
 
-        var templateId = notification.TemplateId.SanitizeForLogging();
-        var callerId = notification.CallerId.SanitizeForLogging();
         if (failure is null)
         {
-            notification.Deliver();
-            var duration = DateTimeOffset.UtcNow - notification.AcceptedAt;
-            logger.NotificationDelivered(
-                notification.NotificationId,
-                notification.AttemptCount,
-                duration,
-                templateId,
-                notification.Channel,
-                callerId,
-                queued.TraceId);
-            metrics.Delivered(notification.Channel, duration);
-            queue.End();
+            Deliver(queued);
             return;
         }
 
@@ -82,9 +69,9 @@ public sealed class DeliveryWorker(
             notification.AttemptCount,
             failure.Kind,
             failure.ReplyCode,
-            templateId,
+            notification.TemplateId.SanitizeForLogging(),
             notification.Channel,
-            callerId,
+            notification.CallerId.SanitizeForLogging(),
             queued.TraceId);
         if (failure.IsTransient && notification.AttemptCount < settings.MaxAttempts)
         {
@@ -94,14 +81,37 @@ public sealed class DeliveryWorker(
             return;
         }
 
+        Fail(queued, failure.ReplyCode);
+    }
+
+    private void Deliver(QueuedNotification queued)
+    {
+        var notification = queued.Notification;
+        notification.Deliver();
+        var duration = DateTimeOffset.UtcNow - notification.AcceptedAt;
+        logger.NotificationDelivered(
+            notification.NotificationId,
+            notification.AttemptCount,
+            duration,
+            notification.TemplateId.SanitizeForLogging(),
+            notification.Channel,
+            notification.CallerId.SanitizeForLogging(),
+            queued.TraceId);
+        metrics.Delivered(notification.Channel, duration);
+        queue.End();
+    }
+
+    private void Fail(QueuedNotification queued, string replyCode)
+    {
+        var notification = queued.Notification;
         notification.Fail();
         logger.NotificationFailed(
             notification.NotificationId,
             notification.AttemptCount,
-            failure.ReplyCode,
-            templateId,
+            replyCode,
+            notification.TemplateId.SanitizeForLogging(),
             notification.Channel,
-            callerId,
+            notification.CallerId.SanitizeForLogging(),
             queued.TraceId);
         metrics.Failed(notification.Channel);
         queue.End();

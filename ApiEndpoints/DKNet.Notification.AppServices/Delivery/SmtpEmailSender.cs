@@ -20,6 +20,8 @@ public sealed class SmtpEmailSender(EmailChannelSettings email, SmtpTrustedRoots
 
     private static readonly DeliveryFailure NoReply = new(IsTransient: true, ReplyCode: string.Empty);
 
+    private static readonly DeliveryFailure RefusedSignIn = new(IsTransient: false, ReplyCode: string.Empty);
+
     // No attempt can send a mail its addresses cannot be written in.
     private static readonly DeliveryFailure Unsendable = new(IsTransient: false, ReplyCode: string.Empty);
 
@@ -69,22 +71,9 @@ public sealed class SmtpEmailSender(EmailChannelSettings email, SmtpTrustedRoots
             // The attempt's time limit passed: a timeout.
             return NoReply;
         }
-        catch (SmtpCommandException error)
+        catch (Exception error) when (FailureOf(error) is { } failure)
         {
-            return Reply(error.StatusCode);
-        }
-        catch (AuthenticationException error)
-        {
-            // A refused sign-in: MailKit keeps the server's reply as the inner error.
-            return error.InnerException is SmtpCommandException reply
-                ? Reply(reply.StatusCode)
-                : new DeliveryFailure(IsTransient: false, ReplyCode: string.Empty);
-        }
-        catch (Exception error) when (error is IOException or SocketException or SslHandshakeException or ProtocolException
-                                          or TimeoutException or SaslException or NotSupportedException)
-        {
-            // A lost or refused connection, a failed TLS handshake or a certificate that does not check out.
-            return NoReply;
+            return failure;
         }
 
         // The provider accepted the mail: a failed goodbye does not undo the delivery.
@@ -126,6 +115,19 @@ public sealed class SmtpEmailSender(EmailChannelSettings email, SmtpTrustedRoots
         string.Equals(security, "Tls", StringComparison.OrdinalIgnoreCase)
             ? SecureSocketOptions.SslOnConnect
             : SecureSocketOptions.StartTls;
+
+    /// <summary>What a MailKit error means for the attempt; <see langword="null" /> for an error no attempt should meet.</summary>
+    private static DeliveryFailure? FailureOf(Exception error) => error switch
+    {
+        SmtpCommandException reply => Reply(reply.StatusCode),
+        // A refused sign-in: MailKit keeps the server's reply as the inner error.
+        AuthenticationException { InnerException: SmtpCommandException reply } => Reply(reply.StatusCode),
+        AuthenticationException => RefusedSignIn,
+        // A lost or refused connection, a failed TLS handshake or a certificate that does not check out.
+        IOException or SocketException or SslHandshakeException or ProtocolException or TimeoutException or SaslException
+            or NotSupportedException => NoReply,
+        _ => null
+    };
 
     // 4xx is transient; 5xx, a refused sign-in (535) among them, is permanent.
     private static DeliveryFailure Reply(SmtpStatusCode code) =>
