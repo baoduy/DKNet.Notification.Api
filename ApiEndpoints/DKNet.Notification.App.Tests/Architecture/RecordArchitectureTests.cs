@@ -1,6 +1,6 @@
 using System.Reflection;
 using DKNet.Notification.AppServices.Share;
-using DKNet.Notification.Domains.Services;
+using DKNet.Notification.Domains.Templates;
 
 namespace DKNet.Notification.App.Tests.Architecture;
 
@@ -10,7 +10,7 @@ public class RecordArchitectureTests
     public void RecordTypes_ShouldNotContain_PrivateSetters_OnPublicProperties()
     {
         // Assemblies to scan: Domain + AppServices
-        var assemblies = new[] { typeof(IDomainService).Assembly, typeof(PreconditionCodes).Assembly };
+        var assemblies = new[] { typeof(NotificationTemplate).Assembly, typeof(PreconditionCodes).Assembly };
         var failing = new List<string>();
 
         foreach (var asm in assemblies)
