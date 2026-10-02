@@ -130,10 +130,11 @@ public sealed class SendNotificationValidatorTests
     [Fact]
     public void No_message_echoes_a_value_the_caller_sent()
     {
-        var value = new string('x', 4001);
-        var request = new SendNotificationRequest(new string('c', 51), new string('t', 101),
-            new Dictionary<string, string> { ["customer-name"] = value });
+        string[] sent = [new string('c', 51), new string('t', 101), "customer-name", new string('x', 4001)];
+        var request = new SendNotificationRequest(sent[0], sent[1], new Dictionary<string, string> { [sent[2]] = sent[3] });
 
-        Validator.Validate(request).Errors.ShouldAllBe(e => !e.ErrorMessage.Contains("xxxx") && !e.ErrorMessage.Contains("cccc"));
+        var errors = Validator.Validate(request).Errors;
+        errors.Count.ShouldBe(4);
+        errors.ShouldAllBe(e => sent.All(value => !e.ErrorMessage.Contains(value)));
     }
 }
