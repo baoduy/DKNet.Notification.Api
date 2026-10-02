@@ -4,8 +4,8 @@ using System.Net.Mail;
 namespace DKNet.Notification.Domains.Notifications;
 
 /// <summary>
-///     The one address an email goes to: exactly 1 address in <c>local@domain</c> form, at most 254 characters,
-///     never trimmed. Personal data: never logged.
+///     The one address an email goes to: exactly 1 address in <c>local@domain</c> form whose local part is an
+///     unquoted dot-atom, at most 254 characters, never trimmed. Personal data: never logged.
 /// </summary>
 public sealed record EmailRecipient
 {
@@ -39,10 +39,13 @@ public sealed record EmailRecipient
     {
         // MailAddress also takes a display name, a comment or surrounding white space; only a parse that gives the
         // value back unchanged is 1 bare address. A quoted local part may hold a space, so white space is refused too.
+        // MailAddress also takes a local part ending in a dot (jane.@example.com), which a mail header cannot hold, so
+        // the local part must be an RFC 5322 dot-atom: no empty atom (leading, trailing or doubled dot), no quote.
         recipient = value.Length <= MaxLength
                     && !value.Any(char.IsWhiteSpace)
                     && MailAddress.TryCreate(value, out var address)
                     && string.Equals(address.Address, value, StringComparison.Ordinal)
+                    && value[..value.LastIndexOf('@')].Split('.').All(atom => atom.Length > 0 && !atom.Contains('"', StringComparison.Ordinal))
             ? new EmailRecipient(value)
             : null;
         return recipient is not null;

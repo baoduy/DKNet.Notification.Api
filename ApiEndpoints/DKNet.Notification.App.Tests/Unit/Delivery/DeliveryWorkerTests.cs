@@ -118,6 +118,51 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         sender.Attempts.Count.ShouldBe(1);
     }
 
+    /// <summary>
+    ///     DRK-2026 row 3: an error the sender did not map ends that notification Failed, and the worker goes on. A
+    ///     cancellation the stop did not ask for (the sender's own) is such an error too.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task An_unexpected_error_in_one_attempt_fails_that_notification_and_the_worker_goes_on(bool cancellation)
+    {
+        Exception error = cancellation
+            ? new OperationCanceledException("jane@example.com")
+            : new InvalidOperationException("jane@example.com");
+        var calls = 0;
+        var sender = new ScriptedSender((_, _) => Interlocked.Increment(ref calls) == 1
+            ? throw error
+            : Task.FromResult<DeliveryFailure?>(null));
+        var queue = Start(new DeliverySettings(), sender);
+
+        var notification = Enqueue(queue);
+        var next = Enqueue(queue);
+        await UntilAsync(() => next.Status == NotificationStatus.Delivered);
+
+        notification.Status.ShouldBe(NotificationStatus.Failed);
+        notification.AttemptCount.ShouldBe(1);
+        var failure = Entries("NotificationAttemptFailed").ShouldHaveSingleItem();
+        failure.Level.ShouldBe(LogLevel.Warning);
+        ShouldCarryTheCallFields(failure, notification);
+        failure.Value("Attempt").ShouldBe("1");
+        failure.Value("FailureKind").ShouldBe("permanent");
+        failure.Value("ReplyCode").ShouldBe(string.Empty);
+        var failed = Entries("NotificationFailed").ShouldHaveSingleItem();
+        ShouldCarryTheCallFields(failed, notification);
+        failed.Value("AttemptCount").ShouldBe("1");
+        failed.Value("ReplyCode").ShouldBe(string.Empty);
+        Entries("NotificationDelivered").ShouldHaveSingleItem().Value("NotificationId").ShouldBe(next.NotificationId.ToString());
+        _measurements.Where(m => m.Instrument == "notifications.failed").ShouldHaveSingleItem().ShouldBe(("notifications.failed", 1d, "email"));
+        _measurements.Where(m => m.Instrument == "notifications.delivered").ShouldHaveSingleItem().ShouldBe(("notifications.delivered", 1d, "email"));
+        queue.Length.ShouldBe(0);
+        _logs.Entries.Count.ShouldBe(3);
+        _logs.Entries.ShouldAllBe(e => e.Exception == null);
+        _logs.Entries.SelectMany(e => e.State.Select(p => Convert.ToString(p.Value)).Append(e.Message))
+            .ShouldAllBe(text => text == null || !text.Contains("jane@example.com"));
+        _running.ShouldNotBeNull().IsCompleted.ShouldBeFalse();
+    }
+
     [Fact]
     public async Task The_wait_before_the_next_attempt_counts_from_the_end_of_the_failed_attempt()
     {

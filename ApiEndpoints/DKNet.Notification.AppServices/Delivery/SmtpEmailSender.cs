@@ -82,8 +82,9 @@ public sealed class SmtpEmailSender(EmailChannelSettings email, SmtpTrustedRoots
     }
 
     /// <returns>
-    ///     The mail; <see langword="null" /> when an address the recipient rule takes cannot be written in a mail
-    ///     header, such as <c>jane.@example.com</c>.
+    ///     The mail; <see langword="null" /> when an address cannot be written in a mail header, such as
+    ///     <c>notifications.@example.com</c>. The recipient and settings rules refuse such an address before it gets
+    ///     here; this stays as a second line of defence.
     /// </returns>
     private MimeMessage? Message(Domains.Notifications.Notification notification)
     {

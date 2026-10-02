@@ -171,6 +171,15 @@ public sealed class SendEmailServiceTests : IDisposable
         ShouldBeRejected(Service(SetUp()).Send(Email(AccountOpened, Jane(to)), "treasury-ops", "trace-1"), code, "to");
 
     [Fact]
+    public void An_address_a_mail_header_cannot_hold_is_rejected_on_the_field_to_and_never_queued()
+    {
+        var service = Service(SetUp());
+
+        ShouldBeRejected(service.Send(Email(AccountOpened, Jane("jane.@example.com")), "treasury-ops", "trace-1"), "RECIPIENT_INVALID", "to");
+        _services.ShouldNotBeNull().GetRequiredService<DeliveryQueue>().Length.ShouldBe(0);
+    }
+
+    [Fact]
     public void A_missing_parameter_is_rejected_on_its_parameter_field()
     {
         var parameters = Jane();

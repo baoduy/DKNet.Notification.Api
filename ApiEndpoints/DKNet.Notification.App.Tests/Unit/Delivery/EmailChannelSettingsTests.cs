@@ -86,6 +86,7 @@ public sealed class EmailChannelSettingsTests
     [InlineData("Notifications:Email:Smtp:Security", "None")]
     [InlineData("Notifications:Email:Smtp:FromAddress", "")]
     [InlineData("Notifications:Email:Smtp:FromAddress", "DKNet <notifications@example.com>")]
+    [InlineData("Notifications:Email:Smtp:FromAddress", "notifications.@example.com")]
     public void A_bad_value_is_reported_by_its_setting_name(string key, string value)
     {
         var settings = SetUp();

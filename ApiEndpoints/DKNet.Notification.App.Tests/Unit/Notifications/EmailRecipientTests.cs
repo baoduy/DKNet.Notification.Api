@@ -12,6 +12,7 @@ public sealed class EmailRecipientTests
     [Theory]
     [InlineData("jane@example.com")]
     [InlineData("jane.tan+alerts@mail.example.com")]
+    [InlineData("jane.tan@example.com")]
     public void A_bare_address_is_kept_exactly_as_sent(string value)
     {
         EmailRecipient.TryCreate(value, out var recipient).ShouldBeTrue();
@@ -42,6 +43,22 @@ public sealed class EmailRecipientTests
     [InlineData("\"jane tan\"@example.com")]
     [InlineData("jane@example.com\r\nBcc: eve@example.com")]
     public void A_value_that_is_not_1_bare_address_is_refused(string value)
+    {
+        EmailRecipient.TryCreate(value, out var recipient).ShouldBeFalse();
+
+        recipient.ShouldBeNull();
+    }
+
+    /// <summary>
+    ///     DRK-2026 row 1: a mail header holds only an unquoted dot-atom local part. <c>MailAddress</c> already refuses
+    ///     the leading and doubled dot; it takes the trailing dot and the quoted local part, which this rule refuses.
+    /// </summary>
+    [Theory]
+    [InlineData("jane.@example.com")]
+    [InlineData(".jane@example.com")]
+    [InlineData("ja..ne@example.com")]
+    [InlineData("\"jane\"@example.com")]
+    public void A_local_part_that_is_not_an_unquoted_dot_atom_is_refused(string value)
     {
         EmailRecipient.TryCreate(value, out var recipient).ShouldBeFalse();
 

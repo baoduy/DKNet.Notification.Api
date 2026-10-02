@@ -24,6 +24,8 @@ public sealed class DeliveryWorker(
 
     private static readonly ActivitySource Source = new(ActivitySourceName);
 
+    private static readonly DeliveryFailure UnexpectedError = new(IsTransient: false, ReplyCode: string.Empty);
+
     #endregion
 
     #region Methods
@@ -55,7 +57,16 @@ public sealed class DeliveryWorker(
         DeliveryFailure? failure;
         using (StartActivity(queued))
         {
-            failure = await sender.SendAsync(notification, stoppingToken);
+            try
+            {
+                failure = await sender.SendAsync(notification, stoppingToken);
+            }
+            catch (Exception error) when (error is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
+            {
+                // An unexpected error ends this notification only, as a permanent failure with no reply, and the
+                // worker goes on with the next one. The error is not logged: its text may hold the recipient.
+                failure = UnexpectedError;
+            }
         }
 
         if (failure is null)

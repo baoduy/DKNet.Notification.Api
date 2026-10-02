@@ -81,19 +81,15 @@ public sealed class SmtpEmailSenderTests : IDisposable
         await Should.ThrowAsync<OperationCanceledException>(sending);
     }
 
-    [Theory]
-    [InlineData("jane.@example.com", "notifications@example.com")]
-    [InlineData("jane@example.com", "notifications.@example.com")]
-    public async Task An_address_the_recipient_rule_takes_but_a_mail_header_cannot_hold_fails_permanently_with_no_reply(
-        string to,
-        string fromAddress)
+    [Fact]
+    public async Task A_from_address_a_mail_header_cannot_hold_fails_permanently_with_no_reply()
     {
-        EmailRecipient.TryCreate(to, out _).ShouldBeTrue();
-        EmailRecipient.TryCreate(fromAddress, out _).ShouldBeTrue();
+        // The settings rule refuses this address at start (EmailChannelSettings.BadSettings), and the recipient rule
+        // refuses its kind as a "to" (DRK-2026); the sender still fails such a mail instead of throwing.
         var port = Port;
         _server.Stop();
 
-        var failure = await Sender(port, fromAddress: fromAddress).SendAsync(Queued(to), CancellationToken.None);
+        var failure = await Sender(port, fromAddress: "notifications.@example.com").SendAsync(Queued(), CancellationToken.None);
 
         failure.ShouldBe(new DeliveryFailure(IsTransient: false, ReplyCode: string.Empty));
     }
