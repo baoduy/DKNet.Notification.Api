@@ -1,2 +1,8 @@
 # DKNet.Notification.Api
 The notification service for DKNet banking platform
+
+## 🏗️ Runtime architecture
+
+![A backend caller reaches the Notification API scaffold host, which pipes every request through edge middleware into a rate limiter and an authorization gate that validates a Bearer JWT; the only route mapped today is the anonymous /healthz liveness check; Azure App Configuration, an OpenTelemetry exporter and a Redis-backed idempotency store are registered but not yet exercised by any business endpoint.](docs/diagrams/runtime.svg)
+
+Drawn from the code at commit `292459b` (the scaffold slice). See [docs/runtime-architecture.md](docs/runtime-architecture.md) for the commit it was drawn from, file:line evidence, and how it compares to the [approved design](docs/architect/diagrams/runtime.svg).
