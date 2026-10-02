@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <LangVersion>default</LangVersion>
+        <!-- Disable code analysis for test entities -->
+        <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+        <EnableNETAnalyzers>false</EnableNETAnalyzers>
+        <AnalysisMode>None</AnalysisMode>
+        <RunAnalyzers>false</RunAnalyzers>
+        <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+        <RunAnalyzersDuringLiveAnalysis>false</RunAnalyzersDuringLiveAnalysis>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591;SA1600</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Aspire.Hosting.Testing"/>
+        <PackageReference Include="coverlet.collector">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+        <PackageReference Include="NetArchTest.Rules"/>
+        <PackageReference Include="Moq"/>
+        <PackageReference Include="Shouldly"/>
+        <PackageReference Include="xunit"/>
+        <PackageReference Include="xunit.runner.visualstudio">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="System.Net"/>
+        <Using Include="Microsoft.Extensions.DependencyInjection"/>
+        <Using Include="Xunit"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\DKNet.Notification.Api\DKNet.Notification.Api.csproj" />
+        <ProjectReference Include="..\DKNet.Notification.App.TestSupport\DKNet.Notification.App.TestSupport.csproj" />
+        <ProjectReference Include="..\DKNet.Notification.AppHost\DKNet.Notification.AppHost.csproj" />
+    </ItemGroup>
+
+</Project>

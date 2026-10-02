@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+    <!-- MaxCpuCount=1: run test assemblies one at a time — some fixtures in this solution
+         mutate machine-global state (the local `dotnet new` template store) and must not
+         execute concurrently. -->
+    <RunConfiguration>
+        <MaxCpuCount>1</MaxCpuCount>
+    </RunConfiguration>
+    <DataCollectionRunSettings>
+        <DataCollectors>
+            <DataCollector friendlyName="XPlat Code Coverage">
+                <Configuration>
+                    <Include>
+                        [DKNet*]*,
+                        [DKNet.Notification*]*
+                    </Include>
+                    <Exclude>
+                        [*.Tests]*,
+                        [*Tests]*,
+                        [*.TestObjects]*,
+                        [*TestDataLayer]*
+                    </Exclude>
+                    <ExcludeByFile>
+                        **/bin/**,
+                        **/obj/**,
+                        **/*Tests.cs,
+                        **/*Test.cs,
+                        **/TestObjects/**,
+                        **/GlobalUsings.cs,
+                        **/*.g.cs
+                    </ExcludeByFile>
+                    <ExcludeByAttribute>GeneratedCodeAttribute</ExcludeByAttribute>
+                </Configuration>
+            </DataCollector>
+        </DataCollectors>
+    </DataCollectionRunSettings>
+</RunSettings>
