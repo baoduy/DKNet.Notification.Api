@@ -20,6 +20,9 @@ public sealed class SmtpEmailSender(EmailChannelSettings email, SmtpTrustedRoots
 
     private static readonly DeliveryFailure NoReply = new(IsTransient: true, ReplyCode: string.Empty);
 
+    // No attempt can send a mail its addresses cannot be written in.
+    private static readonly DeliveryFailure Unsendable = new(IsTransient: false, ReplyCode: string.Empty);
+
     #endregion
 
     #region Methods
@@ -35,6 +38,11 @@ public sealed class SmtpEmailSender(EmailChannelSettings email, SmtpTrustedRoots
     {
         ArgumentNullException.ThrowIfNull(notification);
         using var message = Message(notification);
+        if (message is null)
+        {
+            return Unsendable;
+        }
+
         using var attempt = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
         attempt.CancelAfter(TimeSpan.FromSeconds(email.TimeoutSeconds));
 
@@ -84,17 +92,33 @@ public sealed class SmtpEmailSender(EmailChannelSettings email, SmtpTrustedRoots
         return null;
     }
 
-    private MimeMessage Message(Domains.Notifications.Notification notification)
+    /// <returns>
+    ///     The mail; <see langword="null" /> when an address the recipient rule takes cannot be written in a mail
+    ///     header, such as <c>jane.@example.com</c>.
+    /// </returns>
+    private MimeMessage? Message(Domains.Notifications.Notification notification)
     {
         var rendered = notification.RenderedMessage
                        ?? throw new InvalidOperationException("Only a queued notification has a message to send.");
+        MailboxAddress from;
+        MailboxAddress to;
+        try
+        {
+            from = new MailboxAddress(email.Smtp.FromName, email.Smtp.FromAddress);
+            to = new MailboxAddress(string.Empty, notification.Recipient!.Address);
+        }
+        catch (ParseException)
+        {
+            return null;
+        }
+
         var message = new MimeMessage
         {
             Subject = rendered.Subject,
             Body = new TextPart(TextFormat.Html) { Text = rendered.Body }
         };
-        message.From.Add(new MailboxAddress(email.Smtp.FromName, email.Smtp.FromAddress));
-        message.To.Add(new MailboxAddress(string.Empty, notification.Recipient!.Address));
+        message.From.Add(from);
+        message.To.Add(to);
         return message;
     }
 

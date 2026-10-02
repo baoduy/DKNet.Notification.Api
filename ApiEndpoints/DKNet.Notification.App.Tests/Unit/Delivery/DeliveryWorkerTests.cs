@@ -24,6 +24,7 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
     private readonly ServiceProvider _services;
     private readonly MeterListener _listener = new();
     private readonly ConcurrentQueue<(string Instrument, double Value, string? Channel)> _measurements = new();
+    private readonly ConcurrentDictionary<string, string?> _units = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _stop = new();
     private Task? _running;
 
@@ -35,6 +36,7 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         {
             if (ReferenceEquals(instrument.Meter.Scope, meterFactory))
             {
+                _units[instrument.Name] = instrument.Unit;
                 listener.EnableMeasurementEvents(instrument);
             }
         };
@@ -79,6 +81,12 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         duration.Channel.ShouldBe("email");
         duration.Value.ShouldBeGreaterThanOrEqualTo(0);
         _measurements.Where(m => m.Instrument == "notifications.failed").ShouldBeEmpty();
+        _units["notifications.delivery.duration"].ShouldBe("s");
+
+        // The worker goes on with the next one.
+        var next = Enqueue(queue);
+        await UntilAsync(() => next.Status == NotificationStatus.Delivered);
+        queue.Length.ShouldBe(0);
     }
 
     [Fact]

@@ -53,6 +53,9 @@ public sealed class SmtpEmailSenderTests : IDisposable
 
     [Theory]
     [InlineData("421 4.3.2 Service not available", true, "421")]
+    [InlineData("400 4.0.0 Try again", true, "400")]
+    [InlineData("499 4.0.0 Try again", true, "499")]
+    [InlineData("500 5.5.1 Command unrecognized", false, "500")]
     [InlineData("554 5.3.2 No service here", false, "554")]
     public async Task A_reply_keeps_its_code_only_and_its_class_decides_the_kind(string greeting, bool transient, string code)
     {
@@ -76,6 +79,23 @@ public sealed class SmtpEmailSenderTests : IDisposable
         await stop.CancelAsync();
 
         await Should.ThrowAsync<OperationCanceledException>(sending);
+    }
+
+    [Theory]
+    [InlineData("jane.@example.com", "notifications@example.com")]
+    [InlineData("jane@example.com", "notifications.@example.com")]
+    public async Task An_address_the_recipient_rule_takes_but_a_mail_header_cannot_hold_fails_permanently_with_no_reply(
+        string to,
+        string fromAddress)
+    {
+        EmailRecipient.TryCreate(to, out _).ShouldBeTrue();
+        EmailRecipient.TryCreate(fromAddress, out _).ShouldBeTrue();
+        var port = Port;
+        _server.Stop();
+
+        var failure = await Sender(port, fromAddress: fromAddress).SendAsync(Queued(to), CancellationToken.None);
+
+        failure.ShouldBe(new DeliveryFailure(IsTransient: false, ReplyCode: string.Empty));
     }
 
     [Fact]
@@ -158,23 +178,23 @@ public sealed class SmtpEmailSenderTests : IDisposable
         }
     }
 
-    private static SmtpEmailSender Sender(int port, int timeoutSeconds = 5) => new(
+    private static SmtpEmailSender Sender(int port, int timeoutSeconds = 5, string fromAddress = "notifications@example.com") => new(
         new EmailChannelSettings
         {
             Enabled = true,
             TimeoutSeconds = timeoutSeconds,
-            Smtp = new SmtpSenderSettings { Host = "localhost", Port = port, FromAddress = "notifications@example.com" }
+            Smtp = new SmtpSenderSettings { Host = "localhost", Port = port, FromAddress = fromAddress }
         },
         new SmtpTrustedRoots([]));
 
-    private static Domains.Notifications.Notification Queued()
+    private static Domains.Notifications.Notification Queued(string to = "jane@example.com")
     {
         var notification = Domains.Notifications.Notification.Receive(
             "account-opened",
             "email",
-            new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = "jane@example.com" },
+            new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = to },
             "treasury-ops");
-        EmailRecipient.TryCreate("jane@example.com", out var recipient).ShouldBeTrue();
+        EmailRecipient.TryCreate(to, out var recipient).ShouldBeTrue();
         notification.Queue(recipient, new RenderedMessage("Your account is open", "Dear Jane", BodyFormat.Html));
         notification.StartAttempt();
         return notification;
