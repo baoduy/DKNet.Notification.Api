@@ -1,0 +1,66 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.5.3">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsAspireHost>true</IsAspireHost>
+        <UserSecretsId>29094C1F-9FD8-4C6B-800B-3920D0CBF127</UserSecretsId>
+        <!-- Disable code analysis for test entities -->
+        <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+        <EnableNETAnalyzers>false</EnableNETAnalyzers>
+        <AnalysisMode>None</AnalysisMode>
+        <RunAnalyzers>false</RunAnalyzers>
+        <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+        <RunAnalyzersDuringLiveAnalysis>false</RunAnalyzersDuringLiveAnalysis>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <!-- ASPIRE010: dashboard/DCP deprecation warning, understood and deliberately deferred —
+             AspireUseCliBundle requires the Aspire CLI on PATH, which breaks a bare `dotnet build`
+             on a clean scaffolded machine. NoWarn keeps the template buildable everywhere. -->
+        <NoWarn>$(NoWarn);CS1591;SA1600;ASPIRE010</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- SampleDataGenerator is internal — every other project already exposes internals to the test
+             project the same way (DKNet.Notification.Infra/DKNet.Notification.Api/DKNet.Notification.Domains/DKNet.Notification.AppServices csproj).
+             Test-only visibility, no logic change. -->
+        <InternalsVisibleTo Include="DKNet.Notification.App.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Aspire.Hosting.Redis" />
+        <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+        <PackageReference Include="Bogus" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+        <PackageReference Include="DKNet.EfCore.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\DKNet.Notification.Api\DKNet.Notification.Api.csproj" />
+        <!-- Transitive references through DKNet.Notification.Api do not surface DKNet.Notification.Domains/DKNet.Notification.Infra
+             types at compile time — needed directly for sample-data generation (Product, PurchaseOrder,
+             InfraSetup, Sequences). IsAspireProjectResource="false": these are plain library references,
+             not Aspire-orchestrated project resources (ASPIRE004). -->
+        <ProjectReference Include="..\DKNet.Notification.Domains\DKNet.Notification.Domains.csproj" IsAspireProjectResource="false" />
+        <ProjectReference Include="..\DKNet.Notification.Infra\DKNet.Notification.Infra.csproj" IsAspireProjectResource="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="Configs\busConfig.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="Aspire.Hosting">
+        <HintPath>bin\Debug\net10.0\Aspire.Hosting.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+</Project>
