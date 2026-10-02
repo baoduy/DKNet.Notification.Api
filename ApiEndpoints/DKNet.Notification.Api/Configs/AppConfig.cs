@@ -78,6 +78,7 @@ internal static class AppConfig
         }
 
         services.AddTemplateConfig(configuration, environment);
+        services.AddEmailConfig(configuration);
 
         return services
             .AddCrosConfig(configuration)
@@ -98,6 +99,9 @@ internal static class AppConfig
 
     public static Task UseAppConfig(this WebApplication app, Action<WebApplication>? extra = null)
     {
+        // Logged here, through the built host: an entry written while the services are registered is lost.
+        app.UseEmailConfig();
+
         // Forwarded headers and security headers run first: forwarded headers must rewrite RemoteIpAddress
         // before anything (CORS, rate limiting) makes a decision based on it, and security headers must wrap
         // everything downstream, including the global exception handler, for 200/404/500 responses alike (R5).

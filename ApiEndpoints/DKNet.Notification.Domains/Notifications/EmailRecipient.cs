@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Net.Mail;
 
 namespace DKNet.Notification.Domains.Notifications;
 
@@ -8,6 +9,13 @@ namespace DKNet.Notification.Domains.Notifications;
 /// </summary>
 public sealed record EmailRecipient
 {
+    #region Fields
+
+    /// <summary>The longest address the rule allows.</summary>
+    public const int MaxLength = 254;
+
+    #endregion
+
     #region Constructors
 
     private EmailRecipient(string address) => Address = address;
@@ -27,8 +35,18 @@ public sealed record EmailRecipient
     /// <param name="value">The <c>to</c> parameter as the caller sent it.</param>
     /// <param name="recipient">The recipient, when the value keeps the rule.</param>
     /// <returns><see langword="true" /> when the value keeps the rule.</returns>
-    public static bool TryCreate(string value, [NotNullWhen(true)] out EmailRecipient? recipient) =>
-        throw new NotImplementedException();
+    public static bool TryCreate(string value, [NotNullWhen(true)] out EmailRecipient? recipient)
+    {
+        // MailAddress also takes a display name, a comment or surrounding white space; only a parse that gives the
+        // value back unchanged is 1 bare address. A quoted local part may hold a space, so white space is refused too.
+        recipient = value.Length <= MaxLength
+                    && !value.Any(char.IsWhiteSpace)
+                    && MailAddress.TryCreate(value, out var address)
+                    && string.Equals(address.Address, value, StringComparison.Ordinal)
+            ? new EmailRecipient(value)
+            : null;
+        return recipient is not null;
+    }
 
     #endregion
 }

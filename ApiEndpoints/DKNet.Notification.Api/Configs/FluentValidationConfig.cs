@@ -17,7 +17,8 @@ internal static class FluentValidationConfig
     /// The template's one <see cref="ErrorResponseOptions" /> registration — it answers a failed
     /// command, refused validation input and an unhandled error alike (a route resolves it via
     /// <c>[FromServices]</c>). A refusal whose error carries a
-    /// <see cref="PreconditionCodes.Prefix" />-prefixed code answers 409; every other refusal keeps today's status
+    /// <see cref="PreconditionCodes.Prefix" />-prefixed code answers 409, a full delivery queue
+    /// (<see cref="NotificationErrorCodes.QueueFull" />) answers 503; every other refusal keeps today's status
     /// (R4: the body carries only <c>traceId</c> and this service-chosen code, never a database message).
     /// </summary>
     public static WebApplicationBuilder AddFluentValidationConfig(this WebApplicationBuilder builder)
@@ -28,7 +29,9 @@ internal static class FluentValidationConfig
                 ctx.Errors.Any(e =>
                     e.Code is not null && e.Code.StartsWith(PreconditionCodes.Prefix, StringComparison.Ordinal))
                     ? StatusCodes.Status409Conflict
-                    : null;
+                    : ctx.Errors.Any(e => string.Equals(e.Code, NotificationErrorCodes.QueueFull, StringComparison.Ordinal))
+                        ? StatusCodes.Status503ServiceUnavailable
+                        : null;
 
             o.Customize = (problemDetails, ctx) =>
             {

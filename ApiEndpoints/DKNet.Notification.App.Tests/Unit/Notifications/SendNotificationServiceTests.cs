@@ -1,5 +1,6 @@
 using System.Diagnostics.Metrics;
 using DKNet.Notification.App.TestSupport;
+using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Notifications;
 using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Notifications;
@@ -23,6 +24,9 @@ public sealed class SendNotificationServiceTests : IDisposable
             .AddMetrics()
             .AddLogging(logging => logging.AddProvider(_logs))
             .AddSingleton<ITemplateCatalogue>(new OneTemplate("account-opened"))
+            .AddSingleton(new EmailChannelSettings())
+            .AddSingleton(new DeliverySettings())
+            .AddSingleton<DeliveryQueue>()
             .AddSingleton<NotificationMetrics>()
             .AddSingleton<SendNotificationService>()
             .BuildServiceProvider();

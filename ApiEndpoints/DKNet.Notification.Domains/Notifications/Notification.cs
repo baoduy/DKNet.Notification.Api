@@ -59,6 +59,12 @@ public sealed class Notification
     /// <summary>Gets why the notification is skipped; <see langword="null" /> unless <see cref="Status" /> is Skipped.</summary>
     public SkipReason? SkipReason { get; private set; }
 
+    /// <summary>Gets the error code the call was refused with; <see langword="null" /> unless <see cref="Status" /> is Rejected.</summary>
+    public string? ErrorCode { get; private set; }
+
+    /// <summary>Gets the request field at fault, as the error body names it; <see langword="null" /> unless Rejected.</summary>
+    public string? ErrorField { get; private set; }
+
     /// <summary>Gets the one address the email goes to; <see langword="null" /> until the notification is queued.</summary>
     public EmailRecipient? Recipient { get; private set; }
 
@@ -85,11 +91,21 @@ public sealed class Notification
         string callerId) =>
         new(templateId, channel, parameters, callerId);
 
-    /// <summary>Rejects the call: it named no registered template.</summary>
+    /// <summary>Rejects the call: nothing is queued.</summary>
     public void Reject()
     {
         EnsureReceived();
         Status = NotificationStatus.Rejected;
+    }
+
+    /// <summary>Rejects the call with the error it is refused with: nothing is queued.</summary>
+    /// <param name="errorCode">The error code the call is refused with.</param>
+    /// <param name="errorField">The request field at fault, as the error body names it.</param>
+    public void Reject(string errorCode, string errorField)
+    {
+        Reject();
+        ErrorCode = errorCode;
+        ErrorField = errorField;
     }
 
     /// <summary>Accepts the call without delivering it.</summary>
@@ -104,8 +120,15 @@ public sealed class Notification
     /// <summary>Queues the call for delivery, rendered once, here, before it is queued.</summary>
     /// <param name="recipient">The one address the email goes to.</param>
     /// <param name="renderedMessage">The filled subject and body.</param>
-    public void Queue(EmailRecipient recipient, RenderedMessage renderedMessage) =>
-        throw new NotImplementedException();
+    public void Queue(EmailRecipient recipient, RenderedMessage renderedMessage)
+    {
+        ArgumentNullException.ThrowIfNull(recipient);
+        ArgumentNullException.ThrowIfNull(renderedMessage);
+        EnsureReceived();
+        Status = NotificationStatus.Queued;
+        Recipient = recipient;
+        RenderedMessage = renderedMessage;
+    }
 
     private void EnsureReceived()
     {

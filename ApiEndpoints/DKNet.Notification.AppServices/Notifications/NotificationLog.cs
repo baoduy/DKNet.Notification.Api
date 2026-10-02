@@ -26,8 +26,8 @@ internal static partial class NotificationLog
         string traceId);
 
     /// <remarks>
-    ///     <paramref name="templateId" /> and <paramref name="channel" /> are given for a
-    ///     <see cref="NotificationErrorCodes.TemplateNotFound" /> only: an <see cref="NotificationErrorCodes.InvalidRequest" />
+    ///     <paramref name="templateId" /> and <paramref name="channel" /> are given for every code but
+    ///     <see cref="NotificationErrorCodes.InvalidRequest" />: an <see cref="NotificationErrorCodes.InvalidRequest" />
     ///     body has no field the entry may trust.
     /// </remarks>
     [LoggerMessage(
@@ -43,6 +43,20 @@ internal static partial class NotificationLog
         string traceId,
         string? templateId,
         string? channel);
+
+    [LoggerMessage(
+        EventId = 2003,
+        EventName = "NotificationQueued",
+        Level = LogLevel.Information,
+        Message = "Notification {NotificationId} queued; queue length {QueueLength}. Template {TemplateId}, channel {Channel}, caller {CallerId}, trace {TraceId}.")]
+    public static partial void NotificationQueued(
+        this ILogger logger,
+        Guid notificationId,
+        int queueLength,
+        string templateId,
+        string channel,
+        string callerId,
+        string traceId);
 
     #endregion
 }

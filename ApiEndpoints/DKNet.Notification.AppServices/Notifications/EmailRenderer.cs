@@ -1,5 +1,9 @@
+using System.Net;
 using DKNet.Notification.Domains.Notifications;
 using DKNet.Notification.Domains.Templates;
+using DKNet.Svc.Transformation;
+using DKNet.Svc.Transformation.Exceptions;
+using Microsoft.Extensions.Options;
 
 namespace DKNet.Notification.AppServices.Notifications;
 
@@ -9,14 +13,51 @@ namespace DKNet.Notification.AppServices.Notifications;
 /// </summary>
 internal static class EmailRenderer
 {
+    #region Fields
+
+    /// <summary>The longest subject a mail header line may hold (RFC 5322).</summary>
+    private const int MaxSubjectLength = 998;
+
+    // One pass over the template, so a filled value is never read again; its token cache lives for one call only.
+    private static readonly TransformerService Transformer = new(Options.Create(DoubleCurlyBracketsOnly()));
+
+    #endregion
+
     #region Methods
 
     /// <summary>Fills <paramref name="version" /> from <paramref name="parameters" />.</summary>
     /// <param name="version">The template's email version.</param>
     /// <param name="parameters">The call's parameters, in the order the request body holds them.</param>
     /// <returns>The rendered message, or the first token name that has no parameter.</returns>
-    public static EmailRendering Render(TemplateVersion version, IReadOnlyDictionary<string, string> parameters) =>
-        throw new NotImplementedException();
+    public static EmailRendering Render(TemplateVersion version, IReadOnlyDictionary<string, string> parameters)
+    {
+        // The resolver takes the first key equal to a token without case, so both copies keep the body's order.
+        var raw = parameters.ToDictionary(StringComparer.Ordinal);
+        var encoded = parameters.ToDictionary(p => p.Key, p => WebUtility.HtmlEncode(p.Value), StringComparer.Ordinal);
+        try
+        {
+            var subject = Transformer.Transform(version.Subject ?? string.Empty, raw)
+                .Replace('\r', ' ')
+                .Replace('\n', ' ');
+            var body = Transformer.Transform(version.Body, encoded);
+            return new EmailRendering(
+                new RenderedMessage(subject.Length > MaxSubjectLength ? subject[..MaxSubjectLength] : subject, body, BodyFormat.Html),
+                MissingParameter: null);
+        }
+        catch (UnResolvedTokenException missing)
+        {
+            // The message is the token as the template writes it: "{{name}}".
+            return new EmailRendering(Message: null, missing.Message[2..^2]);
+        }
+    }
+
+    private static TransformOptions DoubleCurlyBracketsOnly()
+    {
+        var options = new TransformOptions();
+        options.DefaultDefinitions.Clear();
+        options.DefaultDefinitions.Add(TransformOptions.DoubleCurlyBrackets);
+        return options;
+    }
 
     #endregion
 }

@@ -14,6 +14,7 @@ public sealed class NotificationMetrics
     /// <summary>The meter the counters are on; the OpenTelemetry set-up exports it.</summary>
     public const string MeterName = "DKNet.Notification";
 
+    private readonly Meter _meter;
     private readonly Counter<long> _accepted;
     private readonly Counter<long> _rejected;
 
@@ -27,9 +28,9 @@ public sealed class NotificationMetrics
         Justification = "The IMeterFactory owns the meters it creates and disposes them with the host.")]
     public NotificationMetrics(IMeterFactory meterFactory)
     {
-        var meter = meterFactory.Create(MeterName);
-        _accepted = meter.CreateCounter<long>("notifications.accepted");
-        _rejected = meter.CreateCounter<long>("notifications.rejected");
+        _meter = meterFactory.Create(MeterName);
+        _accepted = _meter.CreateCounter<long>("notifications.accepted");
+        _rejected = _meter.CreateCounter<long>("notifications.rejected");
     }
 
     #endregion
@@ -38,13 +39,17 @@ public sealed class NotificationMetrics
 
     /// <summary>Counts one accepted call.</summary>
     /// <param name="channel">The lower-case channel.</param>
-    /// <param name="outcome">What became of the call, such as <c>skipped</c>.</param>
+    /// <param name="outcome">What became of the call: <c>queued</c> or <c>skipped</c>.</param>
     public void Accepted(string channel, string outcome) =>
         _accepted.Add(1, new KeyValuePair<string, object?>("channel", channel), new KeyValuePair<string, object?>("outcome", outcome));
 
     /// <summary>Counts one refused call.</summary>
     /// <param name="code">The error code it was refused with.</param>
     public void Rejected(string code) => _rejected.Add(1, new KeyValuePair<string, object?>("code", code));
+
+    /// <summary>Shows the replica's queue length as the gauge <c>notifications.queue.length</c>.</summary>
+    /// <param name="length">Reads how many notifications in the replica have not ended.</param>
+    public void ObserveQueueLength(Func<int> length) => _meter.CreateObservableGauge("notifications.queue.length", length);
 
     #endregion
 }
