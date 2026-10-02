@@ -130,6 +130,18 @@ public sealed class Notification
         RenderedMessage = renderedMessage;
     }
 
+    /// <summary>Starts a delivery attempt: Queued or RetryWaiting to Delivering, one more attempt, never more than 3.</summary>
+    public void StartAttempt() => throw new NotImplementedException();
+
+    /// <summary>Ends the running attempt Delivered: the provider accepted the message.</summary>
+    public void Deliver() => throw new NotImplementedException();
+
+    /// <summary>Ends the running attempt with a transient failure: the notification waits for its next attempt.</summary>
+    public void WaitForRetry() => throw new NotImplementedException();
+
+    /// <summary>Ends the running attempt Failed: a permanent failure, or a transient failure on the last attempt.</summary>
+    public void Fail() => throw new NotImplementedException();
+
     private void EnsureReceived()
     {
         if (Status != NotificationStatus.Received)

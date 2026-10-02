@@ -4,7 +4,9 @@ namespace DKNet.Notification.App.Tests.Unit.Notifications;
 
 /// <summary>
 /// DRK-2013 §3a: the memory-only Notification and its Received → Rejected | Skipped steps. DRK-2020 §3a: the
-/// Received → Queued step, with its recipient, rendered message and attempt count.
+/// Received → Queued step, with its recipient, rendered message and attempt count, and the delivery steps
+/// Queued | RetryWaiting → Delivering → Delivered | RetryWaiting | Failed, never more than 3 attempts (brief
+/// DRK-2023 §3 row 1).
 /// </summary>
 public sealed class NotificationTests
 {
@@ -119,5 +121,199 @@ public sealed class NotificationTests
         Should.Throw<InvalidOperationException>(() => notification.Skip(SkipReason.ChannelNotSupported))
             .Message.ShouldBe("A notification that is Queued cannot change its status.");
         notification.SkipReason.ShouldBeNull();
+    }
+
+    private static Domains.Notifications.Notification Queued()
+    {
+        var notification = Received();
+        EmailRecipient.TryCreate("jane@example.com", out var recipient).ShouldBeTrue();
+        notification.Queue(recipient, new RenderedMessage("Your account is open", "Dear Jane", BodyFormat.Html));
+        return notification;
+    }
+
+    [Fact]
+    public void A_queued_notification_starts_attempt_1()
+    {
+        var notification = Queued();
+
+        notification.StartAttempt();
+
+        notification.Status.ShouldBe(NotificationStatus.Delivering);
+        notification.AttemptCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void An_attempt_the_provider_accepts_ends_the_notification_delivered()
+    {
+        var notification = Queued();
+        notification.StartAttempt();
+
+        notification.Deliver();
+
+        notification.Status.ShouldBe(NotificationStatus.Delivered);
+        notification.AttemptCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void A_transient_failure_makes_the_notification_wait_for_its_next_attempt()
+    {
+        var notification = Queued();
+        notification.StartAttempt();
+
+        notification.WaitForRetry();
+
+        notification.Status.ShouldBe(NotificationStatus.RetryWaiting);
+        notification.AttemptCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void A_waiting_notification_starts_its_next_attempt()
+    {
+        var notification = Queued();
+        notification.StartAttempt();
+        notification.WaitForRetry();
+
+        notification.StartAttempt();
+
+        notification.Status.ShouldBe(NotificationStatus.Delivering);
+        notification.AttemptCount.ShouldBe(2);
+    }
+
+    [Fact]
+    public void A_failed_attempt_can_end_the_notification_failed()
+    {
+        var notification = Queued();
+        notification.StartAttempt();
+
+        notification.Fail();
+
+        notification.Status.ShouldBe(NotificationStatus.Failed);
+        notification.AttemptCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void A_notification_never_gets_a_4th_attempt()
+    {
+        var notification = Queued();
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            notification.StartAttempt();
+            notification.AttemptCount.ShouldBe(attempt);
+            notification.WaitForRetry();
+        }
+
+        Should.Throw<InvalidOperationException>(notification.StartAttempt);
+        notification.AttemptCount.ShouldBe(3);
+        notification.Status.ShouldBe(NotificationStatus.RetryWaiting);
+    }
+
+    [Fact]
+    public void A_received_notification_cannot_start_an_attempt()
+    {
+        var notification = Received();
+
+        Should.Throw<InvalidOperationException>(notification.StartAttempt);
+        notification.Status.ShouldBe(NotificationStatus.Received);
+        notification.AttemptCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public void A_delivering_notification_cannot_start_another_attempt()
+    {
+        var notification = Queued();
+        notification.StartAttempt();
+
+        Should.Throw<InvalidOperationException>(notification.StartAttempt);
+        notification.Status.ShouldBe(NotificationStatus.Delivering);
+        notification.AttemptCount.ShouldBe(1);
+    }
+
+    [Theory]
+    [InlineData(NotificationStatus.Delivered)]
+    [InlineData(NotificationStatus.Failed)]
+    public void An_ended_notification_cannot_start_an_attempt(NotificationStatus end)
+    {
+        var notification = Queued();
+        notification.StartAttempt();
+        End(notification, end);
+
+        Should.Throw<InvalidOperationException>(notification.StartAttempt);
+        notification.Status.ShouldBe(end);
+        notification.AttemptCount.ShouldBe(1);
+    }
+
+    [Theory]
+    [InlineData(nameof(Domains.Notifications.Notification.Deliver))]
+    [InlineData(nameof(Domains.Notifications.Notification.WaitForRetry))]
+    [InlineData(nameof(Domains.Notifications.Notification.Fail))]
+    public void Only_a_running_attempt_can_end(string end)
+    {
+        var queued = Queued();
+        var waiting = Queued();
+        waiting.StartAttempt();
+        waiting.WaitForRetry();
+        var delivered = Queued();
+        delivered.StartAttempt();
+        delivered.Deliver();
+        var failed = Queued();
+        failed.StartAttempt();
+        failed.Fail();
+
+        foreach (var (notification, status) in new[]
+                 {
+                     (Received(), NotificationStatus.Received),
+                     (queued, NotificationStatus.Queued),
+                     (waiting, NotificationStatus.RetryWaiting),
+                     (delivered, NotificationStatus.Delivered),
+                     (failed, NotificationStatus.Failed)
+                 })
+        {
+            Should.Throw<InvalidOperationException>(() => EndBy(notification, end));
+            notification.Status.ShouldBe(status);
+        }
+    }
+
+    [Fact]
+    public void A_delivering_notification_cannot_be_skipped()
+    {
+        var notification = Queued();
+        notification.StartAttempt();
+
+        Should.Throw<InvalidOperationException>(() => notification.Skip(SkipReason.ChannelNotSupported))
+            .Message.ShouldBe("A notification that is Delivering cannot change its status.");
+        notification.Status.ShouldBe(NotificationStatus.Delivering);
+    }
+
+    private static void End(Domains.Notifications.Notification notification, NotificationStatus end)
+    {
+        switch (end)
+        {
+            case NotificationStatus.Delivered:
+                notification.Deliver();
+                break;
+            case NotificationStatus.Failed:
+                notification.Fail();
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(end), end, "not an end");
+        }
+    }
+
+    private static void EndBy(Domains.Notifications.Notification notification, string end)
+    {
+        switch (end)
+        {
+            case nameof(Domains.Notifications.Notification.Deliver):
+                notification.Deliver();
+                break;
+            case nameof(Domains.Notifications.Notification.WaitForRetry):
+                notification.WaitForRetry();
+                break;
+            case nameof(Domains.Notifications.Notification.Fail):
+                notification.Fail();
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(end), end, "not an end");
+        }
     }
 }

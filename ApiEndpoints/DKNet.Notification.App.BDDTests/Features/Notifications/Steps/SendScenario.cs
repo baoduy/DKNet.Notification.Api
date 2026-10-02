@@ -49,6 +49,9 @@ public sealed class SendScenario : IAsyncDisposable
 
     public Task<Answer>? HeldCall { get; set; }
 
+    /// <summary>A W3C <c>traceparent</c> every call of the scenario carries; null sends none.</summary>
+    public string? TraceParent { get; set; }
+
     public Answer LastAnswer => Answers.Count > 0 ? Answers[^1] : throw new InvalidOperationException("no call was answered yet");
 
     public IReadOnlyList<CapturedLogEntry> SkipEntries => Entries(SkippedEvent);
@@ -60,17 +63,27 @@ public sealed class SendScenario : IAsyncDisposable
 
     #region Host
 
-    /// <summary>Boots a fresh host and clears what its start-up logged, so the scenario sees only its own entries.</summary>
+    /// <summary>
+    /// Boots a fresh host and clears what its start-up logged, so the scenario sees only its own entries. A host
+    /// the scenario started before is stopped first, as a restart stops it.
+    /// </summary>
+    /// <param name="keepStore">Keeps the Redis store as it is, as a restart of the service does; otherwise it is emptied.</param>
     public async Task StartAsync(
         bool signIn,
         bool withRedis,
         string environment = "Testing",
-        IReadOnlyDictionary<string, string?>? settings = null)
+        IReadOnlyDictionary<string, string?>? settings = null,
+        bool keepStore = false)
     {
+        await StopHostAsync();
         string? redis = null;
         if (withRedis)
         {
-            await RedisServer.FlushAsync();
+            if (!keepStore)
+            {
+                await RedisServer.FlushAsync();
+            }
+
             redis = await RedisServer.ConnectionStringAsync();
         }
 
@@ -93,12 +106,21 @@ public sealed class SendScenario : IAsyncDisposable
             await HeldCall;
         }
 
+        await StopHostAsync();
+    }
+
+    private async Task StopHostAsync()
+    {
         _metrics?.Dispose();
         _client?.Dispose();
         if (_factory is not null)
         {
             await _factory.DisposeAsync();
         }
+
+        _metrics = null;
+        _client = null;
+        _factory = null;
     }
 
     #endregion
@@ -175,6 +197,11 @@ public sealed class SendScenario : IAsyncDisposable
             request.Headers.TryAddWithoutValidation("Idempotency-Key", key).ShouldBeTrue();
         }
 
+        if (TraceParent is not null)
+        {
+            request.Headers.TryAddWithoutValidation("traceparent", TraceParent).ShouldBeTrue();
+        }
+
         if (Callers.TryGetValue(caller, out var credential))
         {
             if (credential.Authorization is not null)
@@ -190,6 +217,14 @@ public sealed class SendScenario : IAsyncDisposable
         {
             RetryAfter = response.Headers.RetryAfter?.ToString()
         };
+    }
+
+    /// <summary>A <c>GET</c> with no token, as a probe sends it.</summary>
+    public async Task<Answer> GetAsync(string path)
+    {
+        _client.ShouldNotBeNull("a Given step must start the service first");
+        using var response = await _client.GetAsync(path);
+        return new Answer("probe", response.StatusCode, await response.Content.ReadAsStringAsync());
     }
 
     #endregion

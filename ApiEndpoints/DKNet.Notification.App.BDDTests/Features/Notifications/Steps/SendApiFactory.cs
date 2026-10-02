@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
+using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Templates;
 using Microsoft.AspNetCore.Hosting;
@@ -50,6 +51,9 @@ public sealed class SendApiFactory(
             {
                 TestAuthHandler.Register(services);
             }
+
+            // The test mail servers' authority, through the trust seam only: no setting can do this (DRK-2020 R6).
+            services.AddSingleton(new SmtpTrustedRoots([TestCertificateAuthority.Trusted.Certificate]));
 
             var released = services.Last(d => d.ServiceType == typeof(ITemplateCatalogue));
             services.Remove(released);

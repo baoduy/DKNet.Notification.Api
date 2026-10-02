@@ -1,40 +1,66 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 
 namespace DKNet.Notification.App.BDDTests.Support;
 
+/// <summary>How a Mailpit mail catcher takes mail. Every kind speaks TLS only.</summary>
+public enum MailCatcherKind
+{
+    /// <summary>STARTTLS required, no sign-in, Chaos replies on: the catcher of the test run.</summary>
+    StartTls,
+
+    /// <summary>STARTTLS required, and sign-in required as <see cref="MailCatcher.SignInUser" /> only.</summary>
+    SignIn,
+
+    /// <summary>TLS from the first byte (implicit TLS) required.</summary>
+    TlsOnConnect,
+
+    /// <summary>STARTTLS required, on a certificate signed by <see cref="TestCertificateAuthority.Untrusted" />.</summary>
+    Untrusted
+}
+
 /// <summary>
-/// One Mailpit mail catcher for the whole test run (DRK-2020 §3b: the tests start a Mailpit test container), started
-/// on first use and disposed by <see cref="ApiHooks" /> after the run. Needs Docker. It speaks SMTP with STARTTLS
-/// required, on a server certificate signed by a test certificate authority made here (<see cref="Authority" />);
-/// the service may trust that authority only through a seam its test host overrides, never through a setting
-/// (DRK-2020 R6); surface B, which adds the SMTP sender, adds that seam. Mails are read through Mailpit's HTTP API.
+/// Mailpit mail catchers for the whole test run (DRK-2020 §3b: the tests start a Mailpit test container), one per
+/// <see cref="MailCatcherKind" />, each started on first use and disposed by <see cref="ApiHooks" /> after the run.
+/// Needs Docker. Every kind but <see cref="MailCatcherKind.Untrusted" /> serves a certificate signed by
+/// <see cref="TestCertificateAuthority.Trusted" />, which the service trusts only through the seam its test host
+/// overrides, never through a setting. Mails are read through Mailpit's HTTP API.
 /// </summary>
 /// <remarks>
 /// Both ports are bound to fixed host ports picked at start, so a stopped catcher comes back on the same ports and
-/// a running service still reaches it.
+/// a running service still reaches it. Mailpit reports no TLS flag per mail; a catcher that requires STARTTLS, or
+/// TLS from the first byte, takes a mail over that encryption only, so holding the mail is the proof.
 /// </remarks>
 public sealed class MailCatcher : IAsyncDisposable
 {
+    /// <summary>The one user the <see cref="MailCatcherKind.SignIn" /> catcher accepts (DRK-2020 §5).</summary>
+    public const string SignInUser = "notify-svc";
+
+    /// <summary>The password of <see cref="SignInUser" /> (DRK-2020 §5).</summary>
+    public const string SignInPassword = "Pa55-w0rd-7781";
+
     private const int SmtpPort = 1025;
     private const int HttpPort = 8025;
 
-    private static readonly Lazy<Task<MailCatcher>> Instance = new(StartSharedAsync);
+    private static readonly ConcurrentDictionary<MailCatcherKind, Lazy<Task<MailCatcher>>> Instances = new();
 
     private readonly IContainer _container;
     private readonly HttpClient _api;
 
-    private MailCatcher(IContainer container, X509Certificate2 authority, int smtpHostPort, int httpHostPort)
+    private MailCatcher(MailCatcherKind kind, IContainer container, X509Certificate2 authority, int smtpHostPort, int httpHostPort)
     {
+        Kind = kind;
         _container = container;
         Authority = authority;
         SmtpHostPort = smtpHostPort;
         _api = new HttpClient { BaseAddress = new Uri($"http://{container.Hostname}:{httpHostPort}") };
     }
+
+    public MailCatcherKind Kind { get; }
 
     /// <summary>The test certificate authority that signed the catcher's server certificate.</summary>
     public X509Certificate2 Authority { get; }
@@ -47,10 +73,17 @@ public sealed class MailCatcher : IAsyncDisposable
 
     public bool IsRunning => _container.State == TestcontainersStates.Running;
 
-    /// <summary>The shared catcher of the test run.</summary>
-    public static Task<MailCatcher> SharedAsync() => Instance.Value;
+    /// <summary>The STARTTLS catcher of the test run.</summary>
+    public static Task<MailCatcher> SharedAsync() => SharedAsync(MailCatcherKind.StartTls);
 
-    /// <summary>The settings of a service with email set up to send to this catcher over STARTTLS, without sign-in.</summary>
+    /// <summary>The catcher of <paramref name="kind" />, started on first use.</summary>
+    public static Task<MailCatcher> SharedAsync(MailCatcherKind kind) =>
+        Instances.GetOrAdd(kind, k => new Lazy<Task<MailCatcher>>(() => StartSharedAsync(k))).Value;
+
+    /// <summary>
+    /// The settings of a service with email set up to send to this catcher, without sign-in: security mode
+    /// <c>Tls</c> for <see cref="MailCatcherKind.TlsOnConnect" />, <c>StartTls</c> otherwise.
+    /// </summary>
     public IReadOnlyDictionary<string, string?> EmailSettings() => new Dictionary<string, string?>(StringComparer.Ordinal)
     {
         ["Notifications:Email:Enabled"] = "true",
@@ -58,7 +91,7 @@ public sealed class MailCatcher : IAsyncDisposable
         ["Notifications:Email:TimeoutSeconds"] = "30",
         ["Notifications:Email:Smtp:Host"] = Host,
         ["Notifications:Email:Smtp:Port"] = SmtpHostPort.ToString(System.Globalization.CultureInfo.InvariantCulture),
-        ["Notifications:Email:Smtp:Security"] = "StartTls",
+        ["Notifications:Email:Smtp:Security"] = Kind == MailCatcherKind.TlsOnConnect ? "Tls" : "StartTls",
         ["Notifications:Email:Smtp:FromAddress"] = "notifications@drunkcoding.net",
         ["Notifications:Email:Smtp:FromName"] = "DKNet Notification"
     };
@@ -77,87 +110,121 @@ public sealed class MailCatcher : IAsyncDisposable
         return page.ShouldNotBeNull("the mail catcher API answered no body").Total;
     }
 
+    /// <summary>Every mail the catcher holds, oldest first. Read without a search, so no address goes in a URL.</summary>
+    public async Task<IReadOnlyList<Mail>> MailsAsync()
+    {
+        var page = await _api.GetFromJsonAsync<MessagesPage>("/api/v1/messages?limit=500");
+        return page.ShouldNotBeNull("the mail catcher API answered no body").Messages.Reverse().ToArray();
+    }
+
+    /// <summary>One mail in full: its HTML, its text and its attachments.</summary>
+    public async Task<MailContent> MailContentAsync(string id) =>
+        (await _api.GetFromJsonAsync<MailContent>($"/api/v1/message/{Uri.EscapeDataString(id)}"))
+        .ShouldNotBeNull("the mail catcher API answered no body");
+
+    /// <summary>The headers of one mail, as it was received.</summary>
+    public async Task<IReadOnlyDictionary<string, string[]>> HeadersAsync(string id) =>
+        (await _api.GetFromJsonAsync<Dictionary<string, string[]>>($"/api/v1/message/{Uri.EscapeDataString(id)}/headers"))
+        .ShouldNotBeNull("the mail catcher API answered no body");
+
+    /// <summary>Makes the catcher answer every recipient with <paramref name="code" /> (Mailpit Chaos).</summary>
+    public async Task FailEveryRecipientWithAsync(int code) => await SetChaosAsync(code, 100);
+
+    /// <summary>Turns every Chaos reply off.</summary>
+    public async Task ClearChaosAsync() => await SetChaosAsync(451, 0);
+
     public async Task StopAsync()
     {
         await _container.StopAsync();
         IsRunning.ShouldBeFalse();
     }
 
-    /// <summary>Starts the catcher again when a scenario stopped it, on the same ports.</summary>
+    /// <summary>Freezes the catcher: a connection is taken, but never answered.</summary>
+    public async Task PauseAsync()
+    {
+        await _container.PauseAsync();
+        _container.State.ShouldBe(TestcontainersStates.Paused);
+    }
+
+    /// <summary>Starts the catcher again when a scenario stopped or froze it, on the same ports.</summary>
     public async Task EnsureRunningAsync()
     {
+        if (_container.State == TestcontainersStates.Paused)
+        {
+            await _container.UnpauseAsync();
+        }
+
         if (!IsRunning)
         {
             await _container.StartAsync();
         }
+
+        IsRunning.ShouldBeTrue();
     }
 
     public async ValueTask DisposeAsync()
     {
         _api.Dispose();
         await _container.DisposeAsync();
-        Authority.Dispose();
     }
 
     internal static async Task StopSharedAsync()
     {
-        if (Instance.IsValueCreated)
+        foreach (var instance in Instances.Values.Where(i => i.IsValueCreated))
         {
-            await (await Instance.Value).DisposeAsync();
+            await (await instance.Value).DisposeAsync();
         }
     }
 
-    private static async Task<MailCatcher> StartSharedAsync()
+    private async Task SetChaosAsync(int code, int probability)
     {
-        var (authority, certificatePem, keyPem) = CreateCertificates();
+        if (Kind != MailCatcherKind.StartTls)
+        {
+            throw new InvalidOperationException("Only the STARTTLS catcher of the test run is used with Chaos replies.");
+        }
+
+        var trigger = new { ErrorCode = code, Probability = probability };
+        using var answer = await _api.PutAsJsonAsync(
+            "/api/v1/chaos",
+            new { Sender = new { ErrorCode = 451, Probability = 0 }, Recipient = trigger, Authentication = new { ErrorCode = 535, Probability = 0 } });
+        answer.EnsureSuccessStatusCode();
+    }
+
+    private static async Task<MailCatcher> StartSharedAsync(MailCatcherKind kind)
+    {
+        var authority = kind == MailCatcherKind.Untrusted ? TestCertificateAuthority.Untrusted : TestCertificateAuthority.Trusted;
+        var (certificatePem, keyPem) = authority.IssueLocalhostPem();
         var smtpHostPort = FreePort();
         var httpHostPort = FreePort();
 
-        var container = new ContainerBuilder("axllent/mailpit:v1.27")
+        var builder = new ContainerBuilder("axllent/mailpit:v1.27")
             .WithPortBinding(smtpHostPort, SmtpPort)
             .WithPortBinding(httpHostPort, HttpPort)
             .WithResourceMapping(Encoding.UTF8.GetBytes(certificatePem), "/certs/server.pem")
             .WithResourceMapping(Encoding.UTF8.GetBytes(keyPem), "/certs/server.key")
             .WithEnvironment("MP_SMTP_TLS_CERT", "/certs/server.pem")
             .WithEnvironment("MP_SMTP_TLS_KEY", "/certs/server.key")
-            .WithEnvironment("MP_SMTP_REQUIRE_STARTTLS", "true")
             .WithWaitStrategy(Wait.ForUnixContainer()
-                .UntilHttpRequestIsSucceeded(request => request.ForPort(HttpPort).ForPath("/readyz")))
-            .Build();
+                .UntilHttpRequestIsSucceeded(request => request.ForPort(HttpPort).ForPath("/readyz")));
+        builder = kind switch
+        {
+            MailCatcherKind.StartTls => builder
+                .WithEnvironment("MP_SMTP_REQUIRE_STARTTLS", "true")
+                .WithEnvironment("MP_ENABLE_CHAOS", "true"),
+            MailCatcherKind.SignIn => builder
+                .WithEnvironment("MP_SMTP_REQUIRE_STARTTLS", "true")
+                .WithEnvironment("MP_SMTP_AUTH", $"{SignInUser}:{SignInPassword}"),
+            MailCatcherKind.TlsOnConnect => builder.WithEnvironment("MP_SMTP_REQUIRE_TLS", "true"),
+            MailCatcherKind.Untrusted => builder.WithEnvironment("MP_SMTP_REQUIRE_STARTTLS", "true"),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "no such mail catcher")
+        };
+
+        var container = builder.Build();
         await container.StartAsync();
 
-        var catcher = new MailCatcher(container, authority, smtpHostPort, httpHostPort);
+        var catcher = new MailCatcher(kind, container, authority.Certificate, smtpHostPort, httpHostPort);
         (await catcher.MailCountAsync()).ShouldBe(0);
         return catcher;
-    }
-
-    /// <summary>A test authority, and a server certificate it signed for <c>localhost</c>, in PEM.</summary>
-    private static (X509Certificate2 Authority, string CertificatePem, string KeyPem) CreateCertificates()
-    {
-        using var authorityKey = RSA.Create(2048);
-        var authorityRequest = new CertificateRequest(
-            "CN=DKNet Notification test authority",
-            authorityKey,
-            HashAlgorithmName.SHA256,
-            RSASignaturePadding.Pkcs1);
-        authorityRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
-        authorityRequest.CertificateExtensions.Add(
-            new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign | X509KeyUsageFlags.CrlSign, true));
-        var now = DateTimeOffset.UtcNow;
-        var authority = authorityRequest.CreateSelfSigned(now.AddDays(-1), now.AddDays(7));
-
-        using var serverKey = RSA.Create(2048);
-        var serverRequest = new CertificateRequest("CN=localhost", serverKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        var names = new SubjectAlternativeNameBuilder();
-        names.AddDnsName("localhost");
-        names.AddIpAddress(IPAddress.Loopback);
-        serverRequest.CertificateExtensions.Add(names.Build());
-        serverRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
-        serverRequest.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(
-            [new Oid("1.3.6.1.5.5.7.3.1")], false));
-        using var server = serverRequest.Create(authority, now.AddDays(-1), now.AddDays(6), RandomNumberGenerator.GetBytes(16));
-
-        return (authority, server.ExportCertificatePem(), serverKey.ExportPkcs8PrivateKeyPem());
     }
 
     private static int FreePort()
@@ -167,5 +234,22 @@ public sealed class MailCatcher : IAsyncDisposable
         return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 
-    private sealed record MessagesPage(int Total);
+    /// <summary>One address of a mail, as Mailpit reports it.</summary>
+    public sealed record Mailbox(string Name, string Address);
+
+    /// <summary>One mail as Mailpit lists it. <see cref="Bcc" /> holds the envelope recipients no header names.</summary>
+    public sealed record Mail(
+        string ID,
+        Mailbox From,
+        Mailbox[] To,
+        Mailbox[]? Cc,
+        Mailbox[]? Bcc,
+        string Subject,
+        int Attachments,
+        DateTimeOffset Created);
+
+    /// <summary>One mail in full.</summary>
+    public sealed record MailContent(string ID, string HTML, string Text, JsonElement[] Attachments, JsonElement[] Inline);
+
+    private sealed record MessagesPage(int Total, Mail[] Messages);
 }

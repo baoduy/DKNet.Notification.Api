@@ -80,6 +80,9 @@ public sealed record CapturedLogEntry(
     IReadOnlyList<KeyValuePair<string, object?>> State,
     Exception? Exception)
 {
+    /// <summary>When the entry was written (UTC): the record is made as the logger is called.</summary>
+    public DateTimeOffset LoggedAt { get; } = DateTimeOffset.UtcNow;
+
     /// <summary>The invariant text of the state value named <paramref name="key" /> (ordinal match), or null.</summary>
     public string? Value(string key) =>
         State.Where(p => string.Equals(p.Key, key, StringComparison.Ordinal))
