@@ -11,6 +11,13 @@ namespace DKNet.Notification.Domains.Notifications;
     Justification = "The design's aggregate name (docs/architect/02-domain.md); the clash is with the service's own root namespace.")]
 public sealed class Notification
 {
+    #region Fields
+
+    /// <summary>The delivery attempts a notification gets at most, whatever the settings say.</summary>
+    public const int MaxAttempts = 3;
+
+    #endregion
+
     #region Constructors
 
     [SuppressMessage(
@@ -131,16 +138,40 @@ public sealed class Notification
     }
 
     /// <summary>Starts a delivery attempt: Queued or RetryWaiting to Delivering, one more attempt, never more than 3.</summary>
-    public void StartAttempt() => throw new NotImplementedException();
+    public void StartAttempt()
+    {
+        if (Status is not (NotificationStatus.Queued or NotificationStatus.RetryWaiting))
+        {
+            throw new InvalidOperationException($"A notification that is {Status} cannot start a delivery attempt.");
+        }
+
+        if (AttemptCount >= MaxAttempts)
+        {
+            throw new InvalidOperationException($"A notification never gets more than {MaxAttempts} delivery attempts.");
+        }
+
+        Status = NotificationStatus.Delivering;
+        AttemptCount++;
+    }
 
     /// <summary>Ends the running attempt Delivered: the provider accepted the message.</summary>
-    public void Deliver() => throw new NotImplementedException();
+    public void Deliver() => EndAttempt(NotificationStatus.Delivered);
 
     /// <summary>Ends the running attempt with a transient failure: the notification waits for its next attempt.</summary>
-    public void WaitForRetry() => throw new NotImplementedException();
+    public void WaitForRetry() => EndAttempt(NotificationStatus.RetryWaiting);
 
     /// <summary>Ends the running attempt Failed: a permanent failure, or a transient failure on the last attempt.</summary>
-    public void Fail() => throw new NotImplementedException();
+    public void Fail() => EndAttempt(NotificationStatus.Failed);
+
+    private void EndAttempt(NotificationStatus end)
+    {
+        if (Status != NotificationStatus.Delivering)
+        {
+            throw new InvalidOperationException($"A notification that is {Status} has no delivery attempt to end.");
+        }
+
+        Status = end;
+    }
 
     private void EnsureReceived()
     {

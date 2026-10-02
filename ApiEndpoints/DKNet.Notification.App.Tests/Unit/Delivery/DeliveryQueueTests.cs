@@ -8,6 +8,8 @@ namespace DKNet.Notification.App.Tests.Unit.Delivery;
 /// <summary>DRK-2020 §3 Step 9: the replica's queue holds at most its capacity, and its length is a gauge.</summary>
 public sealed class DeliveryQueueTests : IDisposable
 {
+    private const string TraceId = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+
     private readonly ServiceProvider _services = new ServiceCollection().AddMetrics().BuildServiceProvider();
     private readonly MeterListener _listener = new();
     private readonly List<int> _gauge = [];
@@ -57,7 +59,7 @@ public sealed class DeliveryQueueTests : IDisposable
         var notification = Received();
         queue.Length.ShouldBe(0);
 
-        queue.TryEnqueue(notification, Jane(), Message).ShouldBeTrue();
+        queue.TryEnqueue(notification, Jane(), Message, TraceId).ShouldBeTrue();
 
         queue.Length.ShouldBe(1);
         notification.Status.ShouldBe(NotificationStatus.Queued);
@@ -70,12 +72,12 @@ public sealed class DeliveryQueueTests : IDisposable
     public void A_full_queue_refuses_and_leaves_the_notification_received()
     {
         var queue = Queue(capacity: 2);
-        queue.TryEnqueue(Received(), Jane(), Message).ShouldBeTrue();
-        queue.TryEnqueue(Received(), Jane(), Message).ShouldBeTrue();
+        queue.TryEnqueue(Received(), Jane(), Message, TraceId).ShouldBeTrue();
+        queue.TryEnqueue(Received(), Jane(), Message, TraceId).ShouldBeTrue();
         queue.Length.ShouldBe(2);
         var third = Received();
 
-        queue.TryEnqueue(third, Jane(), Message).ShouldBeFalse();
+        queue.TryEnqueue(third, Jane(), Message, TraceId).ShouldBeFalse();
 
         queue.Length.ShouldBe(2);
         third.Status.ShouldBe(NotificationStatus.Received);
@@ -87,7 +89,7 @@ public sealed class DeliveryQueueTests : IDisposable
     {
         var queue = Queue(capacity: 50);
 
-        var queued = Enumerable.Range(0, 200).AsParallel().Count(_ => queue.TryEnqueue(Received(), Jane(), Message));
+        var queued = Enumerable.Range(0, 200).AsParallel().Count(_ => queue.TryEnqueue(Received(), Jane(), Message, TraceId));
 
         queued.ShouldBe(50);
         queue.Length.ShouldBe(50);
@@ -99,6 +101,6 @@ public sealed class DeliveryQueueTests : IDisposable
         Should.Throw<ArgumentNullException>(() => new DeliveryQueue(null!, new NotificationMetrics(_services.GetRequiredService<IMeterFactory>())))
             .ParamName.ShouldBe("settings");
         Should.Throw<ArgumentNullException>(() => new DeliveryQueue(new DeliverySettings(), null!)).ParamName.ShouldBe("metrics");
-        Should.Throw<ArgumentNullException>(() => Queue(1).TryEnqueue(null!, Jane(), Message)).ParamName.ShouldBe("notification");
+        Should.Throw<ArgumentNullException>(() => Queue(1).TryEnqueue(null!, Jane(), Message, TraceId)).ParamName.ShouldBe("notification");
     }
 }

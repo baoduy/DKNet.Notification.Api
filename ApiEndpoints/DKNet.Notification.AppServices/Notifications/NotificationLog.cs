@@ -4,8 +4,8 @@ using Microsoft.Extensions.Logging;
 namespace DKNet.Notification.AppServices.Notifications;
 
 /// <summary>
-///     The notification log entries of DRK-2013 "Logs and metrics". No entry takes a parameter value or a
-///     recipient.
+///     The notification log entries of DRK-2013 "Logs and metrics" and DRK-2020 "Logs". No entry takes a parameter
+///     value, a recipient, the rendered message or an SMTP reply text.
 /// </summary>
 internal static partial class NotificationLog
 {
@@ -53,6 +53,54 @@ internal static partial class NotificationLog
         this ILogger logger,
         Guid notificationId,
         int queueLength,
+        string templateId,
+        string channel,
+        string callerId,
+        string traceId);
+
+    /// <remarks><paramref name="replyCode" /> is the SMTP reply code only, empty when there was no reply.</remarks>
+    [LoggerMessage(
+        EventId = 2004,
+        EventName = "NotificationAttemptFailed",
+        Level = LogLevel.Warning,
+        Message = "Notification {NotificationId} attempt {Attempt} failed: {FailureKind}, SMTP reply {ReplyCode}. Template {TemplateId}, channel {Channel}, caller {CallerId}, trace {TraceId}.")]
+    public static partial void NotificationAttemptFailed(
+        this ILogger logger,
+        Guid notificationId,
+        int attempt,
+        string failureKind,
+        string replyCode,
+        string templateId,
+        string channel,
+        string callerId,
+        string traceId);
+
+    [LoggerMessage(
+        EventId = 2005,
+        EventName = "NotificationDelivered",
+        Level = LogLevel.Information,
+        Message = "Notification {NotificationId} delivered on attempt {Attempt}, {Duration} after it was accepted. Template {TemplateId}, channel {Channel}, caller {CallerId}, trace {TraceId}.")]
+    public static partial void NotificationDelivered(
+        this ILogger logger,
+        Guid notificationId,
+        int attempt,
+        TimeSpan duration,
+        string templateId,
+        string channel,
+        string callerId,
+        string traceId);
+
+    /// <remarks><paramref name="replyCode" /> is the last SMTP reply code only, empty when there was no reply.</remarks>
+    [LoggerMessage(
+        EventId = 2006,
+        EventName = "NotificationFailed",
+        Level = LogLevel.Error,
+        Message = "Notification {NotificationId} failed after {AttemptCount} attempts, last SMTP reply {ReplyCode}. Template {TemplateId}, channel {Channel}, caller {CallerId}, trace {TraceId}.")]
+    public static partial void NotificationFailed(
+        this ILogger logger,
+        Guid notificationId,
+        int attemptCount,
+        string replyCode,
         string templateId,
         string channel,
         string callerId,

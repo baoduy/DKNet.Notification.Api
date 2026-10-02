@@ -20,6 +20,8 @@ public sealed class EmailChannelSettings
     /// <summary>The one sender this release has.</summary>
     public const string SmtpSender = "Smtp";
 
+    private readonly List<string> _unconvertibleSettings = [];
+
     #endregion
 
     #region Properties
@@ -40,7 +42,17 @@ public sealed class EmailChannelSettings
 
     #region Methods
 
-    /// <summary>Checks the sender, then every email and SMTP rule. Whether email is on is not part of it.</summary>
+    /// <summary>
+    ///     Records a setting whose value the settings binder could not convert to its type: email is then not
+    ///     configured. The setting keeps its default.
+    /// </summary>
+    /// <param name="key">The full key of the setting, never its value.</param>
+    public void AddUnconvertibleSetting(string key) => _unconvertibleSettings.Add(key);
+
+    /// <summary>
+    ///     Checks the sender, then every unconvertible setting and every email and SMTP rule. Whether email is on is
+    ///     not part of it.
+    /// </summary>
     /// <returns>
     ///     The full key of each missing or bad setting (only the sender's key when the sender is not <c>Smtp</c>);
     ///     empty when email can send. Never a value.
@@ -53,7 +65,7 @@ public sealed class EmailChannelSettings
         }
 
         var smtp = $"{SectionName}:{nameof(Smtp)}";
-        return new (bool IsBad, string Key)[]
+        var broken = new (bool IsBad, string Key)[]
             {
                 (TimeoutSeconds is < 1 or > 120, $"{SectionName}:{nameof(TimeoutSeconds)}"),
                 (string.IsNullOrWhiteSpace(Smtp.Host) || Smtp.Host.Length > 255, $"{smtp}:{nameof(Smtp.Host)}"),
@@ -66,8 +78,8 @@ public sealed class EmailChannelSettings
                 (Smtp.FromName.Length > 100, $"{smtp}:{nameof(Smtp.FromName)}")
             }
             .Where(rule => rule.IsBad)
-            .Select(rule => rule.Key)
-            .ToArray();
+            .Select(rule => rule.Key);
+        return [.. _unconvertibleSettings, .. broken];
     }
 
     #endregion

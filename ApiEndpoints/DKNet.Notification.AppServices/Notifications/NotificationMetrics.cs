@@ -17,6 +17,9 @@ public sealed class NotificationMetrics
     private readonly Meter _meter;
     private readonly Counter<long> _accepted;
     private readonly Counter<long> _rejected;
+    private readonly Counter<long> _delivered;
+    private readonly Counter<long> _failed;
+    private readonly Histogram<double> _deliveryDuration;
 
     #endregion
 
@@ -31,6 +34,9 @@ public sealed class NotificationMetrics
         _meter = meterFactory.Create(MeterName);
         _accepted = _meter.CreateCounter<long>("notifications.accepted");
         _rejected = _meter.CreateCounter<long>("notifications.rejected");
+        _delivered = _meter.CreateCounter<long>("notifications.delivered");
+        _failed = _meter.CreateCounter<long>("notifications.failed");
+        _deliveryDuration = _meter.CreateHistogram<double>("notifications.delivery.duration", unit: "s");
     }
 
     #endregion
@@ -46,6 +52,20 @@ public sealed class NotificationMetrics
     /// <summary>Counts one refused call.</summary>
     /// <param name="code">The error code it was refused with.</param>
     public void Rejected(string code) => _rejected.Add(1, new KeyValuePair<string, object?>("code", code));
+
+    /// <summary>Counts one delivered notification and records how long it took from acceptance to delivery.</summary>
+    /// <param name="channel">The lower-case channel.</param>
+    /// <param name="duration">The time from acceptance to delivery.</param>
+    public void Delivered(string channel, TimeSpan duration)
+    {
+        var tag = new KeyValuePair<string, object?>("channel", channel);
+        _delivered.Add(1, tag);
+        _deliveryDuration.Record(duration.TotalSeconds, tag);
+    }
+
+    /// <summary>Counts one notification that ended Failed.</summary>
+    /// <param name="channel">The lower-case channel.</param>
+    public void Failed(string channel) => _failed.Add(1, new KeyValuePair<string, object?>("channel", channel));
 
     /// <summary>Shows the replica's queue length as the gauge <c>notifications.queue.length</c>.</summary>
     /// <param name="length">Reads how many notifications in the replica have not ended.</param>

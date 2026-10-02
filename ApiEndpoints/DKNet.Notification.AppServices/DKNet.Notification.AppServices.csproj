@@ -13,6 +13,8 @@
         <!-- Template rendering (ADR-0004). -->
         <PackageReference Include="DKNet.Svc.Transformation" />
         <PackageReference Include="FluentValidation" />
+        <!-- SMTP submission (ADR-0005). -->
+        <PackageReference Include="MailKit" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     </ItemGroup>
 

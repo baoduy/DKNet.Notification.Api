@@ -20,8 +20,8 @@ public sealed class DeliveryQueue
     private readonly int _capacity;
 
     // Unbounded on purpose: the capacity counts notifications that have not ended, not only those waiting here.
-    private readonly Channel<Domains.Notifications.Notification> _waiting =
-        Channel.CreateUnbounded<Domains.Notifications.Notification>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly Channel<QueuedNotification> _waiting =
+        Channel.CreateUnbounded<QueuedNotification>(new UnboundedChannelOptions { SingleReader = true });
 
     private int _length;
 
@@ -52,11 +52,13 @@ public sealed class DeliveryQueue
     /// <param name="notification">A received notification, rendered and with a valid recipient.</param>
     /// <param name="recipient">The one address the email goes to.</param>
     /// <param name="renderedMessage">The filled subject and body.</param>
+    /// <param name="traceId">The accepting call's trace id, as its log entries carry it.</param>
     /// <returns><see langword="false" /> when the queue is full: nothing is queued.</returns>
     public bool TryEnqueue(
         Domains.Notifications.Notification notification,
         EmailRecipient recipient,
-        RenderedMessage renderedMessage)
+        RenderedMessage renderedMessage,
+        string traceId)
     {
         ArgumentNullException.ThrowIfNull(notification);
 
@@ -72,11 +74,23 @@ public sealed class DeliveryQueue
         while (Interlocked.CompareExchange(ref _length, length + 1, length) != length);
 
         notification.Queue(recipient, renderedMessage);
-        // ponytail: nothing reads the line and nothing ends a notification until the delivery worker (DRK-2020
-        // surface B) does; until then the length only grows. An unbounded channel never completed takes every write.
-        _waiting.Writer.TryWrite(notification);
+        // An unbounded channel never completed takes every write.
+        _waiting.Writer.TryWrite(new QueuedNotification(notification, traceId));
         return true;
     }
+
+    /// <summary>Takes the notifications in line, in their order, until <paramref name="stoppingToken" /> is cancelled.</summary>
+    /// <param name="stoppingToken">Cancelled when the host stops.</param>
+    /// <returns>The notifications whose turn it is: queued, or back from a wait.</returns>
+    public IAsyncEnumerable<QueuedNotification> ReadAllAsync(CancellationToken stoppingToken) =>
+        _waiting.Reader.ReadAllAsync(stoppingToken);
+
+    /// <summary>Puts a notification whose wait has ended back in line. It kept its place in the count.</summary>
+    /// <param name="queued">A notification that waits for its next attempt.</param>
+    public void Requeue(QueuedNotification queued) => _waiting.Writer.TryWrite(queued);
+
+    /// <summary>Frees the place of a notification that ended Delivered or Failed.</summary>
+    public void End() => Interlocked.Decrement(ref _length);
 
     #endregion
 }

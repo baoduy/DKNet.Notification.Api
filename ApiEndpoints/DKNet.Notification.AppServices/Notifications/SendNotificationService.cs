@@ -125,7 +125,7 @@ public sealed class SendNotificationService(
         }
 
         // Step 9 — queue.
-        if (!queue.TryEnqueue(notification, recipient, rendering.Message))
+        if (!queue.TryEnqueue(notification, recipient, rendering.Message, traceId))
         {
             return Reject(notification, NotificationErrorCodes.QueueFull, string.Empty, traceId);
         }
