@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Threading.Channels;
 using DKNet.Notification.AppServices.Notifications;
 using DKNet.Notification.Domains.Notifications;
 
@@ -18,11 +17,6 @@ public sealed class DeliveryQueue
     #region Fields
 
     private readonly int _capacity;
-
-    // Unbounded on purpose: the capacity counts notifications that have not ended, not only those waiting here.
-    private readonly Channel<Domains.Notifications.Notification> _waiting =
-        Channel.CreateUnbounded<Domains.Notifications.Notification>(new UnboundedChannelOptions { SingleReader = true });
-
     private int _length;
 
     #endregion
@@ -71,9 +65,9 @@ public sealed class DeliveryQueue
         }
         while (Interlocked.CompareExchange(ref _length, length + 1, length) != length);
 
+        // ponytail: counts only; nothing reads a queued notification until the delivery worker (DRK-2020 surface B)
+        // adds the waiting line it takes them from.
         notification.Queue(recipient, renderedMessage);
-        // An unbounded channel that is never completed takes every write.
-        _waiting.Writer.TryWrite(notification);
         return true;
     }
 

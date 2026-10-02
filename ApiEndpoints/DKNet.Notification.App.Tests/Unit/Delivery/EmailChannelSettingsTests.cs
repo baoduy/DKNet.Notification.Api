@@ -64,15 +64,14 @@ public sealed class EmailChannelSettingsTests
         Bind(settings).BadSettings().ShouldBeEmpty();
     }
 
-    [Theory]
-    [InlineData(255, 256, 512, 100)]
-    public void Texts_at_their_longest_keep_email_set_up(int host, int userName, int password, int fromName)
+    [Fact]
+    public void Texts_at_their_longest_keep_email_set_up()
     {
         var settings = SetUp();
-        settings["Notifications:Email:Smtp:Host"] = new string('h', host);
-        settings["Notifications:Email:Smtp:UserName"] = new string('u', userName);
-        settings["Notifications:Email:Smtp:Password"] = new string('p', password);
-        settings["Notifications:Email:Smtp:FromName"] = new string('n', fromName);
+        settings["Notifications:Email:Smtp:Host"] = new string('h', 255);
+        settings["Notifications:Email:Smtp:UserName"] = new string('u', 256);
+        settings["Notifications:Email:Smtp:Password"] = new string('p', 512);
+        settings["Notifications:Email:Smtp:FromName"] = new string('n', 100);
 
         Bind(settings).BadSettings().ShouldBeEmpty();
     }

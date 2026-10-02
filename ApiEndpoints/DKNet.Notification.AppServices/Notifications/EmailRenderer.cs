@@ -41,7 +41,7 @@ internal static class EmailRenderer
                 .Replace('\n', ' ');
             var body = Transformer.Transform(version.Body, encoded);
             return new EmailRendering(
-                new RenderedMessage(subject.Length > MaxSubjectLength ? subject[..MaxSubjectLength] : subject, body, BodyFormat.Html),
+                new RenderedMessage(subject[..Math.Min(subject.Length, MaxSubjectLength)], body, BodyFormat.Html),
                 MissingParameter: null);
         }
         catch (UnResolvedTokenException missing)

@@ -37,6 +37,8 @@ public sealed class EmailRecipientTests
     [InlineData(" jane@example.com")]
     [InlineData("jane@example.com ")]
     [InlineData("jane@example.com (Jane)")]
+    [InlineData("Jane<jane@example.com>")]
+    [InlineData("jane@example.com(Jane)")]
     [InlineData("\"jane tan\"@example.com")]
     [InlineData("jane@example.com\r\nBcc: eve@example.com")]
     public void A_value_that_is_not_1_bare_address_is_refused(string value)

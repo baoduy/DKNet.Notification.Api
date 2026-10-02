@@ -183,6 +183,16 @@ public sealed class SendEmailServiceTests : IDisposable
     }
 
     [Fact]
+    public void An_unknown_template_is_rejected_on_the_field_templateId()
+    {
+        var notification = Service(SetUp()).Send(Email("account-closed", Jane()), "treasury-ops", "trace-1");
+
+        notification.Status.ShouldBe(NotificationStatus.Rejected);
+        notification.ErrorCode.ShouldBe("TEMPLATE_NOT_FOUND");
+        notification.ErrorField.ShouldBe("templateId");
+    }
+
+    [Fact]
     public void A_call_to_a_full_queue_is_rejected()
     {
         var service = Service(SetUp(), queueCapacity: 1);
