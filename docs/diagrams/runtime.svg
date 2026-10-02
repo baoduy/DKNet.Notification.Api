@@ -433,7 +433,7 @@ rect.c-bg-rect { fill: var(--bg); }
         <rect width="100%" height="100%" fill="url(#grid)"/>
 
         <!-- Boundaries (behind everything) -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="DKNet.Notification container (scaffold slice)" x="290" y="137" width="820" height="463" rx="12" class="c-region" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="DKNet.Notification container (scaffold slice)" x="290" y="310" width="820" height="290" rx="12" class="c-region" stroke-width="1"/>
 
         <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="Service edge: Bearer JWT, default-deny fallback (no scope enforced yet)" x="768.9935270870968" y="470" width="422.01294582580636" height="110" rx="8" class="c-security-group" stroke-width="1"/>
 
@@ -453,32 +453,32 @@ rect.c-bg-rect { fill: var(--bg); }
           <path data-edge-from="api" data-edge-to="telemetry" data-edge-label="export traces (if enabled)" data-edge-key="2" data-edge-id="api-telemetry" data-composition-points="398,340;398,292;273.6,292;273.6,124;415,124;415,100" data-composition-crossover="halo" data-composition-independent="true" d="M 398 340 L 398 300 Q 398 292 390 292 L 281.6 292 Q 273.6 292 273.6 284 L 273.6 132 Q 273.6 124 281.6 124 L 407 124 Q 415 124 415 116 L 415 100" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:3">
-          <path data-graph-role="automatic-crossover-underlay" d="M 490 375 L 600 375" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="api" data-edge-to="edge" data-edge-label="request pipeline" data-edge-key="3" data-edge-id="api-edge" data-composition-points="490,375;600,375" data-composition-crossover="halo" data-composition-independent="true" d="M 490 375 L 600 375" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 490 375 L 600 375" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="api" data-edge-to="edge" data-edge-label="request pipeline" data-edge-key="3" data-edge-id="api-edge" data-composition-points="490,375;600,375" data-composition-crossover="halo" data-composition-independent="true" d="M 490 375 L 600 375" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:4">
-          <path data-graph-role="automatic-crossover-underlay" d="M 690 340 L 690 324 Q 690 316 698 316 L 848 316 Q 856 316 856 308 L 856 218 Q 856 210 864 210 L 880 210" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="edge" data-edge-to="healthz" data-edge-label="GET /healthz" data-edge-key="4" data-edge-id="edge-healthz" data-composition-points="690,340;690,316;856,316;856,210;880,210" data-composition-crossover="halo" data-composition-independent="true" d="M 690 340 L 690 324 Q 690 316 698 316 L 848 316 Q 856 316 856 308 L 856 218 Q 856 210 864 210 L 880 210" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 780 375 L 880 375" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="edge" data-edge-to="ratelimiter" data-edge-label="then rate limit" data-edge-key="4" data-edge-id="edge-ratelimiter" data-composition-points="780,375;880,375" data-composition-crossover="halo" data-composition-independent="true" d="M 780 375 L 880 375" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:5">
-          <path data-graph-role="automatic-crossover-underlay" d="M 780 383.05 L 880 383.05" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="edge" data-edge-to="ratelimiter" data-edge-label="then rate limit" data-edge-key="5" data-edge-id="edge-ratelimiter" data-composition-points="780,383.05;880,383.05" data-composition-crossover="halo" data-composition-independent="true" d="M 780 383.05 L 880 383.05" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 980 400 L 980 500" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="ratelimiter" data-edge-to="authgate" data-edge-label="then authorize" data-edge-key="5" data-edge-id="ratelimiter-authgate" data-composition-points="980,400;980,500" data-composition-crossover="halo" data-composition-independent="true" d="M 980 400 L 980 500" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:6">
-          <path data-graph-role="automatic-crossover-underlay" d="M 980 400 L 980 500" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="ratelimiter" data-edge-to="authgate" data-edge-label="then authorize" data-edge-key="6" data-edge-id="ratelimiter-authgate" data-composition-points="980,400;980,500" data-composition-crossover="halo" data-composition-independent="true" d="M 980 400 L 980 500" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 1080 530 L 1230 530" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="authgate" data-edge-to="entra" data-edge-label="validate JWT" data-edge-key="6" data-edge-id="authgate-entra" data-composition-points="1080,530;1230,530" data-composition-crossover="halo" data-composition-independent="true" d="M 1080 530 L 1230 530" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:7">
-          <path data-graph-role="automatic-crossover-underlay" d="M 1080 530 L 1230 530" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="authgate" data-edge-to="entra" data-edge-label="validate JWT" data-edge-key="7" data-edge-id="authgate-entra" data-composition-points="1080,530;1230,530" data-composition-crossover="halo" data-composition-independent="true" d="M 1080 530 L 1230 530" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 880 530 L 770 530" fill="none" stroke="var(--mask)" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="authgate" data-edge-to="healthz" data-edge-label="GET /healthz" data-edge-key="7" data-edge-id="authgate-healthz" data-composition-points="880,530;770,530" data-composition-crossover="halo" data-composition-independent="true" d="M 880 530 L 770 530" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:8">
           <path data-graph-role="automatic-crossover-underlay" d="M 405 410 L 405 457 Q 405 465 413 465 L 417 465 Q 425 465 425 473 L 425 520" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
           <path data-edge-from="api" data-edge-to="idempotency" data-edge-label="no endpoint uses it yet" data-edge-key="8" data-edge-id="api-idempotency" data-composition-points="405,410;405,465;425,465;425,520" data-composition-crossover="halo" data-composition-independent="true" d="M 405 410 L 405 457 Q 405 465 413 465 L 417 465 Q 425 465 425 473 L 425 520" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
         <g data-graph-role="automatic-crossover" style="--step:9">
-          <path data-graph-role="automatic-crossover-underlay" d="M 530 550 L 617 550 Q 625 550 625 558 L 625 632 Q 625 640 633 640 L 720 640" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
-          <path data-edge-from="idempotency" data-edge-to="redis" data-edge-label="idempotency key" data-edge-key="9" data-edge-id="idempotency-redis" data-composition-points="530,550;625,550;625,640;720,640" data-composition-crossover="halo" data-composition-independent="true" d="M 530 550 L 617 550 Q 625 550 625 558 L 625 632 Q 625 640 633 640 L 720 640" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+          <path data-graph-role="automatic-crossover-underlay" d="M 530 550 L 546 550 Q 554 550 554 558 L 554 632 Q 554 640 562 640 L 720 640" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
+          <path data-edge-from="idempotency" data-edge-to="redis" data-edge-label="idempotency key" data-edge-key="9" data-edge-id="idempotency-redis" data-composition-points="530,550;554,550;554,640;720,640" data-composition-crossover="halo" data-composition-independent="true" d="M 530 550 L 546 550 Q 554 550 554 558 L 554 632 Q 554 640 562 640 L 720 640" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         </g>
 
         <!-- Components -->
@@ -540,15 +540,15 @@ rect.c-bg-rect { fill: var(--bg); }
         <text x="690" y="389" class="t-muted" font-size="9" text-anchor="middle">headers, HTTPS, CORS</text>
         </g>
 
-        <g id="node-healthz" data-node-id="healthz" data-node-label="/healthz" tabindex="0" role="button" aria-label="Focus /healthz, anonymous, liveness, DKNet.Notification container (scaffold slice)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="anonymous, liveness" data-node-context="DKNet.Notification container (scaffold slice)">
-          <title>/healthz · anonymous, liveness · DKNet.Notification container (scaffold slice)</title>
-          <rect x="880" y="180" width="170" height="60" rx="6" class="c-mask"/>
-          <rect x="880" y="180" width="170" height="60" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(886 186) scale(0.6875)">
+        <g id="node-healthz" data-node-id="healthz" data-node-label="/healthz" tabindex="0" role="button" aria-label="Focus /healthz, anonymous allowed, DKNet.Notification container (scaffold slice)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="anonymous allowed" data-node-context="DKNet.Notification container (scaffold slice)">
+          <title>/healthz · anonymous allowed · DKNet.Notification container (scaffold slice)</title>
+          <rect x="600" y="500" width="170" height="60" rx="6" class="c-mask"/>
+          <rect x="600" y="500" width="170" height="60" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(606 506) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" x="965" y="208" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">/healthz</text>
-        <text x="965" y="224" class="t-muted" font-size="9" text-anchor="middle">anonymous, liveness</text>
+          <text data-node-label="" x="685" y="528" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">/healthz</text>
+        <text x="685" y="544" class="t-muted" font-size="9" text-anchor="middle">anonymous allowed</text>
         </g>
 
         <g id="node-ratelimiter" data-node-id="ratelimiter" data-node-label="Rate limiter" tabindex="0" role="button" aria-label="Focus Rate limiter, fixed window + concurrency, DKNet.Notification container (scaffold slice)" aria-pressed="false" data-node-kind="backend" data-node-sublabel="fixed window + concurrency" data-node-context="DKNet.Notification container (scaffold slice)">
@@ -625,37 +625,37 @@ rect.c-bg-rect { fill: var(--bg); }
         </g>
         <g data-edge-from="api" data-edge-to="edge" data-edge-label="request pipeline" data-edge-key="3" data-edge-id="api-edge">
           <rect x="501.6" y="355" width="86.8" height="14" rx="3" class="c-mask"/>
-          <text x="545" y="365" class="t-edge-default" font-size="8" text-anchor="middle">request pipeline</text>
+          <text x="545" y="365" class="t-edge-emphasis" font-size="8" text-anchor="middle">request pipeline</text>
         </g>
-        <g data-edge-from="edge" data-edge-to="healthz" data-edge-label="GET /healthz" data-edge-key="4" data-edge-id="edge-healthz">
-          <rect x="739.2" y="296" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="773" y="306" class="t-edge-emphasis" font-size="8" text-anchor="middle">GET /healthz</text>
+        <g data-edge-from="edge" data-edge-to="ratelimiter" data-edge-label="then rate limit" data-edge-key="4" data-edge-id="edge-ratelimiter">
+          <rect x="789" y="355" width="82" height="14" rx="3" class="c-mask"/>
+          <text x="830" y="365" class="t-edge-emphasis" font-size="8" text-anchor="middle">then rate limit</text>
         </g>
-        <g data-edge-from="edge" data-edge-to="ratelimiter" data-edge-label="then rate limit" data-edge-key="5" data-edge-id="edge-ratelimiter">
-          <rect x="789" y="363.05" width="82" height="14" rx="3" class="c-mask"/>
-          <text x="830" y="373.05" class="t-edge-default" font-size="8" text-anchor="middle">then rate limit</text>
-        </g>
-        <g data-edge-from="ratelimiter" data-edge-to="authgate" data-edge-label="then authorize" data-edge-key="6" data-edge-id="ratelimiter-authgate">
+        <g data-edge-from="ratelimiter" data-edge-to="authgate" data-edge-label="then authorize" data-edge-key="5" data-edge-id="ratelimiter-authgate">
           <rect x="896.8" y="443" width="77.2" height="14" rx="3" class="c-mask"/>
-          <text x="935.4" y="453" class="t-edge-default" font-size="8" text-anchor="middle">then authorize</text>
+          <text x="935.4" y="453" class="t-edge-emphasis" font-size="8" text-anchor="middle">then authorize</text>
         </g>
-        <g data-edge-from="authgate" data-edge-to="entra" data-edge-label="validate JWT" data-edge-key="7" data-edge-id="authgate-entra">
+        <g data-edge-from="authgate" data-edge-to="entra" data-edge-label="validate JWT" data-edge-key="6" data-edge-id="authgate-entra">
           <rect x="1121.2" y="510" width="67.6" height="14" rx="3" class="c-mask"/>
           <text x="1155" y="520" class="t-edge-security" font-size="8" text-anchor="middle">validate JWT</text>
+        </g>
+        <g data-edge-from="authgate" data-edge-to="healthz" data-edge-label="GET /healthz" data-edge-key="7" data-edge-id="authgate-healthz">
+          <rect x="791.2" y="510" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="825" y="520" class="t-edge-emphasis" font-size="8" text-anchor="middle">GET /healthz</text>
         </g>
         <g data-edge-from="api" data-edge-to="idempotency" data-edge-label="no endpoint uses it yet" data-edge-key="8" data-edge-id="api-idempotency">
           <rect x="354.8" y="445" width="120.39999999999999" height="14" rx="3" class="c-mask"/>
           <text x="415" y="455" class="t-edge-dashed" font-size="8" text-anchor="middle">no endpoint uses it yet</text>
         </g>
         <g data-edge-from="idempotency" data-edge-to="redis" data-edge-label="idempotency key" data-edge-key="9" data-edge-id="idempotency-redis">
-          <rect x="584" y="575" width="82" height="14" rx="3" class="c-mask"/>
-          <text x="625" y="585" class="t-edge-dashed" font-size="8" text-anchor="middle">idempotency key</text>
+          <rect x="466" y="588" width="82" height="14" rx="3" class="c-mask"/>
+          <text x="507" y="598" class="t-edge-dashed" font-size="8" text-anchor="middle">idempotency key</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
         <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="DKNet.Notification container (scaffold slice)">
-          <rect data-graph-role="structural-frame-label-mask" x="294" y="141" width="266.0645431290322" height="17" rx="3" class="c-mask"/>
-          <text data-boundary-label="" x="298" y="154.48387196774195" class="t-cloud" font-size="9.483871967741933" font-weight="600">DKNet.Notification container (scaffold slice)</text>
+          <rect data-graph-role="structural-frame-label-mask" x="294" y="319" width="266.0645431290322" height="17" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="298" y="332.48387196774195" class="t-cloud" font-size="9.483871967741933" font-weight="600">DKNet.Notification container (scaffold slice)</text>
         </g>
 
         <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="security-group" data-composition-frame-label="Service edge: Bearer JWT, default-deny fallback (no scope enforced yet)">

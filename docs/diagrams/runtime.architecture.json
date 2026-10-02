@@ -76,11 +76,12 @@
       "id": "healthz",
       "type": "backend",
       "label": "/healthz",
-      "sublabel": "anonymous, liveness",
-      "pos": [880, 180],
+      "sublabel": "anonymous allowed",
+      "pos": [600, 500],
       "size": [170, 60],
       "sources": [
-        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/Healthz/HealthzConfig.cs", "line": 36, "end_line": 40, "label": "MapHealthChecks + AllowAnonymous" }
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/Healthz/HealthzConfig.cs", "line": 36, "end_line": 40, "label": "MapHealthChecks + AllowAnonymous" },
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/AppConfig.cs", "line": 78, "end_line": 105, "label": "pipeline order: after bounds/rate-limit/auth" }
       ]
     },
     {
@@ -153,11 +154,11 @@
     { "id": "caller-api", "from": "caller", "to": "api", "label": "HTTPS request", "variant": "emphasis" },
     { "id": "api-appconfig", "from": "api", "to": "appconfig", "label": "load config (if enabled)", "variant": "dashed" },
     { "id": "api-telemetry", "from": "api", "to": "telemetry", "label": "export traces (if enabled)", "variant": "dashed" },
-    { "id": "api-edge", "from": "api", "to": "edge", "label": "request pipeline" },
-    { "id": "edge-healthz", "from": "edge", "to": "healthz", "label": "GET /healthz", "variant": "emphasis" },
-    { "id": "edge-ratelimiter", "from": "edge", "to": "ratelimiter", "label": "then rate limit" },
-    { "id": "ratelimiter-authgate", "from": "ratelimiter", "to": "authgate", "label": "then authorize" },
+    { "id": "api-edge", "from": "api", "to": "edge", "label": "request pipeline", "variant": "emphasis" },
+    { "id": "edge-ratelimiter", "from": "edge", "to": "ratelimiter", "label": "then rate limit", "variant": "emphasis" },
+    { "id": "ratelimiter-authgate", "from": "ratelimiter", "to": "authgate", "label": "then authorize", "variant": "emphasis" },
     { "id": "authgate-entra", "from": "authgate", "to": "entra", "label": "validate JWT", "variant": "security" },
+    { "id": "authgate-healthz", "from": "authgate", "to": "healthz", "label": "GET /healthz", "variant": "emphasis" },
     { "id": "api-idempotency", "from": "api", "to": "idempotency", "label": "no endpoint uses it yet", "variant": "dashed" },
     { "id": "idempotency-redis", "from": "idempotency", "to": "redis", "label": "idempotency key", "variant": "dashed" }
   ],
