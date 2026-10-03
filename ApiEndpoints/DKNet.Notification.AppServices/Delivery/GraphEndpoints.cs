@@ -45,4 +45,24 @@ public sealed class GraphEndpoints(
     public string? ServiceAccountTokenFile { get; } = serviceAccountTokenFile;
 
     #endregion
+
+    #region Methods
+
+    /// <summary>
+    ///     A new handler for the sign-in and the send: it follows no redirect, and trusts <see cref="TrustedRoots" />
+    ///     on top of the machine's own authorities.
+    /// </summary>
+    public HttpMessageHandler CreateTransport()
+    {
+        var handler = new SocketsHttpHandler { AllowAutoRedirect = false };
+        if (TrustedRoots.Count > 0)
+        {
+            handler.SslOptions.RemoteCertificateValidationCallback = (_, certificate, _, errors) =>
+                SmtpEmailSender.IsTrusted(certificate, errors, TrustedRoots);
+        }
+
+        return handler;
+    }
+
+    #endregion
 }

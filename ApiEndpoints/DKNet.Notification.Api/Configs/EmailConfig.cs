@@ -8,8 +8,8 @@ internal static partial class EmailConfig
     #region Methods
 
     /// <summary>
-    ///     Reads the email, SMTP, Graph and delivery settings once, here, and adds the delivery queue, the SMTP sender
-    ///     and the replica's one delivery worker. Bound with <c>Get&lt;T&gt;()</c> on purpose: a later settings change
+    ///     Reads the email, SMTP, Graph and delivery settings once, here, and adds the delivery queue, the chosen
+    ///     sender and the replica's one delivery worker. Bound with <c>Get&lt;T&gt;()</c> on purpose: a later settings change
     ///     has no effect until the next start. A bad delivery setting stops the start-up; bad email settings only leave email
     ///     not configured.
     /// </summary>
@@ -19,15 +19,42 @@ internal static partial class EmailConfig
         delivery.Validate();
         var email = BindEmail(configuration.GetSection(EmailChannelSettings.SectionName));
 
-        return services
+        services
             .AddSingleton(delivery)
             .AddSingleton(email)
             .AddSingleton<DeliveryQueue>()
-            // Empty in the release, and bound to no setting: only a test host adds its test authority.
-            .AddSingleton(new SmtpTrustedRoots([]))
-            .AddSingleton<IDeliverySender, SmtpEmailSender>()
             .AddSingleton<DeliveryWorker>()
             .AddHostedService<DeliveryWorkerHost>();
+
+        // Only the chosen sender is added (R3). The Graph sign-in is built only from good Graph settings, so a bad
+        // value never throws; with bad settings every email call is skipped, whichever sender is added.
+        if (email.ChosenSender == EmailChannelSettings.GraphSender && email.BadSettings().Count == 0)
+        {
+            return services
+                // Microsoft's global cloud, bound to no setting: only a test host points it at its stubs.
+                .AddSingleton(GraphEndpoints.Global)
+                .AddSingleton<IDeliverySender>(provider => GraphSender(email, provider.GetRequiredService<GraphEndpoints>()));
+        }
+
+        return services
+            // Empty in the release, and bound to no setting: only a test host adds its test authority.
+            .AddSingleton(new SmtpTrustedRoots([]))
+            .AddSingleton<IDeliverySender, SmtpEmailSender>();
+    }
+
+    // The sign-in and the send share one transport; the attempt's own time limit replaces the client's.
+    [SuppressMessage(
+        "Reliability",
+        "CA2000:Dispose objects before losing scope",
+        Justification = "The sender owns its client; the container disposes the sender with the host.")]
+    private static GraphEmailSender GraphSender(EmailChannelSettings email, GraphEndpoints endpoints)
+    {
+        var transport = endpoints.CreateTransport();
+        return new GraphEmailSender(
+            email,
+            GraphSignIn.Credential(email.Graph, endpoints, transport),
+            new HttpClient(transport) { Timeout = Timeout.InfiniteTimeSpan },
+            endpoints);
     }
 
     // The binder's own error holds the value, so it never leaves here: the refusal names the setting only.
