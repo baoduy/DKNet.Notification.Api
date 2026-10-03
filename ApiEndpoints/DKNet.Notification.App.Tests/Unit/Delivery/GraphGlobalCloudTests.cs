@@ -1,15 +1,18 @@
 using System.Collections.Concurrent;
 using System.Text;
+using DKNet.Notification.Api.Configs;
 using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.Domains.Notifications;
+using Microsoft.Extensions.Configuration;
 
 namespace DKNet.Notification.App.Tests.Unit.Delivery;
 
 /// <summary>
 /// DRK-2028 §5 <c>@unit</c> "The Graph sender uses Microsoft's global cloud" (brief DRK-2031 §3 row 1). The sender
-/// and its sign-in are composed as the release composes them, from <see cref="GraphEndpoints.Global" />; only the
-/// transport is a fake that answers in place of Microsoft, so no request leaves the process. Every expected value
-/// is a literal from the spec: the tenant, the mailbox and Microsoft's 2 global addresses.
+/// and its sign-in are composed as the release composes them, from the <see cref="GraphEndpoints" /> the release's
+/// email set-up registers; only the transport is a fake that answers in place of Microsoft, so no request leaves the
+/// process. Every expected value is a literal from the spec: the tenant, the mailbox and Microsoft's 2 global
+/// addresses.
 /// </summary>
 public sealed class GraphGlobalCloudTests
 {
@@ -34,9 +37,10 @@ public sealed class GraphGlobalCloudTests
             }
         };
         email.BadSettings().ShouldBeEmpty();
+        var endpoints = ReleaseEndpoints();
         var microsoft = new MicrosoftStandIn();
-        var credential = GraphSignIn.Credential(email.Graph, GraphEndpoints.Global, microsoft);
-        var sender = new GraphEmailSender(email, credential, new HttpClient(microsoft), GraphEndpoints.Global);
+        var credential = GraphSignIn.Credential(email.Graph, endpoints, microsoft);
+        var sender = new GraphEmailSender(email, credential, new HttpClient(microsoft), endpoints);
 
         // When it sends a notification to "jane@example.com"
         var failure = await sender.SendAsync(Queued("jane@example.com"), CancellationToken.None);
@@ -56,6 +60,31 @@ public sealed class GraphGlobalCloudTests
         var token = microsoft.Requests.Where(r => r.Method == "POST" && r.Uri.Host == "login.microsoftonline.com")
             .ShouldHaveSingleItem();
         Unescaped(token.Uri).ShouldBe("https://login.microsoftonline.com/3f2b9c1e-6a4d-4e0b-9d57-1c2f8a7e5b10/oauth2/v2.0/token");
+    }
+
+    /// <summary>
+    /// The endpoints the release's email set-up registers for the sender <c>Graph</c>: Microsoft's global addresses,
+    /// no extra trusted authority and no token file of its own, whatever the settings say.
+    /// </summary>
+    private static GraphEndpoints ReleaseEndpoints()
+    {
+        var settings = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Notifications:Email:Enabled"] = "true",
+            ["Notifications:Email:Sender"] = "Graph",
+            ["Notifications:Email:Graph:TenantId"] = TenantId,
+            ["Notifications:Email:Graph:ClientId"] = "7c1d4e2a-0b9f-4a63-8e15-2d6f9b3c8a41",
+            ["Notifications:Email:Graph:Credential"] = "ClientSecret",
+            ["Notifications:Email:Graph:ClientSecret"] = "Gr4ph-s3cret-9921",
+            ["Notifications:Email:Graph:Mailbox"] = Mailbox
+        }).Build();
+        using var services = new ServiceCollection().AddEmailConfig(settings).BuildServiceProvider();
+        var endpoints = services.GetRequiredService<GraphEndpoints>();
+        endpoints.GraphAddress.ShouldBe(new Uri("https://graph.microsoft.com"));
+        endpoints.AuthorityHost.ShouldBe(new Uri("https://login.microsoftonline.com/"));
+        endpoints.TrustedRoots.ShouldBeEmpty();
+        endpoints.ServiceAccountTokenFile.ShouldBeNull();
+        return endpoints;
     }
 
     // The spec does not fix whether '@' in the path is escaped: compare the address as it reads.
