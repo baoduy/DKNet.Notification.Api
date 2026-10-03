@@ -156,6 +156,16 @@ public sealed class TeamsWebhookSenderTests
     }
 
     [Fact]
+    public async Task A_notification_not_yet_queued_has_no_message_to_send()
+    {
+        var notification = Domains.Notifications.Notification.Receive("account-opened", "teams", new Dictionary<string, string>(), "treasury-ops");
+        using var sender = new TeamsWebhookSender(_settings, _webhook);
+
+        await Should.ThrowAsync<InvalidOperationException>(() => sender.SendAsync(notification, CancellationToken.None));
+        _webhook.Requests.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void The_sender_needs_its_settings_and_trusted_roots()
     {
         Should.Throw<ArgumentNullException>(() => new TeamsWebhookSender(null!, new TeamsTrustedRoots([])))
