@@ -79,6 +79,7 @@ internal static class AppConfig
 
         services.AddTemplateConfig(configuration, environment);
         services.AddEmailConfig(configuration);
+        services.AddTeamsConfig(configuration);
 
         return services
             .AddCrosConfig(configuration)

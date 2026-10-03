@@ -25,6 +25,7 @@ public sealed class SendNotificationServiceTests : IDisposable
             .AddLogging(logging => logging.AddProvider(_logs))
             .AddSingleton<ITemplateCatalogue>(new OneTemplate("account-opened"))
             .AddSingleton(new EmailChannelSettings())
+            .AddSingleton(new TeamsChannelSettings())
             .AddSingleton(new DeliverySettings())
             .AddSingleton<DeliveryQueue>()
             .AddSingleton<NotificationMetrics>()
@@ -63,7 +64,7 @@ public sealed class SendNotificationServiceTests : IDisposable
     [Fact]
     public void A_registered_template_is_skipped_logged_and_counted()
     {
-        var notification = _service.Send(Request("account-opened", "Teams"), "treasury-ops", "trace-1");
+        var notification = _service.Send(Request("account-opened", "WhatsApp"), "treasury-ops", "trace-1");
 
         notification.Status.ShouldBe(NotificationStatus.Skipped);
         notification.SkipReason.ShouldBe(SkipReason.ChannelNotSupported);
@@ -75,13 +76,13 @@ public sealed class SendNotificationServiceTests : IDisposable
         entry.Value("NotificationId").ShouldBe(notification.NotificationId.ToString());
         entry.Value("Reason").ShouldBe("ChannelNotSupported");
         entry.Value("TemplateId").ShouldBe("account-opened");
-        entry.Value("Channel").ShouldBe("teams");
+        entry.Value("Channel").ShouldBe("whatsapp");
         entry.Value("CallerId").ShouldBe("treasury-ops");
         entry.Value("TraceId").ShouldBe("trace-1");
         var measurement = _measurements.ShouldHaveSingleItem();
         measurement.Instrument.ShouldBe("notifications.accepted");
         measurement.Value.ShouldBe(1);
-        measurement.Tags.ShouldBe(new Dictionary<string, object?> { ["channel"] = "teams", ["outcome"] = "skipped" });
+        measurement.Tags.ShouldBe(new Dictionary<string, object?> { ["channel"] = "whatsapp", ["outcome"] = "skipped" });
     }
 
     [Theory]

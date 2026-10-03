@@ -93,7 +93,6 @@ Feature: Email channel with the SMTP sender, rendering and delivery
 
       Examples:
         | channel  |
-        | teams    |
         | whatsapp |
 
   Rule: The recipient and every token are checked before the call is queued

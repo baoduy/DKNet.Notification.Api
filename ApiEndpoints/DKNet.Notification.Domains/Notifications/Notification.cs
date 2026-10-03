@@ -72,10 +72,13 @@ public sealed class Notification
     /// <summary>Gets the request field at fault, as the error body names it; <see langword="null" /> unless Rejected.</summary>
     public string? ErrorField { get; private set; }
 
-    /// <summary>Gets the one address the email goes to; <see langword="null" /> until the notification is queued.</summary>
+    /// <summary>Gets the one address the email goes to; <see langword="null" /> unless an email notification is queued.</summary>
     public EmailRecipient? Recipient { get; private set; }
 
-    /// <summary>Gets the filled subject and body; <see langword="null" /> until the notification is queued.</summary>
+    /// <summary>Gets the Teams destination the card goes to; <see langword="null" /> unless a Teams notification is queued.</summary>
+    public TeamsRecipient? TeamsRecipient { get; private set; }
+
+    /// <summary>Gets the filled subject or title and the body; <see langword="null" /> until the notification is queued.</summary>
     public RenderedMessage? RenderedMessage { get; private set; }
 
     /// <summary>Gets how many delivery attempts were made: 0 to 3.</summary>
@@ -130,11 +133,18 @@ public sealed class Notification
     public void Queue(EmailRecipient recipient, RenderedMessage renderedMessage)
     {
         ArgumentNullException.ThrowIfNull(recipient);
-        ArgumentNullException.ThrowIfNull(renderedMessage);
-        EnsureReceived();
-        Status = NotificationStatus.Queued;
+        MarkQueued(renderedMessage);
         Recipient = recipient;
-        RenderedMessage = renderedMessage;
+    }
+
+    /// <summary>Queues a Teams call for delivery, rendered once, here, before it is queued.</summary>
+    /// <param name="recipient">The Teams destination the card goes to.</param>
+    /// <param name="renderedMessage">The filled title and Markdown body.</param>
+    public void Queue(TeamsRecipient recipient, RenderedMessage renderedMessage)
+    {
+        ArgumentNullException.ThrowIfNull(recipient);
+        MarkQueued(renderedMessage);
+        TeamsRecipient = recipient;
     }
 
     /// <summary>Starts a delivery attempt: Queued or RetryWaiting to Delivering, one more attempt, never more than 3.</summary>
@@ -171,6 +181,14 @@ public sealed class Notification
         }
 
         Status = end;
+    }
+
+    private void MarkQueued(RenderedMessage renderedMessage)
+    {
+        ArgumentNullException.ThrowIfNull(renderedMessage);
+        EnsureReceived();
+        Status = NotificationStatus.Queued;
+        RenderedMessage = renderedMessage;
     }
 
     private void EnsureReceived()

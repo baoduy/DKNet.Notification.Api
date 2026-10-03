@@ -19,7 +19,8 @@ internal static class EmailRenderer
     private const int MaxSubjectLength = 998;
 
     // One pass over the template, so a filled value is never read again; its token cache lives for one call only.
-    private static readonly TransformerService Transformer = new(Options.Create(DoubleCurlyBracketsOnly()));
+    // Shared with the Teams renderer, so both channels read tokens the same way.
+    internal static readonly TransformerService Transformer = new(Options.Create(DoubleCurlyBracketsOnly()));
 
     #endregion
 
@@ -34,15 +35,24 @@ internal static class EmailRenderer
         // The resolver takes the first key equal to a token without case, so both copies keep the body's order.
         var raw = parameters.ToDictionary(StringComparer.Ordinal);
         var encoded = parameters.ToDictionary(p => p.Key, p => WebUtility.HtmlEncode(p.Value), StringComparer.Ordinal);
-        try
+        return Fill(() =>
         {
             var subject = Transformer.Transform(version.Subject ?? string.Empty, raw)
                 .Replace('\r', ' ')
                 .Replace('\n', ' ');
             var body = Transformer.Transform(version.Body, encoded);
-            return new EmailRendering(
-                new RenderedMessage(subject[..Math.Min(subject.Length, MaxSubjectLength)], body, BodyFormat.Html),
-                MissingParameter: null);
+            return new RenderedMessage(subject[..Math.Min(subject.Length, MaxSubjectLength)], body, BodyFormat.Html);
+        });
+    }
+
+    /// <summary>Runs <paramref name="render" />, turning its first token with no parameter into the rendering's answer.</summary>
+    /// <param name="render">Fills every text of one version, in order, through <see cref="Transformer" />.</param>
+    /// <returns>The rendered message, or the first token name that has no parameter.</returns>
+    internal static EmailRendering Fill(Func<RenderedMessage> render)
+    {
+        try
+        {
+            return new EmailRendering(render(), MissingParameter: null);
         }
         catch (UnResolvedTokenException missing)
         {
@@ -62,7 +72,10 @@ internal static class EmailRenderer
     #endregion
 }
 
-/// <summary>The outcome of <see cref="EmailRenderer.Render" />: exactly one of its 2 members is set.</summary>
+/// <summary>
+///     The outcome of <see cref="EmailRenderer.Render" /> or <see cref="TeamsRenderer.Render" />: exactly one of its 2
+///     members is set.
+/// </summary>
 /// <param name="Message">The rendered message; <see langword="null" /> when a token has no parameter.</param>
 /// <param name="MissingParameter">
 ///     The first token name with no parameter, as the template writes it; <see langword="null" /> when every token

@@ -15,25 +15,30 @@ namespace DKNet.Notification.AppServices.Notifications;
 public sealed class SendNotificationService(
     ITemplateCatalogue catalogue,
     EmailChannelSettings email,
+    TeamsChannelSettings teams,
     DeliveryQueue queue,
     NotificationMetrics metrics,
     ILogger<SendNotificationService> logger)
 {
     #region Fields
 
+    /// <summary>The parameter that names the Teams destination of a <c>teams</c> call.</summary>
+    public const string TeamsDestinationParameter = "teamsDestination";
+
     private const string EmailChannel = "email";
     private const string RecipientParameter = "to";
 
-    // The settings are read once at start-up, so whether email can send is decided once too.
+    // The settings are read once at start-up, so whether a channel can send is decided once too.
     private readonly bool _emailConfigured = email.Enabled && email.BadSettings().Count == 0;
+    private readonly bool _teamsConfigured = teams.IsConfigured;
 
     #endregion
 
     #region Methods
 
     /// <summary>
-    ///     Checks the template, the channel, the recipient and every token, then queues an email call. Each step runs
-    ///     only when the one before it passed.
+    ///     Checks the template, the channel, the recipient and every token, then queues an email or a Teams call.
+    ///     Each step runs only when the one before it passed.
     /// </summary>
     /// <param name="request">A body that passed <see cref="SendNotificationValidator" />.</param>
     /// <param name="callerId">The calling application's id.</param>
@@ -60,12 +65,12 @@ public sealed class SendNotificationService(
         }
 
         // Step 5 — channel.
-        if (!string.Equals(notification.Channel, EmailChannel, StringComparison.Ordinal))
+        return notification.Channel switch
         {
-            return Skip(notification, SkipReason.ChannelNotSupported, traceId);
-        }
-
-        return SendEmail(notification, template, traceId);
+            EmailChannel => SendEmail(notification, template, traceId),
+            TeamsWebhookSender.ChannelKey => SendTeams(notification, template, traceId),
+            _ => Skip(notification, SkipReason.ChannelNotSupported, traceId)
+        };
     }
 
     /// <summary>Logs and counts a call refused with <see cref="NotificationErrorCodes.InvalidRequest" />.</summary>
@@ -125,7 +130,71 @@ public sealed class SendNotificationService(
         }
 
         // Step 9 — queue.
-        if (!queue.TryEnqueue(notification, recipient, rendering.Message, traceId))
+        return Queued(notification, queue.TryEnqueue(notification, recipient, rendering.Message, traceId), traceId);
+    }
+
+    /// <summary>Steps 5 to 9 of a <c>teams</c> call to a registered template.</summary>
+    private Domains.Notifications.Notification SendTeams(
+        Domains.Notifications.Notification notification,
+        NotificationTemplate template,
+        string traceId)
+    {
+        // Step 5, for Teams — Teams is set up, then the template has a Teams version.
+        if (!_teamsConfigured)
+        {
+            return Skip(notification, SkipReason.ChannelNotConfigured, traceId);
+        }
+
+        var version = template.Versions.FirstOrDefault(v =>
+            string.Equals(v.Channel, TeamsWebhookSender.ChannelKey, StringComparison.Ordinal));
+        if (version is null)
+        {
+            return Skip(notification, SkipReason.NoTemplateVersion, traceId);
+        }
+
+        // Step 6 — destination, never trimmed or lower-cased, then set in this deployment. Never logged.
+        if (!notification.Parameters.TryGetValue(TeamsDestinationParameter, out var destination) || destination.Length == 0)
+        {
+            return Reject(notification, NotificationErrorCodes.RecipientMissing, TeamsDestinationParameter, traceId);
+        }
+
+        if (!TeamsRecipient.TryCreate(destination, out var recipient))
+        {
+            return Reject(notification, NotificationErrorCodes.RecipientInvalid, TeamsDestinationParameter, traceId);
+        }
+
+        if (teams.WebhookFor(recipient.Name) is null)
+        {
+            return Skip(notification, SkipReason.TeamsDestinationNotConfigured, traceId);
+        }
+
+        // Step 8 — rendering, exactly once, before the call is queued; the size is that of the bytes posted.
+        var rendering = TeamsRenderer.Render(version, notification.Parameters);
+        if (rendering.Message is null)
+        {
+            return Reject(
+                notification,
+                NotificationErrorCodes.ParameterMissing,
+                $"parameters.{rendering.MissingParameter}",
+                traceId);
+        }
+
+        if (TeamsCard.Serialize(rendering.Message).Length > TeamsCard.MaxBytes)
+        {
+            return Reject(notification, NotificationErrorCodes.MessageTooLarge, string.Empty, traceId);
+        }
+
+        // Step 9 — queue: the same places as email.
+        return Queued(notification, queue.TryEnqueue(notification, recipient, rendering.Message, traceId), traceId);
+    }
+
+    /// <summary>Logs and counts a call the queue took, or refuses it with <see cref="NotificationErrorCodes.QueueFull" />.</summary>
+    private Domains.Notifications.Notification Queued(
+        Domains.Notifications.Notification notification,
+        bool queued,
+        string traceId)
+    {
+        if (!queued)
         {
             return Reject(notification, NotificationErrorCodes.QueueFull, string.Empty, traceId);
         }
