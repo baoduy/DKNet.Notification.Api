@@ -122,8 +122,8 @@ public sealed class GraphEmailSender : IDeliverySender, IDisposable
         return null;
     }
 
-    // 408, 429 and 5xx are transient; any other answer, a redirect among them, is permanent.
-    private static DeliveryFailure Answer(int status, HttpResponseHeaders? headers)
+    // 408, 429 and 5xx are transient; any other answer, a redirect among them, is permanent. The Teams sender reuses it.
+    internal static DeliveryFailure Answer(int status, HttpResponseHeaders? headers)
     {
         var code = status.ToString(CultureInfo.InvariantCulture);
         return status switch

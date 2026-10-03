@@ -164,6 +164,50 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         _running.ShouldNotBeNull().IsCompleted.ShouldBeFalse();
     }
 
+    /// <summary>DRK-2035 §3 "The worker" (brief DRK-2037 §6a D3): each notification goes to its own channel's sender.</summary>
+    [Fact]
+    public async Task A_teams_notification_goes_to_the_teams_sender_and_an_email_one_to_the_email_sender()
+    {
+        var email = new ScriptedSender((_, _) => Task.FromResult<DeliveryFailure?>(null));
+        var teams = new ScriptedSender((_, _) => Task.FromResult<DeliveryFailure?>(null));
+        var queue = Start(new DeliverySettings(), email, teams);
+
+        var card = EnqueueTeams(queue);
+        await UntilAsync(() => card.Status == NotificationStatus.Delivered);
+        teams.Attempts.Count.ShouldBe(1);
+        email.Attempts.Count.ShouldBe(0);
+
+        var mail = Enqueue(queue);
+        await UntilAsync(() => mail.Status == NotificationStatus.Delivered);
+        email.Attempts.Count.ShouldBe(1);
+        teams.Attempts.Count.ShouldBe(1);
+        _measurements.Where(m => m.Instrument == "notifications.delivered").Select(m => m.Channel)
+            .ShouldBe(["teams", "email"]);
+    }
+
+    /// <summary>Brief DRK-2037 §3 row 5: with no Teams sender a <c>teams</c> notification ends like an unexpected error.</summary>
+    [Fact]
+    public async Task A_teams_notification_with_no_teams_sender_fails_at_once_with_no_reply()
+    {
+        var email = new ScriptedSender((_, _) => Task.FromResult<DeliveryFailure?>(null));
+        var queue = Start(new DeliverySettings(), email);
+
+        var notification = EnqueueTeams(queue);
+        await UntilAsync(() => notification.Status == NotificationStatus.Failed);
+
+        notification.AttemptCount.ShouldBe(1);
+        email.Attempts.Count.ShouldBe(0);
+        var failure = Entries("NotificationAttemptFailed").ShouldHaveSingleItem();
+        failure.Value("Channel").ShouldBe("teams");
+        failure.Value("FailureKind").ShouldBe("permanent");
+        failure.Value("ReplyCode").ShouldBe(string.Empty);
+        var failed = Entries("NotificationFailed").ShouldHaveSingleItem();
+        failed.Value("AttemptCount").ShouldBe("1");
+        failed.Value("ReplyCode").ShouldBe(string.Empty);
+        _measurements.Where(m => m.Instrument == "notifications.failed").ShouldHaveSingleItem().ShouldBe(("notifications.failed", 1d, "teams"));
+        queue.Length.ShouldBe(0);
+    }
+
     [Fact]
     public async Task The_wait_before_the_next_attempt_counts_from_the_end_of_the_failed_attempt()
     {
@@ -369,11 +413,11 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         }
     }
 
-    private DeliveryQueue Start(DeliverySettings settings, ScriptedSender sender)
+    private DeliveryQueue Start(DeliverySettings settings, ScriptedSender sender, ScriptedSender? teams = null)
     {
         var metrics = new NotificationMetrics(_services.GetRequiredService<IMeterFactory>());
         var queue = new DeliveryQueue(settings, metrics);
-        var worker = new DeliveryWorker(queue, sender, settings, metrics, _services.GetRequiredService<ILogger<DeliveryWorker>>());
+        var worker = new DeliveryWorker(queue, sender, settings, metrics, _services.GetRequiredService<ILogger<DeliveryWorker>>(), teams);
         _running = Task.Run(() => worker.RunAsync(_stop.Token));
         return queue;
     }
@@ -387,6 +431,19 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
             "treasury-ops");
         EmailRecipient.TryCreate("jane@example.com", out var recipient).ShouldBeTrue();
         queue.TryEnqueue(notification, recipient, Message, traceId).ShouldBeTrue();
+        return notification;
+    }
+
+    private static Domains.Notifications.Notification EnqueueTeams(DeliveryQueue queue)
+    {
+        var notification = Domains.Notifications.Notification.Receive(
+            "account-opened",
+            "teams",
+            new Dictionary<string, string>(StringComparer.Ordinal) { ["teamsDestination"] = "ops-alerts" },
+            "treasury-ops");
+        TeamsRecipient.TryCreate("ops-alerts", out var recipient).ShouldBeTrue();
+        queue.TryEnqueue(notification, recipient, new RenderedMessage("Account opened", "**Jane**", BodyFormat.Markdown), TraceId)
+            .ShouldBeTrue();
         return notification;
     }
 

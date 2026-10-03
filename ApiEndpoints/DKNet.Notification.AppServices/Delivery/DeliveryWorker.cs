@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using DKNet.Notification.AppServices.Notifications;
 using DKNet.Notification.Share.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DKNet.Notification.AppServices.Delivery;
@@ -10,12 +11,22 @@ namespace DKNet.Notification.AppServices.Delivery;
 ///     time. A transient failure with attempts left waits outside the line, so the next notification goes on; when
 ///     the wait ends it goes back in line. A stop loses every notification that has not ended, with no entry.
 /// </summary>
+/// <param name="queue">The notifications in line.</param>
+/// <param name="sender">The email sender: every channel but <c>teams</c> goes through it.</param>
+/// <param name="settings">The attempts and waits.</param>
+/// <param name="metrics">The delivery counters.</param>
+/// <param name="logger">The delivery log entries.</param>
+/// <param name="teams">
+///     The Teams sender, registered under <see cref="TeamsWebhookSender.ChannelKey" />; <see langword="null" /> when
+///     none is, and then a <c>teams</c> notification ends as a permanent failure with no reply.
+/// </param>
 public sealed class DeliveryWorker(
     DeliveryQueue queue,
     IDeliverySender sender,
     DeliverySettings settings,
     NotificationMetrics metrics,
-    ILogger<DeliveryWorker> logger)
+    ILogger<DeliveryWorker> logger,
+    [FromKeyedServices(TeamsWebhookSender.ChannelKey)] IDeliverySender? teams = null)
 {
     #region Fields
 
@@ -59,7 +70,12 @@ public sealed class DeliveryWorker(
         {
             try
             {
-                failure = await sender.SendAsync(notification, stoppingToken);
+                var channelSender = string.Equals(notification.Channel, TeamsWebhookSender.ChannelKey, StringComparison.Ordinal)
+                    ? teams
+                    : sender;
+                failure = channelSender is null
+                    ? UnexpectedError
+                    : await channelSender.SendAsync(notification, stoppingToken);
             }
             catch (Exception error) when (error is not OperationCanceledException || !stoppingToken.IsCancellationRequested)
             {

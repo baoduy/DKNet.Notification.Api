@@ -52,13 +52,20 @@ public sealed class GraphEndpoints(
     ///     A new handler for the sign-in and the send: it follows no redirect, and trusts <see cref="TrustedRoots" />
     ///     on top of the machine's own authorities.
     /// </summary>
-    public HttpMessageHandler CreateTransport()
+    public HttpMessageHandler CreateTransport() => CreateTransport(TrustedRoots);
+
+    /// <summary>
+    ///     A new handler for an outbound HTTPS call: it follows no redirect, and trusts <paramref name="trustedRoots" />
+    ///     on top of the machine's own authorities. The Graph and Teams senders both go through it.
+    /// </summary>
+    /// <param name="trustedRoots">Certificate authorities trusted on top of the machine's own; empty in the release.</param>
+    internal static HttpMessageHandler CreateTransport(IReadOnlyCollection<X509Certificate2> trustedRoots)
     {
         var handler = new SocketsHttpHandler { AllowAutoRedirect = false };
-        if (TrustedRoots.Count > 0)
+        if (trustedRoots.Count > 0)
         {
             handler.SslOptions.RemoteCertificateValidationCallback = (_, certificate, _, errors) =>
-                SmtpEmailSender.IsTrusted(certificate, errors, TrustedRoots);
+                SmtpEmailSender.IsTrusted(certificate, errors, trustedRoots);
         }
 
         return handler;
