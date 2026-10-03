@@ -54,8 +54,8 @@ public static class GraphSignIn
     }
 
     /// <summary>
-    ///     The authority host, the transport, no retry (each attempt makes at most one token request, R1) and no
-    ///     diagnostics: an Entra ID error text must reach no log or trace (R2).
+    ///     The authority host, the transport, no retry (each attempt makes at most one token request, R1), no request
+    ///     log and no trace (R2). The library's own Azure-Identity entries are dropped by the log set-up instead.
     /// </summary>
     private static T Configure<T>(T options, GraphEndpoints endpoints, HttpMessageHandler transport)
         where T : TokenCredentialOptions
