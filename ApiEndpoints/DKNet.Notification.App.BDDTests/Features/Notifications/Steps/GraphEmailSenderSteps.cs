@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using static DKNet.Notification.App.BDDTests.Features.Notifications.Steps.GraphScenario;
 using static DKNet.Notification.App.BDDTests.Features.Notifications.Steps.SendScenario;
 
 namespace DKNet.Notification.App.BDDTests.Features.Notifications.Steps;
@@ -16,56 +17,31 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications.Steps;
 /// <remarks>
 /// The start-up entries are the slice 3 ones (<see cref="EmailChannelSteps" /> remarks): <c>EmailSenderStarted</c>
 /// (Information, <c>Sender</c>) and <c>EmailSenderNotConfigured</c> (Warning, <c>Settings</c>). The Graph stub and the
-/// token stub are <see cref="RecordingHttpStub" />s, started fresh for each scenario.
+/// token stub are <see cref="RecordingHttpStub" />s of <see cref="GraphScenario" />, started fresh for each scenario,
+/// and every host of the feature is pointed at them. The scenarios that send are in <see cref="GraphDeliverySteps" />.
 /// </remarks>
 [Binding]
 [Scope(Feature = FeatureTitle)]
-public sealed class GraphEmailSenderSteps(SendScenario scenario)
+public sealed class GraphEmailSenderSteps(SendScenario scenario, GraphScenario graph)
 {
     public const string FeatureTitle = "Microsoft Graph email sender";
 
-    // The spec's Graph values: the tenant and the app of its scenarios, the mailbox of "Done means" and its secret.
-    private const string TenantId = "3f2b9c1e-6a4d-4e0b-9d57-1c2f8a7e5b10";
-    private const string ClientId = "7c1d4e2a-0b9f-4a63-8e15-2d6f9b3c8a41";
-    private const string Mailbox = "notify@contoso.com";
-    private const string ClientSecret = "Gr4ph-s3cret-9921";
-
-    private const string Graph = "Notifications:Email:Graph";
-
-    private MailCatcher? _mailCatcher;
-    private RecordingHttpStub? _graphStub;
-    private RecordingHttpStub? _tokenStub;
     private IReadOnlyDictionary<string, string?>? _startSettings;
     private string[] _forbiddenValues = [];
     private Answer? _probeAnswer;
 
-    private MailCatcher MailCatcher => _mailCatcher.ShouldNotBeNull();
-    private RecordingHttpStub GraphStub => _graphStub.ShouldNotBeNull();
-    private RecordingHttpStub TokenStub => _tokenStub.ShouldNotBeNull();
+    private MailCatcher MailCatcher => graph.MailCatcher;
+    private RecordingHttpStub GraphStub => graph.GraphStub;
+    private RecordingHttpStub TokenStub => graph.TokenStub;
 
     [BeforeScenario]
-    public async Task BeforeScenario()
-    {
-        _mailCatcher = await MailCatcher.SharedAsync();
-        await _mailCatcher.EnsureRunningAsync();
-        await _mailCatcher.ClearAsync();
-        _graphStub = await RecordingHttpStub.StartAsync();
-        _tokenStub = await RecordingHttpStub.StartAsync();
-    }
+    public async Task BeforeScenario() => await graph.StartStubsAsync();
 
     [AfterScenario]
     public async Task AfterScenario()
     {
         await scenario.DisposeAsync();
-        if (_graphStub is not null)
-        {
-            await _graphStub.DisposeAsync();
-        }
-
-        if (_tokenStub is not null)
-        {
-            await _tokenStub.DisposeAsync();
-        }
+        await graph.DisposeStubsAsync();
     }
 
     #region Given — the service
@@ -192,11 +168,12 @@ public sealed class GraphEmailSenderSteps(SendScenario scenario)
     {
         await StartAsync(GraphSettings());
 
-        // The Graph settings landed in the running service. Whether the Graph sender started is the start-up
-        // scenarios' check, not this one's (brief DRK-2033 §7: this scenario holds today).
+        // The Graph settings landed in the running service, and the start-up named the Graph sender (brief DRK-2031
+        // §7 slice notes).
         var configuration = scenario.Factory.Services.GetRequiredService<IConfiguration>();
         configuration["Notifications:Email:Sender"].ShouldBe("Graph");
         configuration[$"{Graph}:Mailbox"].ShouldBe(Mailbox);
+        Then1StartupEntryNamesTheEmailSender("Graph");
     }
 
     [Given(@"^the Graph stub and the token stub are stopped$")]
@@ -327,26 +304,13 @@ public sealed class GraphEmailSenderSteps(SendScenario scenario)
 
     #endregion
 
-    private async Task StartAsync(IReadOnlyDictionary<string, string?> settings) =>
-        await scenario.StartAsync(signIn: true, withRedis: true, settings: settings);
+    private async Task StartAsync(IReadOnlyDictionary<string, string?> settings) => await graph.StartAsync(settings);
 
     private IReadOnlyList<CapturedLogEntry> StartupEntries(string eventName) =>
         scenario.StartupEntries.Where(e => e.EventId.Name == eventName).ToArray();
 
     private async Task<MailCatcher.Mail[]> MailsToAsync(string to) =>
         (await MailCatcher.MailsAsync()).Where(m => m.To.Any(r => r.Address == to)).ToArray();
-
-    /// <summary>Email on with the sender Graph and every Graph setting good, by workload identity; no SMTP setting.</summary>
-    private static Dictionary<string, string?> GraphSettings() => new(StringComparer.Ordinal)
-    {
-        ["Notifications:Email:Enabled"] = "true",
-        ["Notifications:Email:Sender"] = "Graph",
-        ["Notifications:Email:TimeoutSeconds"] = "30",
-        [$"{Graph}:TenantId"] = TenantId,
-        [$"{Graph}:ClientId"] = ClientId,
-        [$"{Graph}:Credential"] = "WorkloadIdentity",
-        [$"{Graph}:Mailbox"] = Mailbox
-    };
 
     private static string Text(int length) => new('s', length);
 
