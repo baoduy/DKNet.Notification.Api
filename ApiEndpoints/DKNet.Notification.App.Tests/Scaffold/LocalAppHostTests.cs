@@ -8,7 +8,8 @@ namespace DKNet.Notification.App.Tests.Scaffold;
 
 /// <summary>
 /// DRK-2020 §5 scenario "The local run starts the mail catcher" (<c>@integration</c>), which replaces DRK-1994's
-/// "Redis and the API only": exactly Redis, Mailpit and the API, and still no database. It lives here, not in the
+/// "Redis and the API only": exactly Redis, Mailpit and the API, and still no database. DRK-2028 §5 "The local run
+/// still sends to the mail catcher" adds its email sender, <c>Smtp</c>. It lives here, not in the
 /// Reqnroll suite, because the spec allows <c>Aspire.Hosting.Testing</c> in App.Tests only (DRK-1994 Q1).
 /// The AppHost's resource model is built exactly as <c>dotnet run</c> builds it, but never started: the resources
 /// it would run are read from the model, so no container runtime is needed.
@@ -39,5 +40,24 @@ public sealed class LocalAppHostTests
                         r.GetType().Name.EndsWith("ServerResource", StringComparison.Ordinal))
             .Select(r => $"{r.Name} ({r.GetType().Name})")
             .ShouldBeEmpty();
+
+        // DRK-2028 §5 "The local run still sends to the mail catcher": its email sender is "Smtp". The AppHost gives
+        // the API no sender or Graph setting, so the sender comes from the API's Development settings alone.
+        var api = run.Single(r => r.Name == "Api");
+        var environment = new EnvironmentCallbackContext(app.Services.GetRequiredService<DistributedApplicationExecutionContext>());
+        foreach (var callback in api.Annotations.OfType<EnvironmentCallbackAnnotation>())
+        {
+            await callback.Callback(environment);
+        }
+
+        environment.EnvironmentVariables.Keys.ShouldContain("Notifications__Email__Smtp__Host");
+        environment.EnvironmentVariables.Keys
+            .Where(key => key.StartsWith("Notifications__Email__Sender", StringComparison.OrdinalIgnoreCase) ||
+                          key.StartsWith("Notifications__Email__Graph", StringComparison.OrdinalIgnoreCase))
+            .ShouldBeEmpty();
+        using var development = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(ScaffoldRepo.Root, "ApiEndpoints/DKNet.Notification.Api/appsettings.Development.json")));
+        development.RootElement.GetProperty("Notifications").GetProperty("Email").GetProperty("Sender").GetString()
+            .ShouldBe("Smtp");
     }
 }

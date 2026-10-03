@@ -79,7 +79,7 @@ Feature: Email channel with the SMTP sender, rendering and delivery
       Examples:
         | set-up                                                                                  | template       | reason               |
         | email off                                                                               | account-opened | ChannelNotConfigured |
-        | email on with the sender "Graph"                                                        | account-opened | ChannelNotConfigured |
+        | email on with the sender "SendGrid"                                                     | account-opened | ChannelNotConfigured |
         | email set up to the mail catcher, and a template "team-digest" with only a Teams version | team-digest    | NoTemplateVersion    |
 
     @integration
@@ -299,7 +299,6 @@ Feature: Email channel with the SMTP sender, rendering and delivery
         | the port 70000                           | the port                |
         | the security mode "None"                 | the security mode       |
         | a time limit of 500 seconds              | the time limit          |
-        | the sender "Graph"                       | the sender choice       |
         | the sender "SendGrid"                    | the sender choice       |
 
     @integration

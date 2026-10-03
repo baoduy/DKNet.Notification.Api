@@ -193,6 +193,57 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         queue.Length.ShouldBe(0);
     }
 
+    /// <summary>
+    ///     DRK-2028 §3 "Wait after a 429" (brief DRK-2033 §3 row 8): a wait the provider asked for replaces the
+    ///     configured wait (4 s here), shorter or zero; with none, the configured wait stays.
+    /// </summary>
+    [Theory]
+    [InlineData(2d, 1.95, 3.5)]
+    [InlineData(0d, 0d, 1d)]
+    [InlineData(null, 3.95, 5.5)]
+    public async Task The_wait_before_the_next_attempt_is_the_provider_wait_when_the_failure_carries_one(
+        double? retryAfterSeconds,
+        double atLeastSeconds,
+        double underSeconds)
+    {
+        var failure = new DeliveryFailure(
+            IsTransient: true,
+            ReplyCode: "429",
+            RetryAfter: retryAfterSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null);
+        var sender = new ScriptedSender((attempt, _) => Task.FromResult(attempt == 1 ? failure : null));
+        var queue = Start(new DeliverySettings(retryDelaysSeconds: [4, 4]), sender);
+
+        var notification = Enqueue(queue);
+        await UntilAsync(() => notification.Status == NotificationStatus.Delivered, TimeSpan.FromSeconds(10));
+
+        var attempts = sender.Attempts.ToArray();
+        attempts.Length.ShouldBe(2);
+        (attempts[1].Start - attempts[0].End).ShouldBeGreaterThanOrEqualTo(TimeSpan.FromSeconds(atLeastSeconds));
+        (attempts[1].Start - attempts[0].End).ShouldBeLessThan(TimeSpan.FromSeconds(underSeconds));
+        var attemptFailure = Entries("NotificationAttemptFailed").ShouldHaveSingleItem();
+        attemptFailure.Value("FailureKind").ShouldBe("transient");
+        attemptFailure.Value("ReplyCode").ShouldBe("429");
+        Entries("NotificationDelivered").ShouldHaveSingleItem().Value("Attempt").ShouldBe("2");
+    }
+
+    [Fact]
+    public async Task A_notification_waiting_the_provider_wait_does_not_hold_up_the_next_one()
+    {
+        var waiting = new DeliveryFailure(IsTransient: true, ReplyCode: "429", RetryAfter: TimeSpan.FromSeconds(3));
+        var firstAttempts = 0;
+        var sender = new ScriptedSender((attempt, _) =>
+            Task.FromResult(attempt == 1 && Interlocked.Increment(ref firstAttempts) == 1 ? waiting : null));
+        var queue = Start(new DeliverySettings(retryDelaysSeconds: [1, 1]), sender);
+
+        var notification = Enqueue(queue);
+        var next = Enqueue(queue);
+        await UntilAsync(() => next.Status == NotificationStatus.Delivered);
+
+        notification.Status.ShouldBe(NotificationStatus.RetryWaiting);
+        await UntilAsync(() => notification.Status == NotificationStatus.Delivered, TimeSpan.FromSeconds(10));
+        notification.AttemptCount.ShouldBe(2);
+    }
+
     [Fact]
     public async Task A_waiting_notification_keeps_its_place_in_the_queue_and_waits_the_wait_of_its_attempt()
     {

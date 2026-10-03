@@ -125,13 +125,11 @@ public sealed class EmailChannelSettingsTests
         ]);
     }
 
-    [Theory]
-    [InlineData("Graph")]
-    [InlineData("SendGrid")]
-    public void A_sender_other_than_Smtp_is_the_only_setting_reported(string sender)
+    [Fact]
+    public void A_sender_other_than_Smtp_or_Graph_is_the_only_setting_reported()
     {
         var settings = SetUp();
-        settings["Notifications:Email:Sender"] = sender;
+        settings["Notifications:Email:Sender"] = "SendGrid";
         settings.Remove("Notifications:Email:Smtp:Host");
 
         Bind(settings).BadSettings().ShouldBe(["Notifications:Email:Sender"]);
@@ -151,10 +149,10 @@ public sealed class EmailChannelSettingsTests
     }
 
     [Fact]
-    public void A_sender_other_than_Smtp_hides_an_unconvertible_setting()
+    public void A_sender_other_than_Smtp_or_Graph_hides_an_unconvertible_setting()
     {
         var settings = SetUp();
-        settings["Notifications:Email:Sender"] = "Graph";
+        settings["Notifications:Email:Sender"] = "SendGrid";
         var email = Bind(settings);
 
         email.AddUnconvertibleSetting("Notifications:Email:Smtp:Port");
