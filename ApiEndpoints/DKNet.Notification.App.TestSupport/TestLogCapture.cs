@@ -80,8 +80,18 @@ public sealed record CapturedLogEntry(
     IReadOnlyList<KeyValuePair<string, object?>> State,
     Exception? Exception)
 {
-    /// <summary>When the entry was written (UTC): the record is made as the logger is called.</summary>
-    public DateTimeOffset LoggedAt { get; } = DateTimeOffset.UtcNow;
+    // The clock the runtime's timers wait on: a Task.Delay ends once Environment.TickCount64 has moved on by the
+    // delay, in whole milliseconds. The wall clock and the high-resolution clock can read a little less across the
+    // same delay, so a "no sooner than" check measured on them can fail with correct code.
+    private static readonly DateTimeOffset ClockStart = DateTimeOffset.UtcNow;
+    private static readonly long ClockStartTicks = Environment.TickCount64;
+
+    /// <summary>
+    ///     When the entry was written (UTC), as the logger is called: read from the clock the runtime's timers wait on,
+    ///     in whole milliseconds, so two entries written either side of a <see cref="Task.Delay(TimeSpan)" /> are never
+    ///     closer than the delay.
+    /// </summary>
+    public DateTimeOffset LoggedAt { get; } = ClockStart.AddMilliseconds(Environment.TickCount64 - ClockStartTicks);
 
     /// <summary>The invariant text of the state value named <paramref name="key" /> (ordinal match), or null.</summary>
     public string? Value(string key) =>

@@ -9,10 +9,20 @@ namespace DKNet.Notification.Api.Configs;
 [ExcludeFromCodeCoverage]
 internal static class LogConfigs
 {
+    #region Fields
+
+    /// <summary>The log category of the <c>Azure-Identity</c> EventSource once the Azure SDK forwards it to the logs.</summary>
+    public const string AzureIdentityCategory = "Azure.Identity";
+
+    #endregion
+
     #region Methods
 
     public static WebApplicationBuilder AddLogConfig(this WebApplicationBuilder builder, FeatureOptions features)
     {
+        // The sign-in library's entries hold Microsoft Entra ID's error text, and the Azure Monitor set-up forwards
+        // them to the logs: none reaches any log, in any environment (DRK-2028 R2).
+        builder.Logging.AddFilter(AzureIdentityCategory, LogLevel.None);
         if (!features.EnableOpenTelemetry)
         {
 #if DEBUG

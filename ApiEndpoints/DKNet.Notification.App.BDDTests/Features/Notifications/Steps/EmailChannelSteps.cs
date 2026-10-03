@@ -140,9 +140,6 @@ public sealed class EmailChannelSteps(SendScenario scenario)
             case "a time limit of 500 seconds":
                 faultValue = settings["Notifications:Email:TimeoutSeconds"] = "500";
                 break;
-            case "the sender \"Graph\"":
-                faultValue = settings["Notifications:Email:Sender"] = "Graph";
-                break;
             case "the sender \"SendGrid\"":
                 faultValue = settings["Notifications:Email:Sender"] = "SendGrid";
                 break;

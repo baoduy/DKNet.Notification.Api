@@ -19,13 +19,21 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications.Steps;
 /// <param name="redisConnection">The Redis the idempotency store uses; null keeps the in-memory store.</param>
 /// <param name="environment">The host environment: <c>Testing</c>, or <c>Development</c> for a local run.</param>
 /// <param name="settings">More settings, such as the email settings, set the same way before the host is built.</param>
+/// <param name="graph">
+/// Where the Graph sender signs in and sends: the scenario's Graph and token stubs. Null points it at a port where
+/// nothing listens, so no test host ever reaches Microsoft.
+/// </param>
 public sealed class SendApiFactory(
     bool signIn,
     string? redisConnection,
     string environment = "Testing",
-    IReadOnlyDictionary<string, string?>? settings = null)
+    IReadOnlyDictionary<string, string?>? settings = null,
+    GraphEndpoints? graph = null)
     : TestApiFactoryBase
 {
+    // Port 9 (discard) on the loopback: a connection there is refused.
+    private static readonly Uri Nowhere = new("https://127.0.0.1:9/");
+
     /// <summary>A settings source above every other one, changed while the service runs.</summary>
     public SettingsOverride Settings { get; } = new();
 
@@ -54,6 +62,9 @@ public sealed class SendApiFactory(
 
             // The test mail servers' authority, through the trust seam only: no setting can do this (DRK-2020 R6).
             services.AddSingleton(new SmtpTrustedRoots([TestCertificateAuthority.Trusted.Certificate]));
+
+            // The Graph and token stubs, through the Graph endpoints seam only: no setting can do this (DRK-2028 §3).
+            services.AddSingleton(graph ?? new GraphEndpoints(Nowhere, Nowhere, [], serviceAccountTokenFile: null));
 
             var released = services.Last(d => d.ServiceType == typeof(ITemplateCatalogue));
             services.Remove(released);

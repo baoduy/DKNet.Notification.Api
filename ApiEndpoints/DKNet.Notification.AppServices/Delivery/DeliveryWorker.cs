@@ -87,8 +87,9 @@ public sealed class DeliveryWorker(
         if (failure.IsTransient && notification.AttemptCount < settings.MaxAttempts)
         {
             notification.WaitForRetry();
-            // Counted from the end of this attempt: now.
-            _ = RequeueAfterAsync(queued, TimeSpan.FromSeconds(settings.RetryDelaysSeconds[notification.AttemptCount - 1]), stoppingToken);
+            // Counted from the end of this attempt: now. A wait the provider asked for replaces the configured one.
+            var wait = failure.RetryAfter ?? TimeSpan.FromSeconds(settings.RetryDelaysSeconds[notification.AttemptCount - 1]);
+            _ = RequeueAfterAsync(queued, wait, stoppingToken);
             return;
         }
 

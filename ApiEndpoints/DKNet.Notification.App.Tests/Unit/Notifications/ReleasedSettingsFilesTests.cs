@@ -46,6 +46,25 @@ public sealed class ReleasedSettingsFilesTests
         }
     }
 
+    /// <summary>
+    ///     DRK-2028 §5 scenario of the same name (@unit): the Graph client secret comes from a secret source only, so no
+    ///     settings file holds a <c>ClientSecret</c> property, under any section.
+    /// </summary>
+    [Fact(DisplayName = "No released settings file holds a Graph client secret")]
+    public void No_released_settings_file_holds_a_Graph_client_secret()
+    {
+        var files = SettingsFiles();
+        files.ShouldContain("ApiEndpoints/DKNet.Notification.Api/appsettings.json");
+        files.ShouldContain("ApiEndpoints/DKNet.Notification.Api/appsettings.Development.json");
+
+        foreach (var file in files)
+        {
+            using var json = Read(file);
+            PropertyNames(json.RootElement)
+                .ShouldNotContain(name => string.Equals(name, "ClientSecret", StringComparison.OrdinalIgnoreCase), file);
+        }
+    }
+
     [Fact(DisplayName = "The base settings file keeps email off")]
     public void The_base_settings_file_keeps_email_off()
     {

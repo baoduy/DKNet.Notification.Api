@@ -105,7 +105,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/Notifications/EmailChannel.feature.ndjson", 53);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/Notifications/EmailChannel.feature.ndjson", 52);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -389,7 +389,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         [global::NUnit.Framework.DescriptionAttribute("An email call is skipped when email is not ready for it")]
         [global::NUnit.Framework.CategoryAttribute("integration")]
         [global::NUnit.Framework.TestCaseAttribute("email off", "account-opened", "ChannelNotConfigured", "6", null)]
-        [global::NUnit.Framework.TestCaseAttribute("email on with the sender \"Graph\"", "account-opened", "ChannelNotConfigured", "7", null)]
+        [global::NUnit.Framework.TestCaseAttribute("email on with the sender \"SendGrid\"", "account-opened", "ChannelNotConfigured", "7", null)]
         [global::NUnit.Framework.TestCaseAttribute("email set up to the mail catcher, and a template \"team-digest\" with only a Teams " +
             "version", "team-digest", "NoTemplateVersion", "8", null)]
         public async global::System.Threading.Tasks.Task AnEmailCallIsSkippedWhenEmailIsNotReadyForIt(string set_Up, string template, string reason, string @__pickleIndex, string[] exampleTags)
@@ -1355,8 +1355,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         [global::NUnit.Framework.TestCaseAttribute("the port 70000", "the port", "44", null)]
         [global::NUnit.Framework.TestCaseAttribute("the security mode \"None\"", "the security mode", "45", null)]
         [global::NUnit.Framework.TestCaseAttribute("a time limit of 500 seconds", "the time limit", "46", null)]
-        [global::NUnit.Framework.TestCaseAttribute("the sender \"Graph\"", "the sender choice", "47", null)]
-        [global::NUnit.Framework.TestCaseAttribute("the sender \"SendGrid\"", "the sender choice", "48", null)]
+        [global::NUnit.Framework.TestCaseAttribute("the sender \"SendGrid\"", "the sender choice", "47", null)]
         public async global::System.Threading.Tasks.Task EmailOnButNotSetUpStillLetsTheServiceStart(string fault, string setting, string @__pickleIndex, string[] exampleTags)
         {
             string[] @__tags = new string[] {
@@ -1411,11 +1410,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "49";
+            string pickleIndex = "48";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A settings change takes effect only at the next start", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The service checks its email settings when it starts", null, tagsOfRule);
-#line 306
+#line 305
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1425,19 +1424,19 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 307
+#line 306
       await testRunner.GivenAsync("the service started with email off", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 308
+#line 307
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 309
+#line 308
       await testRunner.AndAsync("the email settings are turned on while the service runs", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 310
+#line 309
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 311
+#line 310
       await testRunner.ThenAsync("the call is accepted and skipped with reason \"ChannelNotConfigured\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -1452,11 +1451,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "50";
+            string pickleIndex = "49";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A local email shows up in the mail catcher", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The local run shows each mail", null, tagsOfRule);
-#line 316
+#line 315
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1466,22 +1465,22 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 317
+#line 316
       await testRunner.GivenAsync("the service runs with the local-run settings: sign-in off and email set up to sen" +
                         "d to the mail catcher over STARTTLS", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 318
+#line 317
       await testRunner.WhenAsync("Minh, a developer, emails template \"account-opened\" to \"jane@example.com\" for cus" +
                         "tomer \"<b>Jane</b>\" and account \"0012345678\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 319
+#line 318
       await testRunner.ThenAsync("the call is accepted with a new notification id", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 320
+#line 319
       await testRunner.AndAsync("within 10 seconds Minh can read 1 mail to \"jane@example.com\" in the mail catcher," +
                         " with the subject \"Your account is open\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 321
+#line 320
       await testRunner.AndAsync("the mail shows \"<b>Jane</b>\" as text, not in bold", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }

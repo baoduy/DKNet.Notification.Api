@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Net.Http.Headers;
 using System.Text.Json.Nodes;
+using DKNet.Notification.AppServices.Delivery;
 using Microsoft.Extensions.Logging;
 
 namespace DKNet.Notification.App.BDDTests.Features.Notifications.Steps;
@@ -68,12 +69,14 @@ public sealed class SendScenario : IAsyncDisposable
     /// the scenario started before is stopped first, as a restart stops it.
     /// </summary>
     /// <param name="keepStore">Keeps the Redis store as it is, as a restart of the service does; otherwise it is emptied.</param>
+    /// <param name="graph">The Graph and token stubs the Graph sender uses; null points it nowhere.</param>
     public async Task StartAsync(
         bool signIn,
         bool withRedis,
         string environment = "Testing",
         IReadOnlyDictionary<string, string?>? settings = null,
-        bool keepStore = false)
+        bool keepStore = false,
+        GraphEndpoints? graph = null)
     {
         await StopHostAsync();
         string? redis = null;
@@ -87,7 +90,7 @@ public sealed class SendScenario : IAsyncDisposable
             redis = await RedisServer.ConnectionStringAsync();
         }
 
-        _factory = new SendApiFactory(signIn, redis, environment, settings);
+        _factory = new SendApiFactory(signIn, redis, environment, settings, graph);
         _client = _factory.CreateClient();
         _metrics = new NotificationMetricsCapture(_factory.Services.GetRequiredService<IMeterFactory>());
         StartupEntries = _factory.LogCapture.Entries.ToArray();
