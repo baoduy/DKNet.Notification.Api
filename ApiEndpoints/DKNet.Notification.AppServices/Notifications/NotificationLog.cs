@@ -58,12 +58,12 @@ internal static partial class NotificationLog
         string callerId,
         string traceId);
 
-    /// <remarks><paramref name="replyCode" /> is the SMTP reply code only, empty when there was no reply.</remarks>
+    /// <remarks><paramref name="replyCode" /> is the provider status code only, empty when there was no reply.</remarks>
     [LoggerMessage(
         EventId = 2004,
         EventName = "NotificationAttemptFailed",
         Level = LogLevel.Warning,
-        Message = "Notification {NotificationId} attempt {Attempt} failed: {FailureKind}, SMTP reply {ReplyCode}. Template {TemplateId}, channel {Channel}, caller {CallerId}, trace {TraceId}.")]
+        Message = "Notification {NotificationId} attempt {Attempt} failed: {FailureKind}, provider status {ReplyCode}. Template {TemplateId}, channel {Channel}, caller {CallerId}, trace {TraceId}.")]
     public static partial void NotificationAttemptFailed(
         this ILogger logger,
         Guid notificationId,
@@ -90,12 +90,12 @@ internal static partial class NotificationLog
         string callerId,
         string traceId);
 
-    /// <remarks><paramref name="replyCode" /> is the last SMTP reply code only, empty when there was no reply.</remarks>
+    /// <remarks><paramref name="replyCode" /> is the last provider status code only, empty when there was no reply.</remarks>
     [LoggerMessage(
         EventId = 2006,
         EventName = "NotificationFailed",
         Level = LogLevel.Error,
-        Message = "Notification {NotificationId} failed after {AttemptCount} attempts, last SMTP reply {ReplyCode}. Template {TemplateId}, channel {Channel}, caller {CallerId}, trace {TraceId}.")]
+        Message = "Notification {NotificationId} failed after {AttemptCount} attempts, last provider status {ReplyCode}. Template {TemplateId}, channel {Channel}, caller {CallerId}, trace {TraceId}.")]
     public static partial void NotificationFailed(
         this ILogger logger,
         Guid notificationId,

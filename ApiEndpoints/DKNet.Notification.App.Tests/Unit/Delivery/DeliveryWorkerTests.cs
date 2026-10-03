@@ -86,6 +86,7 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         // The worker goes on with the next one.
         var next = Enqueue(queue);
         await UntilAsync(() => next.Status == NotificationStatus.Delivered);
+        await UntilAsync(() => queue.Length == 0);
         queue.Length.ShouldBe(0);
     }
 

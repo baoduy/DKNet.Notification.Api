@@ -8,9 +8,9 @@ internal static partial class EmailConfig
     #region Methods
 
     /// <summary>
-    ///     Reads the email, SMTP and delivery settings once, here, and adds the delivery queue, the SMTP sender and the
-    ///     replica's one delivery worker. Bound with <c>Get&lt;T&gt;()</c> on purpose: a later settings change has no
-    ///     effect until the next start. A bad delivery setting stops the start-up; bad email settings only leave email
+    ///     Reads the email, SMTP, Graph and delivery settings once, here, and adds the delivery queue, the SMTP sender
+    ///     and the replica's one delivery worker. Bound with <c>Get&lt;T&gt;()</c> on purpose: a later settings change
+    ///     has no effect until the next start. A bad delivery setting stops the start-up; bad email settings only leave email
     ///     not configured.
     /// </summary>
     public static IServiceCollection AddEmailConfig(this IServiceCollection services, IConfiguration configuration)
@@ -107,7 +107,8 @@ internal static partial class EmailConfig
         var badSettings = email.BadSettings();
         if (badSettings.Count == 0)
         {
-            logger.EmailSenderStarted(EmailChannelSettings.SmtpSender);
+            // The sender's own name, never the value as set: no bad settings means the sender is a known one.
+            logger.EmailSenderStarted(email.ChosenSender!);
         }
         else
         {
