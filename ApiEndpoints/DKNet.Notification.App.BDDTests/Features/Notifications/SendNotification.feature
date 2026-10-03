@@ -8,6 +8,8 @@ Feature: Send API: the send endpoint, sign-in, idempotency and skip
   # Every expected value in the step definitions is a literal from the spec.
   # DRK-2020 §3 Step 5 (brief DRK-2025 row 14): this host keeps email off, so an email call is now skipped with
   # "ChannelNotConfigured"; every other channel keeps "ChannelNotSupported".
+  # DRK-2035 §3 (brief DRK-2039 row 2): this host keeps Teams off too, so a "teams" call is now skipped with
+  # "ChannelNotConfigured" as well.
 
   Rule: A valid call is accepted, logged and skipped
 
@@ -30,7 +32,7 @@ Feature: Send API: the send endpoint, sign-in, idempotency and skip
       Examples:
         | sent     | logged   | reason               |
         | email    | email    | ChannelNotConfigured |
-        | Teams    | teams    | ChannelNotSupported  |
+        | Teams    | teams    | ChannelNotConfigured |
         | whatsapp | whatsapp | ChannelNotSupported  |
 
     @integration

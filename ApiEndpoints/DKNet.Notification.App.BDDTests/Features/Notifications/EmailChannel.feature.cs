@@ -105,7 +105,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/Notifications/EmailChannel.feature.ndjson", 52);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/Notifications/EmailChannel.feature.ndjson", 51);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -446,8 +446,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         [global::NUnit.Framework.TestAttribute()]
         [global::NUnit.Framework.DescriptionAttribute("Every other channel is still skipped")]
         [global::NUnit.Framework.CategoryAttribute("integration")]
-        [global::NUnit.Framework.TestCaseAttribute("teams", "9", null)]
-        [global::NUnit.Framework.TestCaseAttribute("whatsapp", "10", null)]
+        [global::NUnit.Framework.TestCaseAttribute("whatsapp", "9", null)]
         public async global::System.Threading.Tasks.Task EveryOtherChannelIsStillSkipped(string channel, string @__pickleIndex, string[] exampleTags)
         {
             string[] @__tags = new string[] {
@@ -500,13 +499,13 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         [global::NUnit.Framework.TestAttribute()]
         [global::NUnit.Framework.DescriptionAttribute("A missing or bad recipient is refused")]
         [global::NUnit.Framework.CategoryAttribute("integration")]
-        [global::NUnit.Framework.TestCaseAttribute("no address", "RECIPIENT_MISSING", "11", null)]
-        [global::NUnit.Framework.TestCaseAttribute("an empty address", "RECIPIENT_MISSING", "12", null)]
-        [global::NUnit.Framework.TestCaseAttribute("\"Jane <jane@example.com>\"", "RECIPIENT_INVALID", "13", null)]
-        [global::NUnit.Framework.TestCaseAttribute("\"a@example.com,b@example.com\"", "RECIPIENT_INVALID", "14", null)]
-        [global::NUnit.Framework.TestCaseAttribute("\"jane.example.com\"", "RECIPIENT_INVALID", "15", null)]
-        [global::NUnit.Framework.TestCaseAttribute("\" jane@example.com\"", "RECIPIENT_INVALID", "16", null)]
-        [global::NUnit.Framework.TestCaseAttribute("an address of 255 characters", "RECIPIENT_INVALID", "17", null)]
+        [global::NUnit.Framework.TestCaseAttribute("no address", "RECIPIENT_MISSING", "10", null)]
+        [global::NUnit.Framework.TestCaseAttribute("an empty address", "RECIPIENT_MISSING", "11", null)]
+        [global::NUnit.Framework.TestCaseAttribute("\"Jane <jane@example.com>\"", "RECIPIENT_INVALID", "12", null)]
+        [global::NUnit.Framework.TestCaseAttribute("\"a@example.com,b@example.com\"", "RECIPIENT_INVALID", "13", null)]
+        [global::NUnit.Framework.TestCaseAttribute("\"jane.example.com\"", "RECIPIENT_INVALID", "14", null)]
+        [global::NUnit.Framework.TestCaseAttribute("\" jane@example.com\"", "RECIPIENT_INVALID", "15", null)]
+        [global::NUnit.Framework.TestCaseAttribute("an address of 255 characters", "RECIPIENT_INVALID", "16", null)]
         public async global::System.Threading.Tasks.Task AMissingOrBadRecipientIsRefused(string recipient, string code, string @__pickleIndex, string[] exampleTags)
         {
             string[] @__tags = new string[] {
@@ -523,7 +522,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A missing or bad recipient is refused", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The recipient and every token are checked before the call is queued", null, tagsOfRule);
-#line 106
+#line 105
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -533,25 +532,25 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 102
+#line 101
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 103
+#line 102
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 107
+#line 106
       await testRunner.WhenAsync(string.Format("\"treasury-ops\" emails template \"account-opened\" to {0} for customer \"Jane Tan\" an" +
                             "d account \"0012345678\"", recipient), ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 108
+#line 107
       await testRunner.ThenAsync(string.Format("the call is refused with \"{0}\" for the recipient, and a trace id", code), ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 109
+#line 108
       await testRunner.AndAsync(string.Format("1 rejection entry is logged with \"{0}\", and the rejected count for \"{0}\" rose by " +
                             "1", code), ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 110
+#line 109
       await testRunner.AndAsync("the mail catcher receives no mail", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -566,11 +565,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "18";
+            string pickleIndex = "17";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A missing parameter is refused", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The recipient and every token are checked before the call is queued", null, tagsOfRule);
-#line 123
+#line 122
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -580,25 +579,25 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 102
+#line 101
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 103
+#line 102
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 124
+#line 123
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\" for custome" +
                         "r \"Jane Tan\" with no account", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 125
+#line 124
       await testRunner.ThenAsync("the call is refused with \"PARAMETER_MISSING\" naming \"accountNumber\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 126
+#line 125
       await testRunner.AndAsync("1 rejection entry is logged with \"PARAMETER_MISSING\", and the rejected count for " +
                         "\"PARAMETER_MISSING\" rose by 1", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 127
+#line 126
       await testRunner.AndAsync("the mail catcher receives no mail", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -613,11 +612,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "19";
+            string pickleIndex = "18";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A full queue answers 503", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A full queue refuses new calls", null, tagsOfRule);
-#line 132
+#line 131
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -627,24 +626,24 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 133
+#line 132
       await testRunner.GivenAsync("the service runs with sign-in on, email set up to send to the mail catcher and a " +
                         "queue size of 2", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 134
+#line 133
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 135
+#line 134
       await testRunner.AndAsync("2 notifications of \"treasury-ops\" are not delivered yet, because the mail catcher" +
                         " is stopped", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 136
+#line 135
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 137
+#line 136
       await testRunner.ThenAsync("the call is refused with \"QUEUE_FULL\", status 503 and a retry after 30 seconds", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 138
+#line 137
       await testRunner.AndAsync("1 rejection entry is logged with \"QUEUE_FULL\", the rejected count for \"QUEUE_FULL" +
                         "\" rose by 1, and the queue length shows 2", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
@@ -655,11 +654,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         [global::NUnit.Framework.TestAttribute()]
         [global::NUnit.Framework.DescriptionAttribute("Each failure is retried or not by its kind")]
         [global::NUnit.Framework.CategoryAttribute("integration")]
-        [global::NUnit.Framework.TestCaseAttribute("the SMTP reply 451", "transient", "the mail is delivered on attempt 2", "20", null)]
-        [global::NUnit.Framework.TestCaseAttribute("a mail server that does not answer in time", "transient", "the mail is delivered on attempt 2", "21", null)]
-        [global::NUnit.Framework.TestCaseAttribute("a refused connection", "transient", "the mail is delivered on attempt 2", "22", null)]
-        [global::NUnit.Framework.TestCaseAttribute("the SMTP reply 550", "permanent", "the notification fails with no attempt 2", "23", null)]
-        [global::NUnit.Framework.TestCaseAttribute("the SMTP reply 535 for the sign-in", "permanent", "the notification fails with no attempt 2", "24", null)]
+        [global::NUnit.Framework.TestCaseAttribute("the SMTP reply 451", "transient", "the mail is delivered on attempt 2", "19", null)]
+        [global::NUnit.Framework.TestCaseAttribute("a mail server that does not answer in time", "transient", "the mail is delivered on attempt 2", "20", null)]
+        [global::NUnit.Framework.TestCaseAttribute("a refused connection", "transient", "the mail is delivered on attempt 2", "21", null)]
+        [global::NUnit.Framework.TestCaseAttribute("the SMTP reply 550", "permanent", "the notification fails with no attempt 2", "22", null)]
+        [global::NUnit.Framework.TestCaseAttribute("the SMTP reply 535 for the sign-in", "permanent", "the notification fails with no attempt 2", "23", null)]
         public async global::System.Threading.Tasks.Task EachFailureIsRetriedOrNotByItsKind(string failure, string kind, string outcome, string @__pickleIndex, string[] exampleTags)
         {
             string[] @__tags = new string[] {
@@ -677,7 +676,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Each failure is retried or not by its kind", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A transient failure is retried, at most 3 attempts in all", null, tagsOfRule);
-#line 147
+#line 146
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -687,23 +686,23 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 143
+#line 142
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 144
+#line 143
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 148
+#line 147
       await testRunner.GivenAsync(string.Format("attempt 1 meets {0}", failure), ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 149
+#line 148
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 150
+#line 149
       await testRunner.ThenAsync(string.Format("attempt 1 is logged as a \"{0}\" failure", kind), ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 151
+#line 150
       await testRunner.AndAsync(string.Format("{0}", outcome), ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -718,11 +717,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "25";
+            string pickleIndex = "24";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A mail is delivered when the mail server comes back", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A transient failure is retried, at most 3 attempts in all", null, tagsOfRule);
-#line 162
+#line 161
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -732,26 +731,26 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 143
+#line 142
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 144
+#line 143
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 163
+#line 162
       await testRunner.GivenAsync("the mail catcher is stopped", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 164
+#line 163
       await testRunner.AndAsync("\"treasury-ops\" emailed template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 165
+#line 164
       await testRunner.WhenAsync("the mail catcher starts again before attempt 2", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 166
+#line 165
       await testRunner.ThenAsync("the mail catcher holds 1 mail to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 167
+#line 166
       await testRunner.AndAsync("1 transient attempt failure and 1 delivery on attempt 2 are logged", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -766,11 +765,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "26";
+            string pickleIndex = "25";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A notification fails after 3 transient failures", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A transient failure is retried, at most 3 attempts in all", null, tagsOfRule);
-#line 170
+#line 169
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -780,27 +779,27 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 143
+#line 142
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 144
+#line 143
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 171
+#line 170
       await testRunner.GivenAsync("the mail catcher is stopped", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 172
+#line 171
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 173
+#line 172
       await testRunner.ThenAsync("3 attempts are made, attempt 2 no sooner than 5 seconds after attempt 1, and atte" +
                         "mpt 3 no sooner than 30 seconds after attempt 2", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 174
+#line 173
       await testRunner.AndAsync("3 attempt failures and 1 failure error with attempt count 3 are logged", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 175
+#line 174
       await testRunner.AndAsync("the failed count for \"email\" rose by 1", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -815,11 +814,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "27";
+            string pickleIndex = "26";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A waiting notification does not hold up the next one", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A transient failure is retried, at most 3 attempts in all", null, tagsOfRule);
-#line 178
+#line 177
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -829,24 +828,24 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 143
+#line 142
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 144
+#line 143
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 179
+#line 178
       await testRunner.GivenAsync("the mail server answers 451 to the first attempt for \"jane@example.com\" only", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 180
+#line 179
       await testRunner.WhenAsync("\"treasury-ops\" emails \"jane@example.com\" and then \"john@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 181
+#line 180
       await testRunner.ThenAsync("the mail to \"john@example.com\" is delivered before the mail to \"jane@example.com\"" +
                         "", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 182
+#line 181
       await testRunner.AndAsync("the mail to \"jane@example.com\" is delivered on attempt 2", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -861,11 +860,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "28";
+            string pickleIndex = "27";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A stop loses a notification that has not ended", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A transient failure is retried, at most 3 attempts in all", null, tagsOfRule);
-#line 185
+#line 184
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -875,24 +874,24 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 143
+#line 142
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 144
+#line 143
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 186
+#line 185
       await testRunner.GivenAsync("the mail catcher is stopped", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 187
+#line 186
       await testRunner.AndAsync("\"treasury-ops\" emailed template \"account-opened\" to \"jane@example.com\", and it wa" +
                         "its for attempt 2", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 188
+#line 187
       await testRunner.WhenAsync("the service is restarted after the mail catcher is back", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 189
+#line 188
       await testRunner.ThenAsync("the mail catcher receives no mail to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -907,11 +906,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "29";
+            string pickleIndex = "28";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("An SMTP reply text never reaches the logs", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A transient failure is retried, at most 3 attempts in all", null, tagsOfRule);
-#line 192
+#line 191
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -921,24 +920,24 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 143
+#line 142
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 144
+#line 143
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 193
+#line 192
       await testRunner.GivenAsync("the mail server answers attempt 1 with \"550 5.1.1 <jane@example.com> unknown user" +
                         "\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 194
+#line 193
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 195
+#line 194
       await testRunner.ThenAsync("the attempt failure entry holds the reply code 550", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 196
+#line 195
       await testRunner.AndAsync("no log entry holds \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -953,11 +952,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "30";
+            string pickleIndex = "29";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A repeated call sends 1 mail", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A repeated call never sends a second mail", null, tagsOfRule);
-#line 205
+#line 204
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -967,27 +966,27 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 201
+#line 200
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 202
+#line 201
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 206
+#line 205
       await testRunner.GivenAsync("\"treasury-ops\" emailed template \"account-opened\" to \"jane@example.com\" with key \"" +
                         "k-5001\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 207
+#line 206
       await testRunner.WhenAsync("\"treasury-ops\" sends the same call again with key \"k-5001\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 208
+#line 207
       await testRunner.ThenAsync("the second answer carries the same notification id as the first", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 209
+#line 208
       await testRunner.AndAsync("the mail catcher holds exactly 1 mail to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 210
+#line 209
       await testRunner.AndAsync("exactly 1 queued entry is logged, and the queued and delivered counts for \"email\"" +
                         " each rose by 1 only", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
@@ -1003,11 +1002,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "31";
+            string pickleIndex = "30";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A new token for the same caller still sends 1 mail", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A repeated call never sends a second mail", null, tagsOfRule);
-#line 213
+#line 212
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1017,24 +1016,24 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 201
+#line 200
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 202
+#line 201
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 214
+#line 213
       await testRunner.GivenAsync("\"treasury-ops\" emailed template \"account-opened\" to \"jane@example.com\" with key \"" +
                         "k-5002\" on its first token", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 215
+#line 214
       await testRunner.WhenAsync("\"treasury-ops\" sends the same call with key \"k-5002\" on a new token", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 216
+#line 215
       await testRunner.ThenAsync("the second answer carries the same notification id as the first", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 217
+#line 216
       await testRunner.AndAsync("the mail catcher holds exactly 1 mail to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -1049,11 +1048,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "32";
+            string pickleIndex = "31";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("2 callers with the same key send 2 mails", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("A repeated call never sends a second mail", null, tagsOfRule);
-#line 220
+#line 219
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1063,28 +1062,28 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 201
+#line 200
       await testRunner.GivenAsync("the service runs with its released template catalogue, sign-in on and email set u" +
                         "p to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 202
+#line 201
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 221
+#line 220
       await testRunner.GivenAsync("\"card-ops\" is also a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 222
+#line 221
       await testRunner.AndAsync("\"treasury-ops\" emailed template \"account-opened\" to \"jane@example.com\" with key \"" +
                         "k-5003\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 223
+#line 222
       await testRunner.WhenAsync("\"card-ops\" emails template \"account-opened\" to \"jane@example.com\" with key \"k-500" +
                         "3\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 224
+#line 223
       await testRunner.ThenAsync("\"card-ops\" gets a different notification id from \"treasury-ops\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 225
+#line 224
       await testRunner.AndAsync("the mail catcher holds 2 mails to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -1094,8 +1093,8 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         [global::NUnit.Framework.TestAttribute()]
         [global::NUnit.Framework.DescriptionAttribute("Mail goes over the encryption the settings choose")]
         [global::NUnit.Framework.CategoryAttribute("integration")]
-        [global::NUnit.Framework.TestCaseAttribute("offers STARTTLS, with the security mode STARTTLS set", "STARTTLS", "33", null)]
-        [global::NUnit.Framework.TestCaseAttribute("speaks TLS from the first byte, with the security mode TLS set", "TLS", "34", null)]
+        [global::NUnit.Framework.TestCaseAttribute("offers STARTTLS, with the security mode STARTTLS set", "STARTTLS", "32", null)]
+        [global::NUnit.Framework.TestCaseAttribute("speaks TLS from the first byte, with the security mode TLS set", "TLS", "33", null)]
         public async global::System.Threading.Tasks.Task MailGoesOverTheEncryptionTheSettingsChoose(string server, string encryption, string @__pickleIndex, string[] exampleTags)
         {
             string[] @__tags = new string[] {
@@ -1113,7 +1112,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("Mail leaves only over an encrypted connection with a checked certificate, signed " +
                     "in as the settings say", null, tagsOfRule);
-#line 230
+#line 229
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1123,17 +1122,17 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 231
+#line 230
       await testRunner.GivenAsync(string.Format("the service runs with sign-in on and email set up to send to a mail server that {" +
                             "0}", server), ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 232
+#line 231
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 233
+#line 232
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 234
+#line 233
       await testRunner.ThenAsync(string.Format("the mail server holds 1 mail to \"jane@example.com\", received over {0}", encryption), ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -1143,8 +1142,8 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         [global::NUnit.Framework.TestAttribute()]
         [global::NUnit.Framework.DescriptionAttribute("The service signs in only when the settings name a user")]
         [global::NUnit.Framework.CategoryAttribute("integration")]
-        [global::NUnit.Framework.TestCaseAttribute("offers no sign-in", "no user name", "35", null)]
-        [global::NUnit.Framework.TestCaseAttribute("accepts only the user \"notify-svc\" with \"Pa55-w0rd-7781\"", "the user \"notify-svc\" and the password \"Pa55-w0rd-7781\"", "36", null)]
+        [global::NUnit.Framework.TestCaseAttribute("offers no sign-in", "no user name", "34", null)]
+        [global::NUnit.Framework.TestCaseAttribute("accepts only the user \"notify-svc\" with \"Pa55-w0rd-7781\"", "the user \"notify-svc\" and the password \"Pa55-w0rd-7781\"", "35", null)]
         public async global::System.Threading.Tasks.Task TheServiceSignsInOnlyWhenTheSettingsNameAUser(string catcher, string credentials, string @__pickleIndex, string[] exampleTags)
         {
             string[] @__tags = new string[] {
@@ -1162,7 +1161,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("Mail leaves only over an encrypted connection with a checked certificate, signed " +
                     "in as the settings say", null, tagsOfRule);
-#line 242
+#line 241
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1172,20 +1171,20 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 243
+#line 242
       await testRunner.GivenAsync(string.Format("the service runs with sign-in on and email set up to send to a mail catcher that " +
                             "{0}", catcher), ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 244
+#line 243
       await testRunner.AndAsync(string.Format("the SMTP settings hold {0}", credentials), ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 245
+#line 244
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 246
+#line 245
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 247
+#line 246
       await testRunner.ThenAsync("the mail catcher holds 1 mail to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -1200,12 +1199,12 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "37";
+            string pickleIndex = "36";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A mail server with a certificate the service does not trust gets no mail", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("Mail leaves only over an encrypted connection with a checked certificate, signed " +
                     "in as the settings say", null, tagsOfRule);
-#line 255
+#line 254
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1215,20 +1214,20 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 256
+#line 255
       await testRunner.GivenAsync("the service runs with sign-in on and email set up to send to a mail server whose " +
                         "certificate the service does not trust", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 257
+#line 256
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 258
+#line 257
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 259
+#line 258
       await testRunner.ThenAsync("the mail server receives no mail", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 260
+#line 259
       await testRunner.AndAsync("the notification fails after 3 transient attempt failures", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -1243,11 +1242,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "38";
+            string pickleIndex = "37";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("An SMTP outage does not touch the health check", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("An SMTP outage does not touch the health check", null, tagsOfRule);
-#line 265
+#line 264
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1257,16 +1256,16 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 266
+#line 265
       await testRunner.GivenAsync("the service runs with sign-in on and email set up to send to the mail catcher", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 267
+#line 266
       await testRunner.AndAsync("the mail catcher is stopped", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 268
+#line 267
       await testRunner.WhenAsync("the cluster\'s liveness probe asks the health check without a token", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 269
+#line 268
       await testRunner.ThenAsync("the answer is 200 with the status \"Healthy\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -1281,11 +1280,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "39";
+            string pickleIndex = "38";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A set-up email sender is logged at start-up", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The service checks its email settings when it starts", null, tagsOfRule);
-#line 274
+#line 273
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1295,16 +1294,16 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 275
+#line 274
       await testRunner.GivenAsync("email is on, with the sender \"Smtp\" and every SMTP setting given", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 276
+#line 275
       await testRunner.WhenAsync("the service starts", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 277
+#line 276
       await testRunner.ThenAsync("1 start-up entry names the email sender \"Smtp\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 278
+#line 277
       await testRunner.AndAsync("no warning says email is not set up", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -1319,11 +1318,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "40";
+            string pickleIndex = "39";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Email off logs no email start-up entry", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The service checks its email settings when it starts", null, tagsOfRule);
-#line 281
+#line 280
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1333,13 +1332,13 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 282
+#line 281
       await testRunner.GivenAsync("email is off", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 283
+#line 282
       await testRunner.WhenAsync("the service starts", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 284
+#line 283
       await testRunner.ThenAsync("no email start-up entry is logged", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -1349,13 +1348,13 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
         [global::NUnit.Framework.TestAttribute()]
         [global::NUnit.Framework.DescriptionAttribute("Email on but not set up still lets the service start")]
         [global::NUnit.Framework.CategoryAttribute("integration")]
-        [global::NUnit.Framework.TestCaseAttribute("no mail server host", "the mail server host", "41", null)]
-        [global::NUnit.Framework.TestCaseAttribute("no sender address", "the sender address", "42", null)]
-        [global::NUnit.Framework.TestCaseAttribute("the sender address \"notify.example.com\"", "the sender address", "43", null)]
-        [global::NUnit.Framework.TestCaseAttribute("the port 70000", "the port", "44", null)]
-        [global::NUnit.Framework.TestCaseAttribute("the security mode \"None\"", "the security mode", "45", null)]
-        [global::NUnit.Framework.TestCaseAttribute("a time limit of 500 seconds", "the time limit", "46", null)]
-        [global::NUnit.Framework.TestCaseAttribute("the sender \"SendGrid\"", "the sender choice", "47", null)]
+        [global::NUnit.Framework.TestCaseAttribute("no mail server host", "the mail server host", "40", null)]
+        [global::NUnit.Framework.TestCaseAttribute("no sender address", "the sender address", "41", null)]
+        [global::NUnit.Framework.TestCaseAttribute("the sender address \"notify.example.com\"", "the sender address", "42", null)]
+        [global::NUnit.Framework.TestCaseAttribute("the port 70000", "the port", "43", null)]
+        [global::NUnit.Framework.TestCaseAttribute("the security mode \"None\"", "the security mode", "44", null)]
+        [global::NUnit.Framework.TestCaseAttribute("a time limit of 500 seconds", "the time limit", "45", null)]
+        [global::NUnit.Framework.TestCaseAttribute("the sender \"SendGrid\"", "the sender choice", "46", null)]
         public async global::System.Threading.Tasks.Task EmailOnButNotSetUpStillLetsTheServiceStart(string fault, string setting, string @__pickleIndex, string[] exampleTags)
         {
             string[] @__tags = new string[] {
@@ -1372,7 +1371,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Email on but not set up still lets the service start", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The service checks its email settings when it starts", null, tagsOfRule);
-#line 287
+#line 286
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1382,19 +1381,19 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 288
+#line 287
       await testRunner.GivenAsync(string.Format("the service started with email on and {0}", fault), ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 289
+#line 288
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 290
+#line 289
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 291
+#line 290
       await testRunner.ThenAsync("the call is accepted and skipped with reason \"ChannelNotConfigured\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 292
+#line 291
       await testRunner.AndAsync(string.Format("the start-up wrote 1 warning that email is not set up, naming {0} and no setting " +
                             "value", setting), ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
@@ -1410,11 +1409,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "48";
+            string pickleIndex = "47";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A settings change takes effect only at the next start", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The service checks its email settings when it starts", null, tagsOfRule);
-#line 305
+#line 304
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1424,19 +1423,19 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 306
+#line 305
       await testRunner.GivenAsync("the service started with email off", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 307
+#line 306
       await testRunner.AndAsync("\"treasury-ops\" is a caller allowed to send notifications", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 308
+#line 307
       await testRunner.AndAsync("the email settings are turned on while the service runs", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 309
+#line 308
       await testRunner.WhenAsync("\"treasury-ops\" emails template \"account-opened\" to \"jane@example.com\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 310
+#line 309
       await testRunner.ThenAsync("the call is accepted and skipped with reason \"ChannelNotConfigured\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -1451,11 +1450,11 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             string[] tagsOfScenario = new string[] {
                     "integration"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "49";
+            string pickleIndex = "48";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("A local email shows up in the mail catcher", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = new global::Reqnroll.RuleInfo("The local run shows each mail", null, tagsOfRule);
-#line 315
+#line 314
     this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -1465,22 +1464,22 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications
             else
             {
                 await this.ScenarioStartAsync();
-#line 316
+#line 315
       await testRunner.GivenAsync("the service runs with the local-run settings: sign-in off and email set up to sen" +
                         "d to the mail catcher over STARTTLS", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 317
+#line 316
       await testRunner.WhenAsync("Minh, a developer, emails template \"account-opened\" to \"jane@example.com\" for cus" +
                         "tomer \"<b>Jane</b>\" and account \"0012345678\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 318
+#line 317
       await testRunner.ThenAsync("the call is accepted with a new notification id", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 319
+#line 318
       await testRunner.AndAsync("within 10 seconds Minh can read 1 mail to \"jane@example.com\" in the mail catcher," +
                         " with the subject \"Your account is open\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 320
+#line 319
       await testRunner.AndAsync("the mail shows \"<b>Jane</b>\" as text, not in bold", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }

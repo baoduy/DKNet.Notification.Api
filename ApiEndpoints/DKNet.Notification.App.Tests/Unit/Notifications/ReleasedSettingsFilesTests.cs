@@ -4,7 +4,8 @@ namespace DKNet.Notification.App.Tests.Unit.Notifications;
 
 /// <summary>
 /// DRK-2020 §5 scenario "No released settings file holds an SMTP password" (@unit), with its presence sibling:
-/// the base settings file holds the email section and keeps email off (§3 "The base settings keep email off").
+/// the base settings file holds the email section and keeps email off (§3 "The base settings keep email off"). The
+/// Teams pair of DRK-2035 §5 is here too.
 /// </summary>
 public sealed class ReleasedSettingsFilesTests
 {
@@ -63,6 +64,41 @@ public sealed class ReleasedSettingsFilesTests
             PropertyNames(json.RootElement)
                 .ShouldNotContain(name => string.Equals(name, "ClientSecret", StringComparison.OrdinalIgnoreCase), file);
         }
+    }
+
+    /// <summary>
+    ///     DRK-2035 §5 scenario of the same name (@unit): a webhook URL comes from a secret source only, so no settings
+    ///     file holds a <c>WebhookUrl</c> property, under any section. The search runs over a release that holds the
+    ///     Teams settings section, where a destination's URL would sit.
+    /// </summary>
+    [Fact(DisplayName = "No released settings file holds a webhook URL")]
+    public void No_released_settings_file_holds_a_webhook_URL()
+    {
+        var files = SettingsFiles();
+        files.ShouldContain("ApiEndpoints/DKNet.Notification.Api/appsettings.json");
+        files.ShouldContain("ApiEndpoints/DKNet.Notification.Api/appsettings.Development.json");
+        using (var released = Read("ApiEndpoints/DKNet.Notification.Api/appsettings.json"))
+        {
+            released.RootElement.GetProperty("Notifications").GetProperty("Teams").ValueKind.ShouldBe(JsonValueKind.Object);
+        }
+
+        foreach (var file in files)
+        {
+            using var json = Read(file);
+            PropertyNames(json.RootElement)
+                .ShouldNotContain(name => string.Equals(name, "WebhookUrl", StringComparison.OrdinalIgnoreCase), file);
+        }
+    }
+
+    /// <summary>DRK-2035 §5 scenario "The base settings keep Teams off" (@unit): Teams off, with no destination.</summary>
+    [Fact(DisplayName = "The base settings keep Teams off")]
+    public void The_base_settings_keep_Teams_off()
+    {
+        using var json = Read("ApiEndpoints/DKNet.Notification.Api/appsettings.json");
+
+        var teams = json.RootElement.GetProperty("Notifications").GetProperty("Teams");
+        teams.GetProperty("Enabled").ValueKind.ShouldBe(JsonValueKind.False);
+        teams.TryGetProperty("Destinations", out var destinations).ShouldBeFalse(destinations.ToString());
     }
 
     [Fact(DisplayName = "The base settings file keeps email off")]

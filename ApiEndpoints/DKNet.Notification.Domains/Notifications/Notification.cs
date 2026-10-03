@@ -75,6 +75,9 @@ public sealed class Notification
     /// <summary>Gets the one address the email goes to; <see langword="null" /> until the notification is queued.</summary>
     public EmailRecipient? Recipient { get; private set; }
 
+    /// <summary>Gets the Teams destination the card goes to; <see langword="null" /> unless a Teams notification is queued.</summary>
+    public TeamsRecipient? TeamsRecipient { get; private set; }
+
     /// <summary>Gets the filled subject and body; <see langword="null" /> until the notification is queued.</summary>
     public RenderedMessage? RenderedMessage { get; private set; }
 
@@ -136,6 +139,12 @@ public sealed class Notification
         Recipient = recipient;
         RenderedMessage = renderedMessage;
     }
+
+    /// <summary>Queues a Teams call for delivery, rendered once, here, before it is queued.</summary>
+    /// <param name="recipient">The Teams destination the card goes to.</param>
+    /// <param name="renderedMessage">The filled title and Markdown body.</param>
+    public void Queue(TeamsRecipient recipient, RenderedMessage renderedMessage) =>
+        throw new NotImplementedException();
 
     /// <summary>Starts a delivery attempt: Queued or RetryWaiting to Delivering, one more attempt, never more than 3.</summary>
     public void StartAttempt()

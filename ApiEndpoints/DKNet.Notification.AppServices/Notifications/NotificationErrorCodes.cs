@@ -23,5 +23,8 @@ public static class NotificationErrorCodes
     /// <summary>The replica's delivery queue is full.</summary>
     public const string QueueFull = "QUEUE_FULL";
 
+    /// <summary>The posted Teams message would be larger than 28,672 bytes.</summary>
+    public const string MessageTooLarge = "MESSAGE_TOO_LARGE";
+
     #endregion
 }

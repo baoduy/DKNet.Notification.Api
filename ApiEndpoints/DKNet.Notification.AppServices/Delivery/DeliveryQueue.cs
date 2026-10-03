@@ -79,6 +79,19 @@ public sealed class DeliveryQueue
         return true;
     }
 
+    /// <summary>Queues a Teams <paramref name="notification" /> when the queue has room; email and Teams share the places.</summary>
+    /// <param name="notification">A received notification, rendered and with a destination that is set.</param>
+    /// <param name="recipient">The Teams destination the card goes to.</param>
+    /// <param name="renderedMessage">The filled title and Markdown body.</param>
+    /// <param name="traceId">The accepting call's trace id, as its log entries carry it.</param>
+    /// <returns><see langword="false" /> when the queue is full: nothing is queued.</returns>
+    public bool TryEnqueue(
+        Domains.Notifications.Notification notification,
+        TeamsRecipient recipient,
+        RenderedMessage renderedMessage,
+        string traceId) =>
+        throw new NotImplementedException();
+
     /// <summary>Takes the notifications in line, in their order, until <paramref name="stoppingToken" /> is cancelled.</summary>
     /// <param name="stoppingToken">Cancelled when the host stops.</param>
     /// <returns>The notifications whose turn it is: queued, or back from a wait.</returns>

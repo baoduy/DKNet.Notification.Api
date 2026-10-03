@@ -12,19 +12,20 @@ namespace DKNet.Notification.App.BDDTests.Support;
 /// which a test host adds to the Graph sender's trust through the Graph endpoints seam, never through a setting. It
 /// records every request it receives, then answers with the next scripted <see cref="Reply" /> that matches the
 /// request, or with <see cref="DefaultReply" />. No container and no package: it stands in for Microsoft Graph or
-/// Microsoft Entra ID only where a test host points the service at it.
+/// Microsoft Entra ID only where a test host points the service at it. It is also the Teams webhook stub of DRK-2035
+/// §3 "Tests"; started on <see cref="TestCertificateAuthority.Untrusted" />, it is a webhook whose certificate fails the
+/// check.
 /// </summary>
 public sealed class RecordingHttpStub : IAsyncDisposable
 {
     private readonly ConcurrentQueue<Request> _requests = new();
     private readonly List<(Func<Request, bool> Matches, Reply Reply)> _scripted = [];
     private readonly Lock _scriptLock = new();
+    private readonly TestCertificateAuthority _authority;
     private WebApplication? _app;
     private int _port;
 
-    private RecordingHttpStub()
-    {
-    }
+    private RecordingHttpStub(TestCertificateAuthority authority) => _authority = authority;
 
     /// <summary>The stub's address, such as <c>https://127.0.0.1:51234/</c>. It keeps its port when paused.</summary>
     public Uri Address { get; private set; } = null!;
@@ -37,9 +38,10 @@ public sealed class RecordingHttpStub : IAsyncDisposable
     /// <summary>The answer to every request no scripted reply matches. 202 with no body to begin with.</summary>
     public Reply DefaultReply { get; set; } = Reply.Status(StatusCodes.Status202Accepted);
 
-    public static async Task<RecordingHttpStub> StartAsync()
+    /// <summary>Starts a stub whose certificate <paramref name="authority" /> signs: <see cref="TestCertificateAuthority.Trusted" /> when null.</summary>
+    public static async Task<RecordingHttpStub> StartAsync(TestCertificateAuthority? authority = null)
     {
-        var stub = new RecordingHttpStub();
+        var stub = new RecordingHttpStub(authority ?? TestCertificateAuthority.Trusted);
         await stub.RunAsync();
         return stub;
     }
@@ -83,7 +85,7 @@ public sealed class RecordingHttpStub : IAsyncDisposable
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
         builder.WebHost.UseKestrelHttpsConfiguration();
-        var certificate = TestCertificateAuthority.Trusted.IssueLocalhost();
+        var certificate = _authority.IssueLocalhost();
         builder.WebHost.ConfigureKestrel(kestrel =>
             kestrel.Listen(IPAddress.Loopback, _port, listen => listen.UseHttps(certificate)));
         var app = builder.Build();

@@ -45,7 +45,7 @@ public sealed class NotificationErrorTests
         EmailRecipient.TryCreate("jane@example.com", out var recipient).ShouldBeTrue();
 
         Should.Throw<ArgumentNullException>(() =>
-                notification.Queue(null!, new RenderedMessage("Your account is open", "Dear Jane", BodyFormat.Html)))
+                notification.Queue((EmailRecipient)null!, new RenderedMessage("Your account is open", "Dear Jane", BodyFormat.Html)))
             .ParamName.ShouldBe("recipient");
         Should.Throw<ArgumentNullException>(() => notification.Queue(recipient, null!)).ParamName.ShouldBe("renderedMessage");
         notification.Status.ShouldBe(NotificationStatus.Received);

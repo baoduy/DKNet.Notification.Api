@@ -278,7 +278,8 @@ public sealed class SendScenario : IAsyncDisposable
 
     /// <summary>
     /// One skip warning with every field the spec names. DRK-2020 §3 Step 5: an <c>email</c> call to a host with
-    /// email off is skipped with <c>ChannelNotConfigured</c>; every other channel keeps <c>ChannelNotSupported</c>.
+    /// email off is skipped with <c>ChannelNotConfigured</c>; DRK-2035 §3: so is a <c>teams</c> call to a host with
+    /// Teams not configured. Every other channel keeps <c>ChannelNotSupported</c>.
     /// </summary>
     public static void ShouldBeSkipEntry(
         CapturedLogEntry entry,

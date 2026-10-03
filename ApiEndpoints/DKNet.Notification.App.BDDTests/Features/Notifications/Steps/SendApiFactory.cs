@@ -63,6 +63,9 @@ public sealed class SendApiFactory(
             // The test mail servers' authority, through the trust seam only: no setting can do this (DRK-2020 R6).
             services.AddSingleton(new SmtpTrustedRoots([TestCertificateAuthority.Trusted.Certificate]));
 
+            // The webhook stubs' authority, through the Teams trust seam only: no setting can do this (DRK-2035 §3).
+            services.AddSingleton(new TeamsTrustedRoots([TestCertificateAuthority.Trusted.Certificate]));
+
             // The Graph and token stubs, through the Graph endpoints seam only: no setting can do this (DRK-2028 §3).
             services.AddSingleton(graph ?? new GraphEndpoints(Nowhere, Nowhere, [], serviceAccountTokenFile: null));
 
@@ -77,14 +80,20 @@ public sealed class SendApiFactory(
 /// <summary>
 /// Test-only decorator around the released catalogue. Inert until <see cref="Hold" />: then the next lookup
 /// signals <see cref="Entered" /> and waits for <see cref="Release" />, so a call stays "still running" while the
-/// scenario sends its repeat. No production seam.
+/// scenario sends its repeat. It also holds the templates a scenario brings (<see cref="Add" />), found before the
+/// released ones: the release ships no Teams version of any template (DRK-2035 §3 "Tests"). No production seam.
 /// </summary>
 public sealed class GatedTemplateCatalogue(ITemplateCatalogue released) : ITemplateCatalogue, IDisposable
 {
     private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ManualResetEventSlim _open = new(initialState: true);
+    private readonly ConcurrentDictionary<string, NotificationTemplate> _added = new(StringComparer.Ordinal);
 
-    public IReadOnlyCollection<NotificationTemplate> Templates => released.Templates;
+    public IReadOnlyCollection<NotificationTemplate> Templates =>
+        [.. _added.Values, .. released.Templates.Where(t => !_added.ContainsKey(t.TemplateId))];
+
+    /// <summary>Adds a test template, or replaces the one with its id, while the service runs.</summary>
+    public void Add(NotificationTemplate template) => _added[template.TemplateId] = template;
 
     /// <summary>Completes when a held lookup is waiting.</summary>
     public Task Entered => _entered.Task;
@@ -101,7 +110,7 @@ public sealed class GatedTemplateCatalogue(ITemplateCatalogue released) : ITempl
             _open.Wait(TimeSpan.FromSeconds(30));
         }
 
-        return released.Find(templateId);
+        return _added.TryGetValue(templateId, out var added) ? added : released.Find(templateId);
     }
 
     public void Dispose() => _open.Dispose();

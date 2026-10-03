@@ -10,5 +10,8 @@ public enum SkipReason
     ChannelNotConfigured,
 
     /// <summary>The template has no version for the channel.</summary>
-    NoTemplateVersion
+    NoTemplateVersion,
+
+    /// <summary>The Teams destination the call names is not set in this deployment.</summary>
+    TeamsDestinationNotConfigured
 }
