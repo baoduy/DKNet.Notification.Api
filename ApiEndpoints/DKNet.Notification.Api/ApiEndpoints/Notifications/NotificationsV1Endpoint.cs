@@ -73,21 +73,27 @@ internal sealed class NotificationsV1Endpoint : IEndpointConfig
             EndpointFilterInvocationContext.Create(context),
             new ValidationResult([
                 // The service rejects with a code and a field every time.
-                new ValidationFailure(notification.ErrorField!, ErrorMessage(notification.ErrorCode))
+                new ValidationFailure(notification.ErrorField!, ErrorMessage(notification.ErrorCode, notification.ErrorField))
                 {
                     ErrorCode = notification.ErrorCode
                 }
             ]));
     }
 
-    private static string ErrorMessage(string? code) => code switch
-    {
-        NotificationErrorCodes.TemplateNotFound => "No template is registered with this id.",
-        NotificationErrorCodes.RecipientMissing => "The email needs a recipient.",
-        NotificationErrorCodes.RecipientInvalid => "The recipient must be exactly 1 address of at most 254 characters.",
-        NotificationErrorCodes.ParameterMissing => "A template token has no parameter.",
-        _ => "The delivery queue is full. Try again later."
-    };
+    internal static string ErrorMessage(string? code, string? field) =>
+        (code, field) switch
+        {
+            (NotificationErrorCodes.TemplateNotFound, _) => "No template is registered with this id.",
+            (NotificationErrorCodes.RecipientMissing, SendNotificationService.TeamsDestinationParameter) =>
+                "The Teams message needs a destination.",
+            (NotificationErrorCodes.RecipientMissing, _) => "The email needs a recipient.",
+            (NotificationErrorCodes.RecipientInvalid, SendNotificationService.TeamsDestinationParameter) =>
+                "The destination must be 1 to 64 lowercase letters, digits or '-'.",
+            (NotificationErrorCodes.RecipientInvalid, _) => "The recipient must be exactly 1 address of at most 254 characters.",
+            (NotificationErrorCodes.ParameterMissing, _) => "A template token has no parameter.",
+            (NotificationErrorCodes.MessageTooLarge, _) => "The Teams message would be larger than 28,672 bytes.",
+            _ => "The delivery queue is full. Try again later."
+        };
 
     #endregion
 }

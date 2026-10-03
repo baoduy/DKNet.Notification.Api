@@ -95,6 +95,57 @@ public sealed class DeliveryQueueTests : IDisposable
         queue.Length.ShouldBe(50);
     }
 
+    private static TeamsRecipient OpsAlerts()
+    {
+        TeamsRecipient.TryCreate("ops-alerts", out var recipient).ShouldBeTrue();
+        return recipient;
+    }
+
+    [Fact]
+    public void A_Teams_notification_is_queued_with_its_destination_and_counted()
+    {
+        var queue = Queue(capacity: 2);
+        var notification = Received();
+        var card = new RenderedMessage("Account 0012345678 opened", "**Jane Tan** opened account", BodyFormat.Markdown);
+
+        queue.TryEnqueue(notification, OpsAlerts(), card, TraceId).ShouldBeTrue();
+
+        queue.Length.ShouldBe(1);
+        notification.Status.ShouldBe(NotificationStatus.Queued);
+        notification.TeamsRecipient.ShouldBe(OpsAlerts());
+        notification.RenderedMessage.ShouldBeSameAs(card);
+    }
+
+    [Fact]
+    public async Task Email_and_Teams_take_their_turn_in_one_line_and_share_its_places()
+    {
+        var queue = Queue(capacity: 2);
+        var email = Received();
+        var teams = Received();
+        queue.TryEnqueue(email, Jane(), Message, TraceId).ShouldBeTrue();
+        queue.TryEnqueue(teams, OpsAlerts(), Message, "trace-teams").ShouldBeTrue();
+        var third = Received();
+
+        queue.TryEnqueue(third, OpsAlerts(), Message, TraceId).ShouldBeFalse();
+        queue.TryEnqueue(third, Jane(), Message, TraceId).ShouldBeFalse();
+
+        queue.Length.ShouldBe(2);
+        third.Status.ShouldBe(NotificationStatus.Received);
+        third.TeamsRecipient.ShouldBeNull();
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var inLine = new List<QueuedNotification>();
+        await foreach (var queued in queue.ReadAllAsync(stop.Token))
+        {
+            inLine.Add(queued);
+            if (inLine.Count == 2)
+            {
+                break;
+            }
+        }
+
+        inLine.ShouldBe([new QueuedNotification(email, TraceId), new QueuedNotification(teams, "trace-teams")]);
+    }
+
     [Fact]
     public void A_missing_argument_is_refused()
     {
@@ -102,5 +153,6 @@ public sealed class DeliveryQueueTests : IDisposable
             .ParamName.ShouldBe("settings");
         Should.Throw<ArgumentNullException>(() => new DeliveryQueue(new DeliverySettings(), null!)).ParamName.ShouldBe("metrics");
         Should.Throw<ArgumentNullException>(() => Queue(1).TryEnqueue(null!, Jane(), Message, TraceId)).ParamName.ShouldBe("notification");
+        Should.Throw<ArgumentNullException>(() => Queue(1).TryEnqueue(null!, OpsAlerts(), Message, TraceId)).ParamName.ShouldBe("notification");
     }
 }

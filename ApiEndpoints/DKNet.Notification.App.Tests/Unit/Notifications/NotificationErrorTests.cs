@@ -50,4 +50,35 @@ public sealed class NotificationErrorTests
         Should.Throw<ArgumentNullException>(() => notification.Queue(recipient, null!)).ParamName.ShouldBe("renderedMessage");
         notification.Status.ShouldBe(NotificationStatus.Received);
     }
+
+    [Fact]
+    public void A_Teams_notification_is_not_queued_without_a_destination_or_a_message()
+    {
+        var notification = Received();
+        TeamsRecipient.TryCreate("ops-alerts", out var recipient).ShouldBeTrue();
+
+        Should.Throw<ArgumentNullException>(() =>
+                notification.Queue((TeamsRecipient)null!, new RenderedMessage("Account opened", "**Jane**", BodyFormat.Markdown)))
+            .ParamName.ShouldBe("recipient");
+        Should.Throw<ArgumentNullException>(() => notification.Queue(recipient, null!)).ParamName.ShouldBe("renderedMessage");
+        notification.Status.ShouldBe(NotificationStatus.Received);
+        notification.TeamsRecipient.ShouldBeNull();
+    }
+
+    [Fact]
+    public void A_queued_Teams_notification_keeps_its_destination_and_message_and_cannot_be_queued_again()
+    {
+        var notification = Received();
+        TeamsRecipient.TryCreate("ops-alerts", out var recipient).ShouldBeTrue();
+        var message = new RenderedMessage("Account opened", "**Jane**", BodyFormat.Markdown);
+
+        notification.Queue(recipient, message);
+
+        notification.Status.ShouldBe(NotificationStatus.Queued);
+        notification.TeamsRecipient.ShouldBe(recipient);
+        notification.RenderedMessage.ShouldBeSameAs(message);
+        notification.Recipient.ShouldBeNull();
+        Should.Throw<InvalidOperationException>(() => notification.Queue(recipient, message))
+            .Message.ShouldBe("A notification that is Queued cannot change its status.");
+    }
 }

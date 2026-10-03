@@ -25,6 +25,7 @@ public sealed class SendNotificationServiceTests : IDisposable
             .AddLogging(logging => logging.AddProvider(_logs))
             .AddSingleton<ITemplateCatalogue>(new OneTemplate("account-opened"))
             .AddSingleton(new EmailChannelSettings())
+            .AddSingleton(new TeamsChannelSettings())
             .AddSingleton(new DeliverySettings())
             .AddSingleton<DeliveryQueue>()
             .AddSingleton<NotificationMetrics>()

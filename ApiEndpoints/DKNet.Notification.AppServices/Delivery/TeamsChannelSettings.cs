@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+using DKNet.Notification.Domains.Notifications;
 
 namespace DKNet.Notification.AppServices.Delivery;
 
@@ -12,6 +12,10 @@ public sealed class TeamsChannelSettings
 
     /// <summary>The settings section.</summary>
     public const string SectionName = "Notifications:Teams";
+
+    private const int MaxTimeoutSeconds = 120;
+    private const int MaxDestinations = 100;
+    private const int MaxWebhookUrlLength = 2_048;
 
     #endregion
 
@@ -27,11 +31,10 @@ public sealed class TeamsChannelSettings
     public Dictionary<string, TeamsDestination> Destinations { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Gets whether Teams is on and every Teams setting but the destinations keeps its rule.</summary>
-    [SuppressMessage(
-        "Performance",
-        "CA1822:Mark members as static",
-        Justification = "Acceptance-test stub (DRK-2039): the Build (DRK-2036 row 1) writes the rule and drops this.")]
-    public bool IsConfigured => false;
+    public bool IsConfigured =>
+        Enabled
+        && TimeoutSeconds is >= 1 and <= MaxTimeoutSeconds
+        && Destinations.Count <= MaxDestinations;
 
     #endregion
 
@@ -43,7 +46,14 @@ public sealed class TeamsChannelSettings
     ///     The URL when <paramref name="name" /> keeps the name rule and its URL is good; otherwise
     ///     <see langword="null" />: the destination is not set.
     /// </returns>
-    public Uri? WebhookFor(string name) => throw new NotImplementedException();
+    public Uri? WebhookFor(string name) =>
+        TeamsRecipient.TryCreate(name, out _)
+        && Destinations.TryGetValue(name, out var destination)
+        && destination?.WebhookUrl is { Length: <= MaxWebhookUrlLength } url
+        && Uri.TryCreate(url, UriKind.Absolute, out var webhook)
+        && webhook.Scheme == Uri.UriSchemeHttps
+            ? webhook
+            : null;
 
     #endregion
 }

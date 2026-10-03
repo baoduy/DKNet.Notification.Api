@@ -8,6 +8,13 @@ namespace DKNet.Notification.Domains.Notifications;
 /// </summary>
 public sealed record TeamsRecipient
 {
+    #region Fields
+
+    /// <summary>The longest name the rule allows.</summary>
+    public const int MaxLength = 64;
+
+    #endregion
+
     #region Constructors
 
     private TeamsRecipient(string name) => Name = name;
@@ -27,8 +34,14 @@ public sealed record TeamsRecipient
     /// <param name="value">The <c>teamsDestination</c> parameter as the caller sent it.</param>
     /// <param name="recipient">The recipient, when the value keeps the rule.</param>
     /// <returns><see langword="true" /> when the value keeps the rule.</returns>
-    public static bool TryCreate(string value, [NotNullWhen(true)] out TeamsRecipient? recipient) =>
-        throw new NotImplementedException();
+    public static bool TryCreate(string value, [NotNullWhen(true)] out TeamsRecipient? recipient)
+    {
+        recipient = value.Length is >= 1 and <= MaxLength
+                    && value.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-')
+            ? new TeamsRecipient(value)
+            : null;
+        return recipient is not null;
+    }
 
     #endregion
 }

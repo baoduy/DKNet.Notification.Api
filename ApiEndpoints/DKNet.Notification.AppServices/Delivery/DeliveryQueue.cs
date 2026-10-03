@@ -61,21 +61,13 @@ public sealed class DeliveryQueue
         string traceId)
     {
         ArgumentNullException.ThrowIfNull(notification);
-
-        int length;
-        do
+        if (!TryTakePlace())
         {
-            length = Length;
-            if (length >= _capacity)
-            {
-                return false;
-            }
+            return false;
         }
-        while (Interlocked.CompareExchange(ref _length, length + 1, length) != length);
 
         notification.Queue(recipient, renderedMessage);
-        // An unbounded channel never completed takes every write.
-        _waiting.Writer.TryWrite(new QueuedNotification(notification, traceId));
+        Write(notification, traceId);
         return true;
     }
 
@@ -89,8 +81,18 @@ public sealed class DeliveryQueue
         Domains.Notifications.Notification notification,
         TeamsRecipient recipient,
         RenderedMessage renderedMessage,
-        string traceId) =>
-        throw new NotImplementedException();
+        string traceId)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+        if (!TryTakePlace())
+        {
+            return false;
+        }
+
+        notification.Queue(recipient, renderedMessage);
+        Write(notification, traceId);
+        return true;
+    }
 
     /// <summary>Takes the notifications in line, in their order, until <paramref name="stoppingToken" /> is cancelled.</summary>
     /// <param name="stoppingToken">Cancelled when the host stops.</param>
@@ -104,6 +106,27 @@ public sealed class DeliveryQueue
 
     /// <summary>Frees the place of a notification that ended Delivered or Failed.</summary>
     public void End() => Interlocked.Decrement(ref _length);
+
+    // Email and Teams take their place the same way, so they share the one capacity.
+    private bool TryTakePlace()
+    {
+        int length;
+        do
+        {
+            length = Length;
+            if (length >= _capacity)
+            {
+                return false;
+            }
+        }
+        while (Interlocked.CompareExchange(ref _length, length + 1, length) != length);
+
+        return true;
+    }
+
+    // An unbounded channel never completed takes every write.
+    private void Write(Domains.Notifications.Notification notification, string traceId) =>
+        _waiting.Writer.TryWrite(new QueuedNotification(notification, traceId));
 
     #endregion
 }

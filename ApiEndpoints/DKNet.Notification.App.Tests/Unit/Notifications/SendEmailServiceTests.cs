@@ -1,5 +1,3 @@
-using System.Diagnostics.Metrics;
-using DKNet.Notification.App.TestSupport;
 using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Notifications;
 using DKNet.Notification.AppServices.Templates;
@@ -15,7 +13,7 @@ public sealed class SendEmailServiceTests : IDisposable
     private const string AccountOpened = "account-opened";
     private const string TeamDigest = "team-digest";
 
-    private static readonly ITemplateCatalogue Catalogue = new FixedCatalogue(
+    private static readonly ITemplateCatalogue Catalogue = new SendServiceHost.FixedCatalogue(
         new NotificationTemplate(AccountOpened, string.Empty, [
             new TemplateVersion("email", "account-opened.email.html", TemplateFormat.Html, "Your account is open",
                 Title: null, "Dear {{customerName}}, your account {{accountNumber}} is open.")
@@ -24,16 +22,9 @@ public sealed class SendEmailServiceTests : IDisposable
             new TemplateVersion("teams", "team-digest.teams.md", TemplateFormat.Markdown, Subject: null, "Team digest", "Digest")
         ]));
 
-    private readonly TestLogCapture _logs = new();
-    private readonly MeterListener _listener = new();
-    private readonly List<(string Instrument, long Value, Dictionary<string, object?> Tags)> _measurements = [];
-    private ServiceProvider? _services;
+    private readonly SendServiceHost _host = new();
 
-    public void Dispose()
-    {
-        _listener.Dispose();
-        _services?.Dispose();
-    }
+    public void Dispose() => _host.Dispose();
 
     private static EmailChannelSettings SetUp(bool enabled = true) => new()
     {
@@ -41,31 +32,8 @@ public sealed class SendEmailServiceTests : IDisposable
         Smtp = new SmtpSenderSettings { Host = "smtp.example.com", FromAddress = "notifications@example.com" }
     };
 
-    private SendNotificationService Service(EmailChannelSettings email, int queueCapacity = 10)
-    {
-        _services = new ServiceCollection()
-            .AddMetrics()
-            .AddLogging(logging => logging.AddProvider(_logs))
-            .AddSingleton(Catalogue)
-            .AddSingleton(email)
-            .AddSingleton(new DeliverySettings(queueCapacity))
-            .AddSingleton<DeliveryQueue>()
-            .AddSingleton<NotificationMetrics>()
-            .AddSingleton<SendNotificationService>()
-            .BuildServiceProvider();
-        var meterFactory = _services.GetRequiredService<IMeterFactory>();
-        _listener.InstrumentPublished = (instrument, listener) =>
-        {
-            if (ReferenceEquals(instrument.Meter.Scope, meterFactory) && instrument is Counter<long>)
-            {
-                listener.EnableMeasurementEvents(instrument);
-            }
-        };
-        _listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
-            _measurements.Add((instrument.Name, value, tags.ToArray().ToDictionary(t => t.Key, t => t.Value))));
-        _listener.Start();
-        return _services.GetRequiredService<SendNotificationService>();
-    }
+    private SendNotificationService Service(EmailChannelSettings email, int queueCapacity = 10) =>
+        _host.Service(Catalogue, email, new TeamsChannelSettings(), queueCapacity);
 
     private static SendNotificationRequest Email(string templateId, Dictionary<string, string> parameters) =>
         new("Email", templateId, parameters);
@@ -87,11 +55,11 @@ public sealed class SendEmailServiceTests : IDisposable
     {
         notification.Status.ShouldBe(NotificationStatus.Skipped);
         notification.SkipReason.ShouldBe(reason);
-        var entry = _logs.Entries.ShouldHaveSingleItem();
+        var entry = _host.Logs.Entries.ShouldHaveSingleItem();
         entry.EventId.Name.ShouldBe("NotificationSkipped");
         entry.Value("Reason").ShouldBe(reason.ToString());
         entry.Value("Channel").ShouldBe("email");
-        _measurements.ShouldHaveSingleItem().Tags.ShouldBe(new Dictionary<string, object?> { ["channel"] = "email", ["outcome"] = "skipped" });
+        _host.Measurements.ShouldHaveSingleItem().Tags.ShouldBe(new Dictionary<string, object?> { ["channel"] = "email", ["outcome"] = "skipped" });
     }
 
     private void ShouldBeRejected(Domains.Notifications.Notification notification, string code, string field)
@@ -101,7 +69,7 @@ public sealed class SendEmailServiceTests : IDisposable
         notification.ErrorField.ShouldBe(field);
         notification.Recipient.ShouldBeNull();
         notification.RenderedMessage.ShouldBeNull();
-        var entry = _logs.Entries.ShouldHaveSingleItem();
+        var entry = _host.Logs.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Information);
         entry.EventId.Name.ShouldBe("NotificationRejected");
         entry.Value("NotificationId").ShouldBe(notification.NotificationId.ToString());
@@ -110,7 +78,7 @@ public sealed class SendEmailServiceTests : IDisposable
         entry.Value("Channel").ShouldBe("email");
         entry.Value("CallerId").ShouldBe("treasury-ops");
         entry.Value("TraceId").ShouldBe("trace-1");
-        var measurement = _measurements.ShouldHaveSingleItem();
+        var measurement = _host.Measurements.ShouldHaveSingleItem();
         measurement.Instrument.ShouldBe("notifications.rejected");
         measurement.Tags.ShouldBe(new Dictionary<string, object?> { ["code"] = code });
     }
@@ -126,7 +94,7 @@ public sealed class SendEmailServiceTests : IDisposable
             "Your account is open",
             "Dear Jane Tan, your account 0012345678 is open.",
             BodyFormat.Html));
-        var entry = _logs.Entries.ShouldHaveSingleItem();
+        var entry = _host.Logs.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Information);
         entry.EventId.Id.ShouldBe(2003);
         entry.EventId.Name.ShouldBe("NotificationQueued");
@@ -136,7 +104,7 @@ public sealed class SendEmailServiceTests : IDisposable
         entry.Value("Channel").ShouldBe("email");
         entry.Value("CallerId").ShouldBe("treasury-ops");
         entry.Value("TraceId").ShouldBe("trace-1");
-        var measurement = _measurements.ShouldHaveSingleItem();
+        var measurement = _host.Measurements.ShouldHaveSingleItem();
         measurement.Instrument.ShouldBe("notifications.accepted");
         measurement.Tags.ShouldBe(new Dictionary<string, object?> { ["channel"] = "email", ["outcome"] = "queued" });
     }
@@ -176,7 +144,7 @@ public sealed class SendEmailServiceTests : IDisposable
         var service = Service(SetUp());
 
         ShouldBeRejected(service.Send(Email(AccountOpened, Jane("jane.@example.com")), "treasury-ops", "trace-1"), "RECIPIENT_INVALID", "to");
-        _services.ShouldNotBeNull().GetRequiredService<DeliveryQueue>().Length.ShouldBe(0);
+        _host.Services.GetRequiredService<DeliveryQueue>().Length.ShouldBe(0);
     }
 
     [Fact]
@@ -206,8 +174,8 @@ public sealed class SendEmailServiceTests : IDisposable
     {
         var service = Service(SetUp(), queueCapacity: 1);
         service.Send(Email(AccountOpened, Jane()), "treasury-ops", "trace-0").Status.ShouldBe(NotificationStatus.Queued);
-        _logs.Clear();
-        _measurements.Clear();
+        _host.Logs.Clear();
+        _host.Measurements.Clear();
 
         ShouldBeRejected(service.Send(Email(AccountOpened, Jane()), "treasury-ops", "trace-1"), "QUEUE_FULL", string.Empty);
     }
@@ -220,18 +188,10 @@ public sealed class SendEmailServiceTests : IDisposable
         service.Send(Email(AccountOpened, Jane()), "treasury-ops", "trace-2");
         service.Send(Email(AccountOpened, Jane("jane.example.com")), "treasury-ops", "trace-3");
 
-        _logs.Entries.Count.ShouldBe(3);
+        _host.Logs.Entries.Count.ShouldBe(3);
         string[] secrets = ["jane@example.com", "jane.example.com", "Jane Tan", "0012345678", "Your account is open"];
-        _logs.Entries.SelectMany(e => e.State.Select(p => Convert.ToString(p.Value)).Append(e.Message))
+        _host.Logs.Entries.SelectMany(e => e.State.Select(p => Convert.ToString(p.Value)).Append(e.Message))
             .ShouldAllBe(text => text == null || !secrets.Any(secret => text.Contains(secret)));
-        _measurements.SelectMany(m => m.Tags.Values).ShouldAllBe(tag => !secrets.Contains(tag));
-    }
-
-    private sealed class FixedCatalogue(params NotificationTemplate[] templates) : ITemplateCatalogue
-    {
-        public IReadOnlyCollection<NotificationTemplate> Templates => templates;
-
-        public NotificationTemplate? Find(string templateId) =>
-            templates.FirstOrDefault(t => string.Equals(t.TemplateId, templateId, StringComparison.Ordinal));
+        _host.Measurements.SelectMany(m => m.Tags.Values).ShouldAllBe(tag => !secrets.Contains(tag));
     }
 }
