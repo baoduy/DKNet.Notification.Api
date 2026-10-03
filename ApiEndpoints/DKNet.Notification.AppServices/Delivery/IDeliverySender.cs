@@ -11,7 +11,10 @@ public interface IDeliverySender
 }
 
 /// <summary>Why a delivery attempt failed. It holds the provider's reply code only, never its reply text.</summary>
-/// <param name="IsTransient">A timeout, a lost or refused connection, a TLS failure or an SMTP 4xx reply: worth another attempt.</param>
+/// <param name="IsTransient">
+///     A timeout, a lost or refused connection, a TLS failure, an SMTP 4xx reply or an HTTP 408, 429 or 5xx answer:
+///     worth another attempt.
+/// </param>
 /// <param name="ReplyCode">The provider status: the SMTP reply code or the HTTP status code; empty when there was no reply.</param>
 /// <param name="RetryAfter">
 ///     The wait the provider asked for in its answer, used instead of the configured wait before the next attempt;

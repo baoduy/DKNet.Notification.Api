@@ -5,7 +5,7 @@ namespace DKNet.Notification.AppServices.Notifications;
 
 /// <summary>
 ///     The notification log entries of DRK-2013 "Logs and metrics" and DRK-2020 "Logs". No entry takes a parameter
-///     value, a recipient, the rendered message or an SMTP reply text.
+///     value, a recipient, the rendered message or a provider's error text.
 /// </summary>
 internal static partial class NotificationLog
 {

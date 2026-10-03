@@ -254,6 +254,8 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
 
         var notification = Enqueue(queue);
         await UntilAsync(() => sender.Attempts.Count == 1);
+        // The worker marks the wait once the sender has returned: wait for it, then check it.
+        await UntilAsync(() => notification.Status == NotificationStatus.RetryWaiting);
         notification.Status.ShouldBe(NotificationStatus.RetryWaiting);
         queue.Length.ShouldBe(1);
         await UntilAsync(() => notification.Status == NotificationStatus.Delivered, TimeSpan.FromSeconds(10));
@@ -262,6 +264,8 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         (attempts[1].Start - attempts[0].End).ShouldBeGreaterThanOrEqualTo(TimeSpan.FromSeconds(0.95));
         (attempts[1].Start - attempts[0].End).ShouldBeLessThan(TimeSpan.FromSeconds(1.9));
         (attempts[2].Start - attempts[1].End).ShouldBeGreaterThanOrEqualTo(TimeSpan.FromSeconds(1.95));
+        // The worker ends the notification in the queue just after marking it delivered: wait for it, then check it.
+        await UntilAsync(() => queue.Length == 0);
         queue.Length.ShouldBe(0);
     }
 
