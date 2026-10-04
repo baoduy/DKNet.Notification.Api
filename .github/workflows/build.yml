@@ -50,7 +50,7 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Install helm-unittest plugin
-        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.2.1
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.2.1 --verify=false
 
       - name: Build chart dependencies
         working-directory: helm/dknet-notification
