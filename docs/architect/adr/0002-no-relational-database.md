@@ -1,0 +1,22 @@
+# ADR-0002: No relational database; Redis only for idempotency records
+
+- **Status:** Accepted
+- **Context:**
+  - Version 1 has no delivery status tracking and no history. The requester said it is not needed now.
+  - Templates are files shipped in the release, not rows.
+  - Repeated calls must still be detected across replicas.
+  - The DKNet.Templates scaffold always wires PostgreSQL, an EF Core context and a database health check. No template option removes them.
+  - The scaffold also wires Redis. DKNet.AspCore.Idempotency has a Redis store, which DKNet.Accounts.Api already uses.
+- **Decision:**
+  - Remove PostgreSQL, the EF Core context and the database health check in slice 1.
+  - Keep Redis, and use it only for idempotency records.
+  - Keep notifications in memory only.
+- **Alternatives:**
+  - *Keep PostgreSQL for idempotency records.* Rejected: DKNet.AspCore.Idempotency.NpgsqlStore exists, but it would keep a relational database, its schema and its backups alive only for records that expire after 4 hours. Redis expires them on its own.
+  - *Keep PostgreSQL for a delivery log.* Rejected: it is status tracking, which is out of scope for version 1.
+  - *Use the in-memory idempotency store in production.* Rejected: it is not shared between replicas, and the package warns it is not for production.
+- **Consequences:**
+  - Easier: no schema, no migrations, no database to run; the image starts with only Redis.
+  - Harder: slice 1 departs from the scaffold and must remove its database parts cleanly.
+  - Harder: a Redis outage fails every call with 500, because the package does not catch store errors.
+  - A later revision that adds status tracking needs a new ADR and a store.

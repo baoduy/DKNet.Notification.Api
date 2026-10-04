@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "DKNet Notification — Runtime Architecture (as built, commit 292459b)",
+    "subtitle": "Scaffold slice only — compare against design revision 2",
+    "output": "runtime.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/baoduy/DKNet.Notification.Api.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "292459bd6db2a44ad7e71ba45ff25bfe3c447846"
+    }
+  },
+  "components": [
+    {
+      "id": "telemetry",
+      "type": "cloud",
+      "label": "OTel exporter",
+      "sublabel": "OTLP / Azure Monitor",
+      "tag": "disabled by default",
+      "pos": [320, 40],
+      "size": [190, 60],
+      "sources": [
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Program.cs", "line": 10, "end_line": 10, "label": "AddLogConfig call" },
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/LogConfigs.cs", "line": 35, "end_line": 65, "label": "OTLP / Azure Monitor exporters" }
+      ]
+    },
+    {
+      "id": "appconfig",
+      "type": "cloud",
+      "label": "Azure App Configuration",
+      "sublabel": "feature flags + settings",
+      "tag": "disabled by default",
+      "pos": [320, 160],
+      "size": [200, 60],
+      "sources": [
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Program.cs", "line": 10, "end_line": 11, "label": "AddAzureAppConfig call" },
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/AzureAppConfig/AzureAppConfigSetup.cs", "line": 20, "end_line": 48, "label": "AddAzureAppConfig" }
+      ]
+    },
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "Backend caller",
+      "sublabel": "any HTTP client",
+      "pos": [20, 340],
+      "size": [130, 64]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Notification API",
+      "sublabel": "scaffold host",
+      "pos": [320, 340],
+      "size": [170, 70],
+      "sources": [
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Program.cs", "line": 5, "end_line": 29, "label": "host bootstrap" },
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/AppConfig.cs", "line": 15, "end_line": 19, "label": "AddAppConfig entry" }
+      ]
+    },
+    {
+      "id": "edge",
+      "type": "backend",
+      "label": "Edge middleware",
+      "sublabel": "headers, HTTPS, CORS",
+      "pos": [600, 340],
+      "size": [180, 70],
+      "sources": [
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/AppConfig.cs", "line": 83, "end_line": 88, "label": "edge middleware chain" },
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/AppConfig.cs", "line": 20, "end_line": 52, "label": "conditional registration" }
+      ]
+    },
+    {
+      "id": "healthz",
+      "type": "backend",
+      "label": "/healthz",
+      "sublabel": "anonymous allowed",
+      "pos": [600, 500],
+      "size": [170, 60],
+      "sources": [
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/Healthz/HealthzConfig.cs", "line": 36, "end_line": 40, "label": "MapHealthChecks + AllowAnonymous" },
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/AppConfig.cs", "line": 78, "end_line": 105, "label": "pipeline order: after bounds/rate-limit/auth" }
+      ]
+    },
+    {
+      "id": "ratelimiter",
+      "type": "backend",
+      "label": "Rate limiter",
+      "sublabel": "fixed window + concurrency",
+      "pos": [880, 340],
+      "size": [200, 60],
+      "sources": [
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/RateLimits/RateLimitConfig.cs", "line": 27, "end_line": 49, "label": "AddRateLimiter" },
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/AppConfig.cs", "line": 93, "end_line": 93, "label": "UseRateLimitConfig call" }
+      ]
+    },
+    {
+      "id": "authgate",
+      "type": "security",
+      "label": "Auth gate",
+      "sublabel": "Bearer JWT, default-deny",
+      "pos": [880, 500],
+      "size": [200, 60],
+      "sources": [
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/Auth/AuthConfig.cs", "line": 28, "end_line": 36, "label": "AddJwtBearer + fallback policy" },
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/AppConfig.cs", "line": 96, "end_line": 96, "label": "UseAuthConfig call" }
+      ]
+    },
+    {
+      "id": "entra",
+      "type": "security",
+      "label": "JWT Bearer authority",
+      "sublabel": "OIDC metadata (config)",
+      "pos": [1230, 500],
+      "size": [200, 64],
+      "sources": [
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/Auth/AuthConfig.cs", "line": 28, "end_line": 29, "label": "AddJwtBearer" },
+        { "path": "ApiEndpoints/DKNet.Notification.Api/appsettings.json", "line": 31, "end_line": 39, "label": "Authentication:Schemes:Bearer" }
+      ]
+    },
+    {
+      "id": "idempotency",
+      "type": "backend",
+      "label": "Idempotency store",
+      "sublabel": "registered, no caller yet",
+      "pos": [320, 520],
+      "size": [210, 60],
+      "sources": [
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/AppConfig.cs", "line": 59, "end_line": 70, "label": "idempotency store selection" }
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "cache + idempotency",
+      "tag": "fallback: in-memory",
+      "pos": [720, 610],
+      "size": [170, 60],
+      "sources": [
+        { "path": "ApiEndpoints/DKNet.Notification.Api/Configs/CacheConfig.cs", "line": 10, "end_line": 25, "label": "distributed cache / HybridCache" },
+        { "path": "ApiEndpoints/DKNet.Notification.AppHost/AppHost.cs", "line": 3, "end_line": 11, "label": "Aspire local wiring" }
+      ]
+    }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "DKNet.Notification container (scaffold slice)", "wraps": ["api", "edge", "healthz", "ratelimiter", "authgate", "idempotency"] },
+    { "kind": "security-group", "label": "Service edge: Bearer JWT, default-deny fallback (no scope enforced yet)", "wraps": ["authgate"] },
+    { "kind": "security-group", "label": "Backing store: connection-string gated (no password/TLS asserted in code)", "wraps": ["redis"] }
+  ],
+  "connections": [
+    { "id": "caller-api", "from": "caller", "to": "api", "label": "HTTPS request", "variant": "emphasis" },
+    { "id": "api-appconfig", "from": "api", "to": "appconfig", "label": "load config (if enabled)", "variant": "dashed" },
+    { "id": "api-telemetry", "from": "api", "to": "telemetry", "label": "export traces (if enabled)", "variant": "dashed" },
+    { "id": "api-edge", "from": "api", "to": "edge", "label": "request pipeline", "variant": "emphasis" },
+    { "id": "edge-ratelimiter", "from": "edge", "to": "ratelimiter", "label": "then rate limit", "variant": "emphasis" },
+    { "id": "ratelimiter-authgate", "from": "ratelimiter", "to": "authgate", "label": "then authorize", "variant": "emphasis" },
+    { "id": "authgate-entra", "from": "authgate", "to": "entra", "label": "validate JWT", "variant": "security" },
+    { "id": "authgate-healthz", "from": "authgate", "to": "healthz", "label": "GET /healthz", "variant": "emphasis" },
+    { "id": "api-idempotency", "from": "api", "to": "idempotency", "label": "no endpoint uses it yet", "variant": "dashed" },
+    { "id": "idempotency-redis", "from": "idempotency", "to": "redis", "label": "idempotency key", "variant": "dashed" }
+  ],
+  "cards": [
+    {
+      "dot": "slate",
+      "title": "Feature flags (appsettings.json:FeatureManagement)",
+      "items": [
+        "On by default: EnableHttps, RequireAuthorization, EnableRateLimit, EnableVersioning, EnableSecurityHeaders, EnableForwardedHeaders, EnableRequestBounds",
+        "Off by default: EnableAzureAppConfig, EnableOpenTelemetry, EnableSwagger, EnableAntiforgery"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Limits (appsettings.json)",
+      "items": [
+        "Rate limit: 100 requests / 1 s window, 20 concurrent (RateLimit section)",
+        "Request bounds: 30 s timeout, 1 MB max body, 10 s header timeout",
+        "HSTS: 365 days (Https:HstsMaxAgeDays)"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Not built yet (later delivery slices)",
+      "items": [
+        "No POST /v1/notifications or any business route — Domains/Services holds only empty interfaces (IDomainService.cs, IMembershipService.cs, ISequenceServices.cs)",
+        "No delivery queue, worker, template rendering, or channel sender (email/Graph/Teams) exists in this commit"
+      ]
+    }
+  ]
+}

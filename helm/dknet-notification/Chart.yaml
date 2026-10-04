@@ -1,0 +1,17 @@
+apiVersion: v2
+name: dknet-notification
+description: Chart deploying the DKNet.Notification API to AKS, built on drunk-app.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+# drunk-app (https://github.com/baoduy/drunk.charts) supplies the Deployment/Service/
+# SecretProviderClass/HTTPRoute templates via one aliased instance, pulled from its OCI
+# registry (ghcr.io/baoduy is public — no `helm registry login` needed). 2.0.4 is the floor:
+# it adds deployment.podLabels and secretProvider.provider.clientID, both required below.
+dependencies:
+  - name: drunk-app
+    version: ">=2.0.4 <3.0.0"
+    repository: oci://ghcr.io/baoduy
+    alias: api
+    condition: api.enabled

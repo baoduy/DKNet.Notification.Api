@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Post a Microsoft Teams Notification",
+    "output": "send-teams.html",
+    "viewBox": [1080, 690],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "caller", "type": "external", "label": "Backend caller", "sublabel": "notifications.send" },
+    { "id": "api", "type": "backend", "label": "Notification API", "sublabel": "POST /v1/notifications" },
+    { "id": "settings", "type": "security", "label": "Teams destinations", "sublabel": "name to webhook URL" },
+    { "id": "queue", "type": "messagebus", "label": "Delivery queue", "sublabel": "in process" },
+    { "id": "worker", "type": "backend", "label": "Delivery worker", "sublabel": "Teams sender" },
+    { "id": "webhook", "type": "cloud", "label": "Teams Workflows", "sublabel": "webhook URL" }
+  ],
+  "segments": [
+    { "from": 160, "to": 330, "label": "Accept" },
+    { "from": 342, "to": 590, "label": "Deliver" }
+  ],
+  "messages": [
+    { "id": "post", "from": "caller", "to": "api", "y": 180, "label": "POST channel=teams, teamsDestination=ops", "variant": "emphasis", "note": "token, key, template and Teams version already checked" },
+    { "id": "lookup", "from": "api", "to": "settings", "y": 224, "label": "destination ops set?", "variant": "default" },
+    { "id": "url", "from": "settings", "to": "api", "y": 252, "label": "webhook URL", "variant": "return", "note": "not set: Skipped, 202" },
+    { "id": "enqueue", "from": "api", "to": "queue", "y": 290, "label": "Adaptive Card, 28 KB max", "variant": "emphasis" },
+    { "id": "accepted", "from": "api", "to": "caller", "y": 320, "label": "202 notificationId", "variant": "return" },
+    { "id": "take", "from": "queue", "to": "worker", "y": 368, "label": "next notification", "variant": "default" },
+    { "id": "post1", "from": "worker", "to": "webhook", "y": 404, "label": "HTTPS POST, attempt 1", "variant": "emphasis" },
+    { "id": "throttled", "from": "webhook", "to": "worker", "y": 432, "label": "429 + Retry-After", "variant": "return" },
+    { "id": "post2", "from": "worker", "to": "webhook", "y": 480, "label": "HTTPS POST, attempt 2", "variant": "dashed", "note": "waits Retry-After, at most 60 s" },
+    { "id": "ok", "from": "webhook", "to": "worker", "y": 520, "label": "2xx: Delivered", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "api", "from": 180, "to": 324, "type": "backend" },
+    { "participant": "settings", "from": 220, "to": 256, "type": "security" },
+    { "participant": "worker", "from": 364, "to": 526, "type": "backend" },
+    { "participant": "webhook", "from": 400, "to": 524, "type": "cloud" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Accept", "items": ["Missing teamsDestination: 400 RECIPIENT_MISSING", "Card above 28 KB: 400 MESSAGE_TOO_LARGE", "The card is built by a JSON serializer; values go into Markdown unchanged"] },
+    { "dot": "amber", "title": "Deliver", "items": ["429, 5xx and timeouts are retried, at most 3 attempts", "404 or another 4xx: Failed at once, logged as error", "Callers never see the webhook URL"] }
+  ]
+}

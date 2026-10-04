@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "DKNet Notification — Context Map (design revision 2)",
+    "output": "context-map.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "callers",
+      "type": "external",
+      "label": "Backend callers",
+      "sublabel": "Accounts.Api likely first",
+      "pos": [
+        20,
+        288
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "templates",
+      "type": "cloud",
+      "label": "DKNet.Templates",
+      "sublabel": "dknet-minimal",
+      "pos": [
+        500,
+        90
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "notification",
+      "type": "backend",
+      "label": "DKNet Notification",
+      "sublabel": "Notification Delivery",
+      "pos": [
+        300,
+        215
+      ],
+      "size": [
+        300,
+        210
+      ]
+    },
+    {
+      "id": "entra",
+      "type": "security",
+      "label": "Microsoft Entra ID",
+      "sublabel": "token issuer",
+      "pos": [
+        345,
+        90
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "idempotency records",
+      "pos": [
+        300,
+        520
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "packages",
+      "type": "cloud",
+      "label": "DKNet packages",
+      "sublabel": "Transformation, Idempotency",
+      "pos": [
+        460,
+        520
+      ],
+      "size": [
+        160,
+        60
+      ]
+    },
+    {
+      "id": "smtp",
+      "type": "external",
+      "label": "SMTP provider",
+      "sublabel": "Sender = Smtp",
+      "pos": [
+        780,
+        217
+      ],
+      "size": [
+        170,
+        56
+      ]
+    },
+    {
+      "id": "graph",
+      "type": "cloud",
+      "label": "Microsoft Graph",
+      "sublabel": "Sender = Graph, 1 mailbox",
+      "pos": [
+        780,
+        292
+      ],
+      "size": [
+        170,
+        56
+      ]
+    },
+    {
+      "id": "teams",
+      "type": "cloud",
+      "label": "Teams Workflows",
+      "sublabel": "webhook per channel",
+      "pos": [
+        780,
+        367
+      ],
+      "size": [
+        170,
+        56
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "callers-post",
+      "from": "callers",
+      "to": "notification",
+      "label": "HTTPS REST",
+      "variant": "emphasis"
+    },
+    {
+      "id": "callers-token",
+      "from": "callers",
+      "to": "entra",
+      "label": "client credentials",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "notification-entra",
+      "from": "notification",
+      "to": "entra",
+      "label": "OIDC keys, Graph token",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "templates-scaffold",
+      "from": "templates",
+      "to": "notification",
+      "label": "scaffold once",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "notification-redis",
+      "from": "notification",
+      "to": "redis",
+      "label": "keys",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "notification-packages",
+      "from": "notification",
+      "to": "packages",
+      "label": "NuGet",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "notification-smtp",
+      "from": "notification",
+      "to": "smtp",
+      "label": "SMTP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "notification-graph",
+      "from": "notification",
+      "to": "graph",
+      "label": "HTTPS sendMail",
+      "variant": "emphasis"
+    },
+    {
+      "id": "notification-teams",
+      "from": "notification",
+      "to": "teams",
+      "label": "HTTPS POST",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Upstream",
+      "items": [
+        "Backend callers decide when and whom to notify",
+        "No caller is committed yet; DKNet.Accounts.Api is likely first",
+        "The service never subscribes to callers' events"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Downstream",
+      "items": [
+        "Email goes to the SMTP provider or Microsoft Graph: one sender per deployment",
+        "Teams Workflows receives finished Teams cards",
+        "Graph needs a mail-sender app with Mail.Send scoped to one mailbox",
+        "One set of channel settings per deployment"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Build-time only",
+      "items": [
+        "DKNet.Templates: one-time scaffold, no runtime link",
+        "DKNet packages: DKNet.Svc.Transformation, DKNet.AspCore.Idempotency (+ RedisStore), DKNet.AspCore.Extensions",
+        "Every dependency points away from the service; no cycle"
+      ]
+    }
+  ]
+}

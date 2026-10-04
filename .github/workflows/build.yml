@@ -1,0 +1,90 @@
+name: Build & Test
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+concurrency:
+  # One run of this pipeline per branch at a time; a newer commit cancels the older in-flight run.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  Project_Path: 'DKNet.Notification.sln'
+  Dotnet_Version: 10.x
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.Dotnet_Version }}
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.Project_Path }}
+
+      - name: Build
+        run: dotnet build ${{ env.Project_Path }} --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test ${{ env.Project_Path }} --no-build --configuration Release --verbosity minimal
+
+  helm-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install helm-unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.2.1 --verify=false
+
+      - name: Build chart dependencies
+        working-directory: helm/dknet-notification
+        run: helm dependency build .
+
+      - name: Lint
+        working-directory: helm/dknet-notification
+        run: helm lint .
+
+      - name: Unit test
+        working-directory: helm/dknet-notification
+        run: helm unittest .
+
+      - name: Template (default values)
+        working-directory: helm/dknet-notification
+        run: helm template dknet-notification .
+
+      - name: Template (Graph sender, workload identity)
+        working-directory: helm/dknet-notification
+        run: |
+          helm template dknet-notification . \
+            --set api.configMap.Notifications__Email__Sender=Graph \
+            --set api.configMap.Notifications__Email__Graph__Credential=WorkloadIdentity
+
+      - name: Template (Graph sender, client secret)
+        working-directory: helm/dknet-notification
+        run: |
+          helm template dknet-notification . \
+            --set api.configMap.Notifications__Email__Sender=Graph \
+            --set api.configMap.Notifications__Email__Graph__Credential=ClientSecret
+
+      - name: Template (Teams on, one destination)
+        working-directory: helm/dknet-notification
+        run: |
+          helm template dknet-notification . \
+            --set api.configMap.Notifications__Teams__Enabled=true \
+            --set api.configMap.Notifications__Teams__Destinations__ops-alerts__WebhookUrl=""

@@ -1,0 +1,174 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Authors>Steven Hoang</Authors>
+    <Company>https://drunkcoding.net</Company>
+    <Copyright>Copyright @ $([System.DateTime]::Now. Year)</Copyright>
+    <PackageProjectUrl>https://github.com/baoduy/DKNet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/baoduy/DKNet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>aspnetcore,aws,azure,cloud,ddd,events,extensions,generator,password,pdf,random,storage,string</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <LangVersion>default</LangVersion>
+    <NeutralLanguage>en</NeutralLanguage>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>NugetLogo.png</PackageIcon>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>true</ImplicitUsings>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>All</AnalysisMode>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>moderate</NuGetAuditLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Asp.Versioning.Http" Version="10.2.3" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.5.4" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.5.4" />
+    <PackageVersion Include="Azure.Identity" Version="1.21.0" />
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <PackageVersion Include="DKNet.AspCore.Extensions" Version="13.1.3" />
+    <PackageVersion Include="DKNet.AspCore.Idempotency" Version="13.1.3" />
+    <PackageVersion Include="DKNet.AspCore.Idempotency.RedisStore" Version="13.1.3" />
+    <PackageVersion Include="DKNet.Svc.Transformation" Version="13.1.3" />
+    <PackageVersion Include="FluentValidation" Version="12.1.1" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+    <PackageVersion Include="MailKit" Version="4.18.1" />
+    <PackageVersion Include="Microsoft.Azure.AppConfiguration.AspNetCore" Version="8.6.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.10.0" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.FeatureManagement.AspNetCore" Version="4.7.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
+    <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
+    <PackageVersion Include="OwaspHeaders.Core" Version="10.4.0" />
+    <PackageVersion Include="OpenTelemetry" Version="1.19.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.19.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
+    <PackageVersion Include="Reqnroll.NUnit" Version="3.3.4" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.17.6" />
+    <PackageVersion Include="SharpGrip.FluentValidation.AutoValidation.Endpoints" Version="2.0.0" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <PackageVersion Include="Testcontainers.Redis" Version="4.15.0" />
+    <PackageVersion Include="NUnit" Version="4.6.1" />
+    <PackageVersion Include="NUnit.Analyzers" Version="4.15.0" />
+    <PackageVersion Include="NUnit3TestAdapter" Version="6.3.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!--        <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556">-->
+    <!--            <PrivateAssets>all</PrivateAssets>-->
+    <!--            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>-->
+    <!--        </PackageVersion>-->
+  </ItemGroup>
+  <PropertyGroup>
+    <!-- Warnings promoted to errors — must be fixed to pass build. -->
+    <WarningsAsErrors>
+      CA1068; <!-- CancellationToken should be the last parameter. -->
+      CA1724; <!-- Type name should not conflict with namespace names. -->
+      CA2016; <!-- Forward CancellationToken to methods that accept one. -->
+      CA2000; <!-- Dispose objects before losing scope. -->
+      CS0414; <!-- Private field is assigned but never used. -->
+      CS8625; <!-- Cannot convert null literal to non-nullable reference type. -->
+      CS8604; <!-- Possible null argument passed to non-nullable parameter. -->
+      CS8603; <!-- Possible null return from non-nullable return type. -->
+      CS8620; <!-- Nullability mismatch in generic/reference type arguments. -->
+      CS8619; <!-- Nullability mismatch in assignment or conversion. -->
+      CS1998; <!-- Async method has no await operators. -->
+      CS8714; <!-- Nullable type used where notnull constraint is required. -->
+      CS8618; <!-- Non-nullable member is uninitialized when constructor exits. -->
+      CS8600; <!-- Possible null assigned to non-nullable type. -->
+      CS8602; <!-- Possible null dereference. -->
+      CS0168; <!-- Variable declared but never used. -->
+      MSB9008; <!-- MSBuild project/input configuration warning. -->
+      CS0219; <!-- Variable assigned but value never used. -->
+      CS9113; <!-- Parameter is unread (never used). -->
+      IDE0004; <!-- Remove unnecessary cast. -->
+      CA1018; <!-- Attributes should declare valid AttributeUsage. -->
+      CA1813; <!-- Attribute classes should be sealed. -->
+      MA0010; <!-- Meziantou: avoid implicit culture-sensitive ToString. -->
+      CA1711; <!-- Identifier names should follow suffix conventions. -->
+      CA1310; <!-- Specify StringComparison for string operations. -->
+      MA0074; <!-- Meziantou: avoid implicit StringComparison. -->
+      CA1823; <!-- Unused private field. -->
+      MA0002; <!-- Meziantou: IEqualityComparer or IComparer should be specified. -->
+      CA1024; <!-- Use properties instead of parameterless Get* methods. -->
+      CA1829; <!-- Prefer Length/Count property over LINQ Count(). -->
+      CA1822; <!-- Mark member static when instance state is not accessed. -->
+      CA1510; <!-- Prefer ArgumentNullException.ThrowIfNull. -->
+      CA1816; <!-- Dispose methods should call GC.SuppressFinalize. -->
+      S2699; <!-- Test methods should contain at least one assertion. -->
+      NU1901; <!-- Package with known low severity vulnerability. -->
+      NU1902; <!-- Package with known moderate severity vulnerability. -->
+      NU1903; <!-- Package with known high severity vulnerability. -->
+      NU1904; <!-- Package with known critical severity vulnerability. --></WarningsAsErrors>
+    <!-- Suppressed warnings — accepted trade-offs or style preferences. -->
+    <NoWarn>
+      ASPIRE002; <!-- .NET Aspire analyzer project-specific guidance. -->
+      CA1032; <!-- Exception types should expose standard constructors. -->
+      CA1034; <!-- Nested types should not be externally visible. -->
+      CA1040; <!-- Avoid empty interfaces. -->
+      CA1062; <!-- Validate public method arguments for null. -->
+      CA1515; <!-- Consider reducing type visibility to internal. -->
+      CA1812; <!-- Avoid internal classes that are never instantiated. -->
+      CA1819; <!-- Properties should not return arrays directly. -->
+      CA1848; <!-- Prefer LoggerMessage pattern for logging performance. -->
+      CA1873; <!-- Avoid potentially expensive logging argument evaluation (same trade-off as CA1848). -->
+      CA1852; <!-- Type can be sealed for clarity and performance. -->
+      CA2007; <!-- Consider using ConfigureAwait on awaited tasks. -->
+      CA2234; <!-- Prefer typed objects (e.g. Uri) over plain strings. -->
+      CA2254; <!-- Logger message template should be static or constant. -->
+      IDE0008; <!-- Use explicit type instead of var (style preference). -->
+      IDE0011; <!-- Add braces to control-flow blocks (style preference). -->
+      IDE0022; <!-- Use expression-bodied member (style preference). -->
+      IDE0055; <!-- Fix code-formatting rule violations. -->
+      IDE0058; <!-- Remove unused expression value. -->
+      IDE0130; <!-- Namespace does not match folder structure. -->
+      IDE0160; <!-- Namespace declaration style preference. -->
+      MA0004; <!-- Meziantou: use ConfigureAwait(false). -->
+      MA0048; <!-- Meziantou: file name must match first type name. -->
+      MA0056; <!-- Meziantou: do not use implicit culture-sensitive ToString. -->
+      CS9107; <!-- Primary constructor parameter captured and also forwarded. -->
+      MA0007; <!-- Meziantou: add a comma after the last value. -->
+      CA1707; <!-- Identifiers should not contain underscores. -->
+      NU1504; <!-- Duplicate or conflicting NuGet item metadata. -->
+      S4581; <!-- Sonar: use Guid.NewGuid() instead of new Guid(). -->
+      CA1859; <!-- Prefer concrete types for better performance. -->
+      CA1308; <!-- Prefer uppercase normalization over lowercase. -->
+      CS1591; <!-- Missing XML comments for publicly visible members. -->
+      CS1574; <!-- XML comment cref references that cannot be resolved. -->
+      CS9057; <!-- Analyzer compiled against newer Roslyn than local compiler. -->
+      SA1124; <!-- StyleCop: do not use regions. -->
+      SA1200; <!-- StyleCop: using directives placement rule. -->
+      SA1636; <!-- StyleCop: file header text/documentation rule. -->
+      SA1309; <!-- StyleCop: field names should not start with underscore. -->
+      SA1202; <!-- StyleCop: elements should be ordered by access level. -->
+      SA1413; <!-- StyleCop: use trailing comma in multi-line initializers. -->
+      SA1101; <!-- StyleCop: prefix local member calls with this. -->
+      SA1402; <!-- StyleCop: one type per file rule. -->
+      CA1303; <!-- Do not pass literals as localized parameters. -->
+      NU1507;
+    </NoWarn>
+  </PropertyGroup>
+</Project>

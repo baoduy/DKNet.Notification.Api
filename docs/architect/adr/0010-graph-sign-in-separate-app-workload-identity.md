@@ -1,0 +1,35 @@
+# ADR-0010: Sign in to Graph with a separate app registration and workload identity
+
+- **Status:** Accepted
+- **Context:**
+  - The Graph sender (ADR-0009) needs an Entra ID access token for `https://graph.microsoft.com/.default`, through the client credentials flow.
+  - The flow accepts a client secret, a certificate or a federated credential (Microsoft Learn, "OAuth 2.0 client credentials flow").
+  - An app registration can trust a Kubernetes service account through a federated identity credential: issuer = the cluster's OIDC issuer, subject = `system:serviceaccount:<namespace>:<name>`, audience `api://AzureADTokenExchange` (Microsoft Learn, "Create a trust relationship between an app and an external identity provider").
+  - The Azure Workload Identity annotation `azure.workload.identity/client-id` accepts an app registration's client id or a managed identity's client id (Azure Workload Identity docs, "Service account labels and annotations").
+  - DKNet.Accounts.Api already runs on AKS workload identity (`helm/dknet-accounts/values.yaml:44`, `:190`). It signs in to Azure App Configuration with `DefaultAzureCredential` (`AzureAppConfigSetup.cs:37`).
+  - The service's existing Entra app registration is the resource callers request tokens for (ADR-0007). It holds no credential today.
+  - The `Mail.Send` application permission lets an app send as any mailbox in the tenant. It must be limited to the one sending mailbox.
+  - RBAC for Applications in Exchange Online grants `Application Mail.Send` over a resource scope. It replaces application access policies, and Microsoft says not to create new ones (Microsoft Learn, "Role Based Access Control for Applications in Exchange Online", "New-ApplicationAccessPolicy").
+  - An RBAC for Applications grant adds to any Entra grant. If `Mail.Send` is also granted in Entra, the scope limits nothing (same page, FAQ).
+- **Decision:**
+  - Graph uses its own app registration: the mail-sender app. It is not the registration that callers request tokens for.
+  - The setting `Credential` picks how the mail-sender app proves itself:
+    - `WorkloadIdentity` (default): a federated identity credential that trusts the service's Kubernetes service account. No secret exists.
+    - `ClientSecret`: a client secret, for hosts with no workload identity and for a manual check from a developer machine.
+  - The client secret follows the existing secrets rule: an environment variable or Azure App Configuration, user secrets for local runs (05-quality).
+  - The service reuses a token until it is close to expiry. It never logs a token.
+  - `Mail.Send` is granted through RBAC for Applications, scoped to the one sending mailbox. With it, `Mail.Send` is not granted or consented in Entra ID. Scoping to one mailbox is a required setup step (05-quality, slice 6).
+  - A tenant that already limits apps with an application access policy may use one instead. It then grants `Mail.Send` in Entra and restricts it to a mail-enabled security group that holds only the sending mailbox.
+- **Alternatives:**
+  - *Reuse the API's own app registration.* Rejected: it mixes the inbound trust of callers with the outbound permission to send mail. A leaked credential would reach both, and the two cannot be rotated or scoped apart.
+  - *A user-assigned managed identity.* Rejected: it cannot hold a client secret, so it cannot cover the `ClientSecret` mode. One app registration covers both credential modes.
+  - *A certificate credential.* Rejected for revision 2: it adds certificate storage and rotation to every deployment. Workload identity needs no secret, and a client secret covers the other hosts. Add it when a host outside Kubernetes needs more than a secret.
+  - *Client secret only.* Rejected: every deployment would hold and rotate a long-lived secret.
+  - *Grant `Mail.Send` in Entra and rely on the mailbox setting alone.* Rejected: the app could still send as any mailbox in the tenant.
+  - *An application access policy for new deployments.* Rejected as the default: Microsoft replaces it with RBAC for Applications.
+- **Consequences:**
+  - Easier: an AKS deployment holds no Graph secret.
+  - Easier: a leaked mail-sender credential can send only from the one mailbox.
+  - Harder: setup needs an Exchange administrator, besides the Entra app owner.
+  - Harder: a scope change takes 30 minutes to 2 hours to apply. A 403 from Graph in that window is expected.
+  - Harder: the mail-sender app is one more app registration to own.
