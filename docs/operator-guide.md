@@ -10,7 +10,7 @@ Before you install the chart, have ready:
 - The Azure Key Vault Secrets Store CSI driver installed on the cluster.
 - An existing Redis instance reachable from the cluster. The service refuses to start in production without a connection string to it — see [§2 Redis](#redis).
 - An Azure Key Vault holding the service's secrets (§2 lists them).
-- A user-assigned managed identity with `get` permission on that vault's secrets, with workload identity federation to the cluster's service account.
+- A user-assigned managed identity with read permission on that vault's secrets, with workload identity federation to the cluster's service account. If the vault was created with `--enable-rbac-authorization`, grant the `Key Vault Secrets User` role: `az role assignment create --role "Key Vault Secrets User" --assignee <identity-client-id> --scope <vault-resource-id>`. Otherwise, grant a vault access policy with `--secret-permissions get`.
 - The API's own Entra ID app registration, for validating caller bearer tokens (`Authentication:Schemes:Bearer`). This is a separate registration from the mail-sender app in §3 — never reuse one for the other.
 - An existing Gateway API gateway, only if you plan to expose the API outside the cluster (§4 `api.httpRoute`). The chart creates no Gateway resource.
 
@@ -41,13 +41,13 @@ Exactly one sender is active per deployment, chosen by `Notifications:Email:Send
 
 | Key | Env var | Default | Secret? |
 |---|---|---|---|
-| `Host` | `Notifications__Email__Smtp__Host` | *(empty — required)* | No |
-| `Port` | `Notifications__Email__Smtp__Port` | `587` | No |
+| `Host` | `Notifications__Email__Smtp__Host` | *(empty — required, ≤255 chars)* | No |
+| `Port` | `Notifications__Email__Smtp__Port` | `587` | No. 1–65,535 |
 | `Security` | `Notifications__Email__Smtp__Security` | `StartTls` | No. `StartTls` or `Tls` — no plain-text mode exists |
-| `UserName` | `Notifications__Email__Smtp__UserName` | *(empty — no sign-in)* | No |
-| `Password` | `Notifications__Email__Smtp__Password` | *(empty)* | **Yes — Key Vault only, never a settings file** |
-| `FromAddress` | `Notifications__Email__Smtp__FromAddress` | *(empty — required)* | No |
-| `FromName` | `Notifications__Email__Smtp__FromName` | `DKNet Notification` | No |
+| `UserName` | `Notifications__Email__Smtp__UserName` | *(empty — no sign-in, ≤256 chars)* | No |
+| `Password` | `Notifications__Email__Smtp__Password` | *(empty, ≤512 chars)* | **Yes — Key Vault only, never a settings file** |
+| `FromAddress` | `Notifications__Email__Smtp__FromAddress` | *(empty — required `local@domain`, ≤254 chars)* | No |
+| `FromName` | `Notifications__Email__Smtp__FromName` | `DKNet Notification` (≤100 chars) | No |
 
 **Microsoft Graph** (`Notifications:Email:Graph:*`, read only when `Sender` is `Graph` — see §3 before turning this on):
 
@@ -56,15 +56,15 @@ Exactly one sender is active per deployment, chosen by `Notifications:Email:Send
 | `TenantId` | `Notifications__Email__Graph__TenantId` | *(empty — required GUID)* | No |
 | `ClientId` | `Notifications__Email__Graph__ClientId` | *(empty — required GUID)* | No |
 | `Credential` | `Notifications__Email__Graph__Credential` | `WorkloadIdentity` | No. `WorkloadIdentity` or `ClientSecret` |
-| `ClientSecret` | `Notifications__Email__Graph__ClientSecret` | *(empty)* | **Yes, only with `Credential=ClientSecret` — Key Vault only** |
-| `Mailbox` | `Notifications__Email__Graph__Mailbox` | *(empty — required)* | No. The one sending mailbox |
+| `ClientSecret` | `Notifications__Email__Graph__ClientSecret` | *(empty, ≤512 chars)* | **Yes, required and only read with `Credential=ClientSecret` — Key Vault only** |
+| `Mailbox` | `Notifications__Email__Graph__Mailbox` | *(empty — required `local@domain`, ≤254 chars)* | No. The one sending mailbox |
 
 ### Teams destinations
 
-- Up to 100 destinations, each a name → webhook URL pair under `Notifications:Teams:Destinations:<name>:WebhookUrl`.
+- Up to 100 destinations, each a name → webhook URL pair under `Notifications:Teams:Destinations:<name>:WebhookUrl`. **More than 100 destinations turns Teams off entirely** — not just the extra ones past 100 — the same as any other bad Teams setting (see "What a bad value does" below).
 - A webhook URL must be an absolute `https://` URL of at most 2,048 characters, or the destination is treated as not set.
 - **Destination names are matched with case**, and a caller may only ever name a destination of 1–64 lowercase letters, digits or `-` — a caller can never reach a destination named with an uppercase letter, so always name destinations in lowercase.
-- The destination name comes from the environment variable key the chart writes (`secretObjects[].key`'s last path segment), **not** from the Key Vault secret name: Key Vault secret names allow only letters, digits and `-` (no `_`), so the chart's convention is `__` → `--`, lowercased, on the Key Vault side, while the env var key keeps the real `Notifications__Teams__Destinations__<name>__WebhookUrl` form. Example: the vault secret `notifications--teams--destinations--ops-alerts--webhookurl` becomes the env var `Notifications__Teams__Destinations__ops-alerts__WebhookUrl`, which is the destination name `ops-alerts`.
+- The destination name is the `<name>` segment of the environment variable key the chart writes — the segment between `Destinations` and `WebhookUrl` in `Notifications__Teams__Destinations__<name>__WebhookUrl` — **not** the Key Vault secret name. Key Vault secret names allow only letters, digits and `-` (no `_`), so the chart's convention is `__` → `--`, lowercased, on the Key Vault side, while the env var key keeps the real double-underscore form. Example: the vault secret `notifications--teams--destinations--ops-alerts--webhookurl` becomes the env var `Notifications__Teams__Destinations__ops-alerts__WebhookUrl`, whose `<name>` segment — and so the destination name a caller must send — is `ops-alerts`.
 - **Never put a webhook URL in the chart's plain `configMap` settings.** Anyone who can read the ConfigMap can then post to that Teams channel. A destination must be created through its Key Vault secret alone (`secretProvider.objects` + `secretProvider.secretObjects`), never through `api.configMap`. The chart's own CI template run exercises an empty `WebhookUrl` string directly in `configMap` to prove the chart renders — that CI convenience is not a deployment pattern to copy.
 
 ### Templates
@@ -72,6 +72,7 @@ Exactly one sender is active per deployment, chosen by `Notifications:Email:Send
 - `Notifications:Templates` is a list of template registrations; each names an id, a description and one version per channel (`email` → HTML, `teams` → Markdown), and each version's file is loaded from the `Templates` folder inside the container image at start-up.
 - The container's root filesystem is read-only in the chart (`securityContext.readOnlyRootFilesystem: true`), so **a new template file can only ship in a new image** — you cannot add or edit a template file at deploy time through settings.
 - You *can* change a shipped template's metadata (description, subject, title) through settings, because `Notifications:Templates` is bound as an indexed list: an environment variable such as `Notifications__Templates__0__Versions__0__Subject` overwrites that field of the shipped `account-opened` entry at index 0. Adding a new index (e.g. index `1`) adds a template registration, but its file must already exist in the image.
+  > ⚠️ **Index `0` is the shipped `account-opened` template.** An environment variable at `Notifications__Templates__0__...` silently overwrites that entry's field instead of adding a new one — there is no separate "add" key. Use an index the release's own catalogue does not already use (check the image's `appsettings.json` first) for anything you mean to add rather than change.
 - A broken catalogue — a bad id, a missing file, two versions for one channel, a subject over 500 characters — **stops the service from starting**.
 
 ### What a bad value does
@@ -81,7 +82,7 @@ Exactly one sender is active per deployment, chosen by `Notifications:Email:Send
 | `Notifications:Delivery:*` | Stops the service from starting |
 | `Notifications:Templates` (the catalogue) | Stops the service from starting |
 | `Notifications:Email:*` / `Notifications:Email:Smtp:*` / `Notifications:Email:Graph:*` | The service starts; email is left "not configured" and every email call is skipped (logged once at start-up as a warning, naming the bad settings — never their values) |
-| `Notifications:Teams:*` | The service starts; Teams is left "not configured" and every Teams call to it is skipped — **no log entry is written for this one**, so check `TeamsDestinationNotConfigured` on a per-call basis instead (see §5) |
+| `Notifications:Teams:*` | The service starts; Teams is left "not configured" and every Teams call is skipped with reason `ChannelNotConfigured` — **no log entry is written at start-up for this one**, unlike email (see §5 for the per-call skip reason to look for) |
 
 ### Redis
 
@@ -102,6 +103,8 @@ Exactly one sender is active per deployment, chosen by `Notifications:Email:Send
 
 Skip this section if you use the SMTP sender.
 
+> ⚠️ **`Mail.Send` lets an app send as any mailbox in the tenant until you scope it.** Steps 3–4 below limit it to the one sending mailbox. Do not turn the Graph sender on in a real tenant before you complete them.
+
 1. **Register the mail-sender app in Entra ID.** Never reuse the API's own app registration (§1) — it is a separate identity from the start.
 2. **Give it a federated identity credential** for Kubernetes sign-in: issuer = the cluster's OIDC issuer, subject = `system:serviceaccount:<namespace>:notification-api` (the `<namespace>` is wherever you install the chart; the service account name is fixed), audience = `api://AzureADTokenExchange`. This is the `WorkloadIdentity` credential mode. The `ClientSecret` mode is a fallback only for a host without workload identity, or for a manual check — its secret lives in Key Vault, never a settings file.
 3. **Do not grant or consent `Mail.Send` for the app in Entra ID.** An Entra ID consent for `Mail.Send` is tenant-wide and cannot be narrowed by an Exchange scope afterwards — the two grants add up, so consenting it in Entra ID defeats the scoping in the next step.
@@ -111,9 +114,8 @@ Skip this section if you use the SMTP sender.
    - assign the role with `New-ManagementRoleAssignment -Role "Application Mail.Send" -App <app> -CustomResourceScope <scope>`.
 
    A tenant that already uses application access policies may use one instead: grant `Mail.Send` in Entra ID, then run `New-ApplicationAccessPolicy -AccessRight RestrictAccess` against a mail-enabled security group holding only the sending mailbox (a shared mailbox cannot be the policy's direct target). Microsoft recommends RBAC for Applications over new application access policies for a new tenant.
-5. **Without this limit, the app can send as any mailbox in the tenant.**
-6. **Check the limit**: `Test-ServicePrincipalAuthorization -Identity <app> -Resource <mailbox>`. `InScope` must show `true` for the sending mailbox and `false` for any other mailbox.
-7. Allow 30 minutes to 2 hours before the first send — Exchange caches app permissions for that long, so an early `403` is expected.
+5. **Check the limit**: `Test-ServicePrincipalAuthorization -Identity <app> -Resource <mailbox>`. `InScope` must show `true` for the sending mailbox and `false` for any other mailbox.
+6. Allow 30 minutes to 2 hours before the first send — Exchange caches app permissions for that long, so an early `403` is expected.
 
 ## 4. Deploy with the Helm chart
 
@@ -150,6 +152,18 @@ Turning on a channel adds its own vault secret and its own `secretProvider.objec
 - Graph (with `Credential: ClientSecret`): `notifications--email--graph--clientsecret` → `Notifications__Email__Graph__ClientSecret`
 - Each Teams destination: `notifications--teams--destinations--<name>--webhookurl` → `Notifications__Teams__Destinations__<name>__WebhookUrl`
 
+For example, turning on SMTP adds one line to each list (edited directly in `values.yaml`, alongside the 4 default entries already there):
+
+```yaml
+api:
+  secretProvider:
+    objects:
+      - notifications--email--smtp--password   # added
+    secretObjects:
+      - key: "Notifications__Email__Smtp__Password"   # added
+        objectName: notifications--email--smtp--password
+```
+
 ### Two identities, two federated credentials
 
 This chart involves two separate Azure AD identities, easy to conflate because both authenticate the same pod through the same Kubernetes mechanism:
@@ -180,19 +194,37 @@ The API is `ClusterIP`-only by default. Turn on `api.httpRoute.enabled: true` (e
    - the pod carries the label `azure.workload.identity/use: "true"`;
    - the pod's environment holds `AZURE_FEDERATED_TOKEN_FILE` (injected by the workload identity webhook, not set by this chart);
    - that file exists inside the container. The chart disables the Kubernetes-default service account token automount (`automountServiceAccountToken: false`), so this projected file is the pod's only source of a token — if it is missing, the Graph sender cannot sign in.
-3. **Run `Test-ServicePrincipalAuthorization`** for the mail-sender app and sending mailbox (§3, step 6) — confirm again after any mailbox or scope change.
-4. **Send one test notification per channel you turned on**, as a caller holding the `notifications.send` scope or role, against `POST /v1/notifications`:
+3. **Run `Test-ServicePrincipalAuthorization`** for the mail-sender app and sending mailbox (§3, step 5) — confirm again after any mailbox or scope change.
+4. **Send one test notification per channel you turned on**, as a caller holding the `notifications.send` scope or role, against `POST /v1/notifications`. Every call needs all three headers — `Authorization`, `Content-Type` and `Idempotency-Key` — the last is required on this route, not optional:
 
-   ```json
+   ```http
+   POST /v1/notifications HTTP/1.1
+   Authorization: Bearer <token with the notifications.send scope or role>
+   Content-Type: application/json
+   Idempotency-Key: <a new GUID — see note below>
+
    {"channel": "email", "templateId": "account-opened", "parameters": {"to": "test@example.com", "customerName": "Test", "accountNumber": "0000"}}
    ```
 
-   ```json
+   ```http
+   POST /v1/notifications HTTP/1.1
+   Authorization: Bearer <token with the notifications.send scope or role>
+   Content-Type: application/json
+   Idempotency-Key: <a new GUID — see note below>
+
    {"channel": "teams", "templateId": "account-opened", "parameters": {"teamsDestination": "<your-destination-name>", "customerName": "Test", "accountNumber": "0000"}}
    ```
 
-   Both answers are `202 Accepted` whether the notification was actually queued or silently skipped — **the caller cannot tell the difference from the response alone**. Check the structured logs for the outcome: `NotificationQueued` then `NotificationDelivered` or `NotificationFailed` for a real send, or `NotificationSkipped` (with its `Reason`) when a channel is not configured or the template has no version for that channel.
+   - **A missing or bad `Idempotency-Key`** (blank, over 255 characters, or outside `^[a-zA-Z0-9\-_]+$`) answers `400 Bad Request` — the handler never runs, so this is not a notification outcome at all.
+   - **Use a new key for every test call.** A key you already used for this same route and caller, within the last 4 hours, replays the first call's answer verbatim **without running the handler again** — so a second call with a reused key writes **no new log entry**, even if you changed the request body.
+   - **A `202 Accepted` means only "queued or skipped"** — never "rejected". A rejected call (bad recipient, unknown template, full queue, and so on) answers a `4xx` with an error body instead. A `202` with a correctly new key still does not by itself prove delivery — check the logs next.
 
-   The shipped `account-opened` template has only an `email` version in this release — a `teams` test call against it answers 202 and then logs `NotificationSkipped` with reason `NoTemplateVersion`, not a delivery. A real Teams delivery test needs a template release that registers a Teams (Markdown) version of a template; this guide cannot make that call for you.
+   Check the structured logs for the real outcome: `NotificationQueued` then `NotificationDelivered` or `NotificationFailed` for a real send, or `NotificationSkipped` (with its `Reason`) when a channel is not configured or the template has no version for that channel.
 
-   A bad Teams setting (an unset destination, a bad webhook URL) writes **no** log entry distinguishing it from a correctly-skipped call beyond `TeamsDestinationNotConfigured` as the skip reason — there is no separate start-up warning for Teams the way there is for email.
+   The shipped `account-opened` template has only an `email` version in this release — a `teams` test call against it answers `202` and then logs `NotificationSkipped` with reason `NoTemplateVersion`, not a delivery. A real Teams delivery test needs a template release that registers a Teams (Markdown) version of a template; this guide cannot make that call for you.
+
+   Two different skip reasons cover Teams, and they are not interchangeable:
+   - `ChannelNotConfigured` — Teams itself is off or badly set up (§2's "What a bad value does"); every Teams call is skipped this way, regardless of destination or template.
+   - `TeamsDestinationNotConfigured` — Teams is configured, but the named destination is unset or its webhook URL is bad.
+
+   Neither writes a start-up log entry, unlike email. In this release, a `teams` test call always hits `NoTemplateVersion` before the destination is even checked (no Teams template version ships yet), so a destination mistake does not surface as `TeamsDestinationNotConfigured` until a template with a Teams version ships — check the destination configuration by inspection (§2), not by this test call, until then.
