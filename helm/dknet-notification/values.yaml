@@ -1,0 +1,206 @@
+# ==============================================================================================
+# OPERATOR VALUES — the ONLY block an operator edits. Every Azure/gateway/image value the chart
+# needs is anchored (&name) here once; the api: section below reuses it through aliases (*name).
+# Nothing Azure-specific repeats outside this block. Every value below is a placeholder —
+# replace before any real deploy.
+# ==============================================================================================
+operator:
+  # --- Azure identity ---
+  azureTenantId: &azureTenantId "00000000-0000-0000-0000-000000000000"
+  keyVaultName: &keyVaultName "REPLACE-ME-keyvault-name"
+  # Client id of the AKS workload-identity user-assigned managed identity granted "get" on the
+  # vault's secrets.
+  identityClientId: &identityClientId "00000000-0000-0000-0000-000000000000"
+  # Client id of the mail-sender app (ADR-0010) — never the API's own registration. Feeds both
+  # the service account's workload-identity annotation and the Graph client id setting, so the
+  # federated credential subject (system:serviceaccount:<namespace>:notification-api) matches
+  # the token the Graph sender signs in with.
+  mailSenderClientId: &mailSenderClientId "00000000-0000-0000-0000-000000000000"
+
+  # drunk-app 2.0.4+ provider.clientID: the Key Vault identity's client id, written into the
+  # SecretProviderClass "clientID" parameter the Azure Key Vault CSI provider's workload-identity
+  # path reads. The operator may give this the same id as identityClientId.
+  secretProviderBase: &secretProviderBase
+    name: azure
+    tenantId: *azureTenantId
+    vaultName: *keyVaultName
+    userAssignedIdentityID: *identityClientId
+    clientID: *identityClientId
+    useWorkloadIdentity: true
+    useVMManagedIdentity: false
+
+  # --- Gateway API (existing gateway; this chart creates no Gateway resource) ---
+  gatewayName: &gatewayName "REPLACE-ME-gateway-name"
+  gatewayNamespace: &gatewayNamespace "REPLACE-ME-gateway-namespace"
+  gatewaySectionName: &gatewaySectionName "https"
+  apiHostname: &apiHostname "notification-api.example.com"
+
+  # --- Image tag ---
+  apiImageTag: &apiImageTag "latest"
+
+  # --- Key Vault secret names ---
+  # Key Vault secret names allow only letters, digits and "-" (no "_"), so an env var name can't
+  # be used as-is. Convention used below: "__" -> "--", lowercased. Every name here is the exact
+  # Key Vault secret the operator must create; the comment on each names the env var it becomes
+  # (see api.secretProvider.secretObjects).
+  secretNames:
+    redis: &vaultRedis "connectionstrings--redis"                                     # -> ConnectionStrings__Redis
+    bearerMetadataAddress: &vaultBearerMetadata "authentication--schemes--bearer--metadataaddress" # -> Authentication__Schemes__Bearer__MetadataAddress
+    bearerAudience: &vaultBearerAudience "authentication--schemes--bearer--validaudiences-0"        # -> Authentication__Schemes__Bearer__ValidAudiences__0
+    bearerIssuer: &vaultBearerIssuer "authentication--schemes--bearer--validissuer"    # -> Authentication__Schemes__Bearer__ValidIssuer
+    # Opt-in secrets, never in the default objects/secretObjects lists below — add the operator's
+    # own entries when the matching channel is turned on, or the Key Vault CSI mount fails for a
+    # secret the default configuration never reads.
+    #   smtpPassword: "notifications--email--smtp--password"            # -> Notifications__Email__Smtp__Password
+    #   graphClientSecret: "notifications--email--graph--clientsecret"  # -> Notifications__Email__Graph__ClientSecret
+    #   One Teams destination named "ops-alerts":
+    #   teamsOpsAlertsWebhookUrl: "notifications--teams--destinations--ops-alerts--webhookurl"
+    #     -> Notifications__Teams__Destinations__ops-alerts__WebhookUrl
+
+  # Optional: the ingress/gateway peer address, only needed if you enable
+  # Security__TrustedProxies__0 in api.configMap below (commented out by default — an empty
+  # value there makes the API fail to parse it as an IP address at startup).
+  trustedProxy: &trustedProxy "REPLACE-ME-ingress-peer-ip"
+
+  containerSecurityContext: &containerSecurityContext
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+  podSecurityContextBase: &podSecurityContextBase
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  # ponytail: one requests/limits pair, same as DKNet.Accounts.Api's chart — split it if
+  # profiling ever shows this service needs a different budget.
+  resources: &sharedResources
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+
+# ==============================================================================================
+# API — DKNet.Notification.Api, built on drunk-app (alias "api"). Internal-only (ClusterIP).
+# No Postgres manifest ships here — Redis is an existing third-party service the API reaches via
+# ConnectionStrings__Redis.
+# ==============================================================================================
+api:
+  enabled: true
+  # Fixed, release-independent name: the federated credential subject
+  # (system:serviceaccount:<namespace>:notification-api) must be known before install.
+  nameOverride: "notification-api"
+  fullnameOverride: "notification-api"
+
+  global:
+    image: "ghcr.io/baoduy/dknet.notification-api"
+    tag: *apiImageTag
+    imagePullPolicy: "IfNotPresent"
+
+  deployment:
+    enabled: true
+    replicaCount: 1
+    ports:
+      http: 8080
+    liveness: "/healthz"
+    readiness: "/healthz"
+    # Workload identity: the webhook only injects a token volume into a pod carrying this label.
+    # Without it, the Graph sender finds no token file (GraphSignIn.cs).
+    podLabels:
+      azure.workload.identity/use: "true"
+
+  service:
+    type: ClusterIP
+
+  podSecurityContext:
+    <<: *podSecurityContextBase
+    runAsUser: 1654
+    runAsGroup: 1654
+    fsGroup: 1654
+  securityContext: *containerSecurityContext
+  resources: *sharedResources
+
+  # Plain values (config map) — fixed switches, safe production defaults. Email and Teams stay
+  # off, as the base settings do (appsettings.json), until the operator turns each one on.
+  configMap:
+    ASPNETCORE_ENVIRONMENT: "Production"
+    # Secure-by-default: must never be "false" in a real deployment.
+    FeatureManagement__RequireAuthorization: "true"
+    # TLS ends at the gateway in front of this Service, not in the container.
+    FeatureManagement__EnableHttps: "false"
+    # Uncomment both this and `operator.trustedProxy` above once the gateway's peer address is
+    # known — an empty value here fails IPAddress.Parse at API startup.
+    # Security__TrustedProxies__0: *trustedProxy
+
+    Notifications__Email__Enabled: "false"
+    Notifications__Email__Sender: "Smtp"
+    Notifications__Email__TimeoutSeconds: "30"
+    # SMTP — read only when Notifications__Email__Sender is "Smtp".
+    Notifications__Email__Smtp__Host: ""
+    Notifications__Email__Smtp__Port: "587"
+    Notifications__Email__Smtp__Security: "StartTls"
+    Notifications__Email__Smtp__UserName: ""
+    Notifications__Email__Smtp__FromAddress: ""
+    Notifications__Email__Smtp__FromName: "DKNet Notification"
+    # Graph — read only when Notifications__Email__Sender is "Graph". ClientId is the
+    # mail-sender app's id, the same value as the service account's workload-identity annotation.
+    Notifications__Email__Graph__TenantId: *azureTenantId
+    Notifications__Email__Graph__ClientId: *mailSenderClientId
+    Notifications__Email__Graph__Credential: "WorkloadIdentity"
+    Notifications__Email__Graph__Mailbox: ""
+
+    Notifications__Teams__Enabled: "false"
+    Notifications__Teams__TimeoutSeconds: "30"
+    # One Teams destination, off by default — add one configMap entry per destination plus its
+    # vault secret (see operator.secretNames above):
+    #   Notifications__Teams__Destinations__ops-alerts__WebhookUrl: "" # from Key Vault, opt-in
+
+  # From Key Vault — secrets only. A listed vault secret that does not exist stops the pod from
+  # starting, so this default list holds only what the default configuration needs.
+  secretProvider:
+    enabled: true
+    provider: *secretProviderBase
+    objects:
+      - *vaultRedis
+      - *vaultBearerMetadata
+      - *vaultBearerAudience
+      - *vaultBearerIssuer
+    secretObjects:
+      - key: "ConnectionStrings__Redis"
+        objectName: *vaultRedis
+      - key: "Authentication__Schemes__Bearer__MetadataAddress"
+        objectName: *vaultBearerMetadata
+      - key: "Authentication__Schemes__Bearer__ValidAudiences__0"
+        objectName: *vaultBearerAudience
+      - key: "Authentication__Schemes__Bearer__ValidIssuer"
+        objectName: *vaultBearerIssuer
+
+  # Workload identity: the mail-sender app's client id, matching Graph__ClientId above — never
+  # the Key Vault identity's id.
+  serviceAccount:
+    enabled: true
+    annotations:
+      azure.workload.identity/client-id: *mailSenderClientId
+
+  volumes:
+    tmp:
+      mountPath: "/tmp"
+      emptyDir: true
+      readOnly: false
+
+  # Off by default — the API stays internal (ClusterIP) unless this is switched on, e.g.
+  # `--set api.httpRoute.enabled=true`.
+  httpRoute:
+    enabled: false
+    parentRefs:
+      - name: *gatewayName
+        namespace: *gatewayNamespace
+        sectionName: *gatewaySectionName
+    hostnames:
+      - *apiHostname
+
+# ------------------------------------------------------------------------------------------------
+# Manual setup — this chart creates no Entra ID objects. The mail-sender app registration and its
+# Mail.Send mailbox scoping are manual steps (docs/architect/05-quality.md, operator guide DRK-2006).
+# ------------------------------------------------------------------------------------------------
