@@ -1,0 +1,78 @@
+suite: test notification deployment and workload identity
+templates:
+  - charts/api/templates/deployment.yaml
+  - charts/api/templates/serviceAccount.yaml
+  - charts/api/templates/secretProviderClass.yaml
+  - charts/api/templates/configMap.yaml
+  - charts/api/templates/httproute.yaml
+tests:
+  - it: Deployment pod carries the workload-identity label
+    template: charts/api/templates/deployment.yaml
+    asserts:
+      - isSubset:
+          path: spec.template.metadata.labels
+          content:
+            azure.workload.identity/use: "true"
+
+  - it: Service account carries the mail-sender app's client id, matching Graph__ClientId
+    template: charts/api/templates/serviceAccount.yaml
+    asserts:
+      - isSubset:
+          path: metadata.annotations
+          content:
+            azure.workload.identity/client-id: "00000000-0000-0000-0000-000000000000"
+
+  - it: SecretProviderClass carries clientID and useVMManagedIdentity "false"
+    template: charts/api/templates/secretProviderClass.yaml
+    asserts:
+      - equal:
+          path: spec.parameters.clientID
+          value: "00000000-0000-0000-0000-000000000000"
+      - equal:
+          path: spec.parameters.useVMManagedIdentity
+          value: "false"
+
+  - it: ConfigMap holds no secret key
+    template: charts/api/templates/configMap.yaml
+    asserts:
+      - notExists:
+          path: data.Notifications__Email__Smtp__Password
+      - notExists:
+          path: data.Notifications__Email__Graph__ClientSecret
+      - notExists:
+          path: data.Notifications__Teams__Destinations__ops-alerts__WebhookUrl
+
+  - it: Default secret objects are Redis plus the 3 Bearer settings only
+    template: charts/api/templates/secretProviderClass.yaml
+    asserts:
+      - matchRegex:
+          path: spec.parameters.objects
+          pattern: "connectionstrings--redis"
+      - matchRegex:
+          path: spec.parameters.objects
+          pattern: "authentication--schemes--bearer--metadataaddress"
+      - matchRegex:
+          path: spec.parameters.objects
+          pattern: "authentication--schemes--bearer--validaudiences-0"
+      - matchRegex:
+          path: spec.parameters.objects
+          pattern: "authentication--schemes--bearer--validissuer"
+      - notMatchRegex:
+          path: spec.parameters.objects
+          pattern: "smtp|graph|teams"
+
+  - it: HTTPRoute is off by default
+    template: charts/api/templates/httproute.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: HTTPRoute renders when switched on
+    template: charts/api/templates/httproute.yaml
+    set:
+      api.httpRoute.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: HTTPRoute
