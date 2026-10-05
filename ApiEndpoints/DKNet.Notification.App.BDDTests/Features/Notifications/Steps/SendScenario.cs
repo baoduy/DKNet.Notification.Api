@@ -237,18 +237,18 @@ public sealed class SendScenario : IAsyncDisposable
     public IReadOnlyList<CapturedLogEntry> Entries(string eventName) =>
         Factory.LogCapture.Entries.Where(e => e.EventId.Name == eventName).ToArray();
 
-    /// <summary>202 with a body that holds only a notification id, new in this scenario.</summary>
+    /// <summary>200 with a body that holds only a notification id, new in this scenario.</summary>
     public string ShouldBeAccepted(Answer answer)
     {
-        answer.Status.ShouldBe(HttpStatusCode.Accepted, answer.Body);
+        answer.Status.ShouldBe(HttpStatusCode.OK, answer.Body);
         var id = NotificationIdOf(answer);
-        Answers.Where(a => !ReferenceEquals(a, answer) && a.Status == HttpStatusCode.Accepted)
+        Answers.Where(a => !ReferenceEquals(a, answer) && a.Status == HttpStatusCode.OK)
             .Select(NotificationIdOf)
             .ShouldNotContain(id);
         return id;
     }
 
-    /// <summary>The notification id of a 202, checking the body holds that field only.</summary>
+    /// <summary>The notification id of a 200, checking the body holds that field only.</summary>
     public static string NotificationIdOf(Answer answer)
     {
         using var json = JsonDocument.Parse(answer.Body);

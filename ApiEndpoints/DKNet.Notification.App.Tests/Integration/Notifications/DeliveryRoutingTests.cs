@@ -35,7 +35,7 @@ public sealed class DeliveryRoutingTests
         {
             // The sender holds every delivery, so an inline delivery would never let the call answer.
             using var response = await client.SendAsync(request).WaitAsync(Patience);
-            response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+            response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
             await sender.Called.WaitAsync(Patience);
         }

@@ -30,13 +30,18 @@ internal sealed class NotificationsV1Endpoint : IEndpointConfig
 
     #region Methods
 
-    public void Map(RouteGroupBuilder group) =>
+    public void Map(RouteGroupBuilder group)
+    {
         group.MapPost(string.Empty, Send)
             .Accepts<SendNotificationRequest>("application/json")
-            .Produces<SendNotificationResponse>(StatusCodes.Status202Accepted)
+            .Produces<SendNotificationResponse>(StatusCodes.Status200OK)
             // Registered first, so it runs outside the idempotency filter: a refused body holds no key.
             .AddEndpointFilter<SendNotificationBodyFilter>()
             .RequiredIdempotentKey();
+        group.MapGet("{notificationId:guid}", Status)
+            .Produces<NotificationStatusResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound);
+    }
 
     /// <summary>The caller id of a call that passed step 1.</summary>
     internal static string CallerOf(HttpContext context) =>
@@ -48,7 +53,7 @@ internal sealed class NotificationsV1Endpoint : IEndpointConfig
     internal static string TraceIdOf(HttpContext context) => Activity.Current?.Id ?? context.TraceIdentifier;
 
     // Runs inside the idempotency filter: a refusal is not a 2xx, so the key stays held for 30 seconds. Every
-    // answer carries its status code, so the filter keeps only the 202.
+    // answer carries its status code, so the filter keeps only the 200.
     // The body stays the first argument: SendNotificationBodyFilter reads it at index 0.
     private static async Task<IResult> Send(
         SendNotificationBody body,
@@ -57,11 +62,13 @@ internal sealed class NotificationsV1Endpoint : IEndpointConfig
         HttpContext context)
     {
         // SendNotificationBodyFilter lets only a valid body through.
-        var result = await bus.Send(new SendNotification(body.Request!, CallerOf(context), TraceIdOf(context)));
+        var key = context.Request.Headers["Idempotency-Key"].ToString();
+        var result = await bus.Send(new SendNotification(
+            body.Request!, CallerOf(context), TraceIdOf(context), key.Length == 0 ? null : key));
         if (result.IsSuccess)
         {
             // Queued or Skipped: the same answer, so a caller cannot tell them apart.
-            return TypedResults.Accepted((string?)null, new SendNotificationResponse(result.Value));
+            return TypedResults.Ok(new SendNotificationResponse(result.Value));
         }
 
         // The handler fails with one error, and its code and field every time. Mapped here rather than by
@@ -77,6 +84,37 @@ internal sealed class NotificationsV1Endpoint : IEndpointConfig
         return problems.CreateResult(
             EndpointFilterInvocationContext.Create(context),
             new ValidationResult([new ValidationFailure(field, ErrorMessage(code, field)) { ErrorCode = code }]));
+    }
+
+    // The status values are lower case on the wire (spec §8), so each outcome maps to its own literal.
+    private static async Task<IResult> Status(
+        Guid notificationId,
+        [FromServices] IMessageBus bus,
+        [FromServices] IFluentValidationAutoValidationResultFactory problems,
+        HttpContext context)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        var result = await bus.Send(new GetNotificationStatus(notificationId, CallerOf(context)));
+        if (result.IsSuccess)
+        {
+            var record = result.Value;
+            var status = record.Status switch
+            {
+                NotificationOutcome.Pending => "pending",
+                NotificationOutcome.Success => "success",
+                _ => "failed"
+            };
+            return TypedResults.Ok(new NotificationStatusResponse(record.NotificationId, record.IdempotencyKey, status));
+        }
+
+        return problems.CreateResult(
+            EndpointFilterInvocationContext.Create(context),
+            new ValidationResult([
+                new ValidationFailure("notificationId", "No notification with this id.")
+                {
+                    ErrorCode = NotificationErrorCodes.NotificationNotFound
+                }
+            ]));
     }
 
     internal static string ErrorMessage(string? code, string? field) =>
