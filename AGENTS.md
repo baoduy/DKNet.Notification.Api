@@ -34,7 +34,7 @@
 
 ## Testing and quality constraints
 - Tests live under `ApiEndpoints/DKNet.Notification.App.Tests/` (Shouldly + xUnit) and `ApiEndpoints/DKNet.Notification.App.BDDTests/` (Reqnroll + NUnit). `ApiEndpoints/DKNet.Notification.App.TestSupport/` holds the shared host (`TestApiFactoryBase`) and the fake sign-in scheme (`TestAuthHandler`).
-- Write business-domain tests for your entities, validators, handlers and routes. Do not add tests for logging, telemetry, Swagger/OpenAPI documents, CORS, HSTS, security headers or rate limiting — that is framework behaviour covered upstream. The non-business tests that belong here are the `Architecture/` layer rules and the `Scaffold/` acceptance tests of the empty service.
+- Write business-domain tests for your entities, validators, handlers and routes. Do not add tests for logging, telemetry, Swagger/OpenAPI documents, CORS, HSTS, security headers or rate limiting — that is framework behaviour covered upstream. The non-business tests that belong here are the `Architecture/` layer rules. The AppHost is for local runs only: it is excluded from coverage and has no tests.
 - `DKNet.Notification.App.Tests.csproj` disables analyzers for tests; production projects enforce strict warnings-as-errors from `Directory.Packages.props`.
 - App.Tests classes run in parallel. A class that listens to something process-wide (an Azure SDK event source, a diagnostic or activity listener for every source) or asserts a tight time bound joins `[Collection(SerialTestsCollection.Name)]`, which runs alone after the rest.
 - Coverage filters are defined in `coverage.runsettings`; avoid placing real logic in excluded paths (`bin/`, `obj/`, `*Test*.cs`).

@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using DKNet.Notification.AppServices.Delivery;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using static DKNet.Notification.App.BDDTests.Features.Notifications.Steps.SendScenario;
@@ -9,7 +11,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications.Steps;
 /// <summary>
 /// Steps for <c>EmailChannel.feature</c> (DRK-2020 §5, surface A). Every expected value is a literal from the spec;
 /// the setting names are the contract names of brief DRK-2025 §5. Scoped to the feature, so its step texts never
-/// clash with the slice 2 send feature's.
+/// clash with the slice 2 send feature's. <c>NotificationStatus.feature</c> reuses them too.
 /// </summary>
 /// <remarks>
 /// The start-up entries are matched on the event names the spec's log table gives, with the structured-state names
@@ -19,6 +21,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications.Steps;
 /// </remarks>
 [Binding]
 [Scope(Feature = FeatureTitle)]
+[Scope(Feature = NotificationStatusSteps.FeatureTitle)]
 public sealed class EmailChannelSteps(SendScenario scenario)
 {
     public const string FeatureTitle = "Email channel with the SMTP sender, rendering and delivery";
@@ -190,6 +193,16 @@ public sealed class EmailChannelSteps(SendScenario scenario)
         for (var i = 0; i < count; i++)
         {
             scenario.ShouldBeAccepted(await scenario.SendAsync(caller, NewKey(), ValidEmailBody("account-opened", "jane@example.com")));
+        }
+
+        // The Redis consumer takes a message off the list for its attempt, so the list holds all of them only once
+        // each attempt 1 has failed and the message waits there for attempt 2 (spec D7).
+        var waited = Stopwatch.StartNew();
+        while (scenario.Entries(EmailDeliverySteps.AttemptFailedEvent).Count(e => e.Value("Attempt") == "1") < count
+               || await RedisServer.ListLengthAsync(DeliverNotification.QueueName) < count)
+        {
+            waited.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(15), $"the {count} notifications must wait in the queue");
+            await Task.Delay(TimeSpan.FromMilliseconds(200));
         }
     }
 

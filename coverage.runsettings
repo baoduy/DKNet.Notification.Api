@@ -18,7 +18,8 @@
                         [*.Tests]*,
                         [*Tests]*,
                         [*.TestObjects]*,
-                        [*TestDataLayer]*
+                        [*TestDataLayer]*,
+                        [DKNet.Notification.AppHost]*
                     </Exclude>
                     <ExcludeByFile>
                         **/bin/**,

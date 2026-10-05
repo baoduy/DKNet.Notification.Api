@@ -15,7 +15,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Aspire.Hosting.Testing"/>
         <PackageReference Include="coverlet.collector">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -42,7 +41,6 @@
     <ItemGroup>
         <ProjectReference Include="..\DKNet.Notification.Api\DKNet.Notification.Api.csproj" />
         <ProjectReference Include="..\DKNet.Notification.App.TestSupport\DKNet.Notification.App.TestSupport.csproj" />
-        <ProjectReference Include="..\DKNet.Notification.AppHost\DKNet.Notification.AppHost.csproj" />
     </ItemGroup>
 
 </Project>

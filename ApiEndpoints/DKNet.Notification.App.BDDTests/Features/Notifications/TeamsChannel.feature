@@ -3,8 +3,7 @@ Feature: Microsoft Teams channel
   # DRK-2035 §5 (spec revision 13). Gherkin copied from the spec, every scenario and every Examples row, kept whole
   # (the gate allowed, not required, a split of the 3-rule scenarios).
   # Surface A (brief DRK-2036 §7): the checks of a teams call, the skip reasons, the size check and the Teams settings
-  # read at start-up. Its @unit scenarios "The base settings keep Teams off" and "No released settings file holds a
-  # webhook URL" live in DKNet.Notification.App.Tests/Unit/Notifications/ReleasedSettingsFilesTests.
+  # read at start-up.
   # Surface B (brief DRK-2037 §7): the post, the card, the retry kinds, the time limit, the certificate, the shared
   # queue and the leak checks.
   # Steps in Steps/TeamsChannelSteps.cs (Given, When, checks and skips) and Steps/TeamsDeliverySteps.cs (the post,

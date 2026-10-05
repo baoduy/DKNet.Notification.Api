@@ -112,7 +112,8 @@ public sealed class SendScenario : IAsyncDisposable
         await StopHostAsync();
     }
 
-    private async Task StopHostAsync()
+    /// <summary>Stops the host, as a deploy stops a replica; the Redis store is left as it is.</summary>
+    public async Task StopHostAsync()
     {
         _metrics?.Dispose();
         _client?.Dispose();
@@ -205,6 +206,29 @@ public sealed class SendScenario : IAsyncDisposable
             request.Headers.TryAddWithoutValidation("traceparent", TraceParent).ShouldBeTrue();
         }
 
+        AddCredential(request, caller);
+        using var response = await _client.SendAsync(request);
+        return new Answer(caller, response.StatusCode, await response.Content.ReadAsStringAsync())
+        {
+            RetryAfter = response.Headers.RetryAfter?.ToString()
+        };
+    }
+
+    /// <summary>
+    /// <c>GET /v1/notifications/{id}</c> as <paramref name="caller" />. Not kept in <see cref="Answers" />, so
+    /// <see cref="LastAnswer" /> stays the last send however often a step reads the status.
+    /// </summary>
+    public async Task<Answer> ReadStatusAsync(string caller, string notificationId)
+    {
+        _client.ShouldNotBeNull("a Given step must start the service first");
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{Route}/{notificationId}");
+        AddCredential(request, caller);
+        using var response = await _client.SendAsync(request);
+        return new Answer(caller, response.StatusCode, await response.Content.ReadAsStringAsync());
+    }
+
+    private void AddCredential(HttpRequestMessage request, string caller)
+    {
         if (Callers.TryGetValue(caller, out var credential))
         {
             if (credential.Authorization is not null)
@@ -214,12 +238,6 @@ public sealed class SendScenario : IAsyncDisposable
 
             request.Headers.TryAddWithoutValidation(TestAuthHandler.ClaimsHeader, credential.Claims).ShouldBeTrue();
         }
-
-        using var response = await _client.SendAsync(request);
-        return new Answer(caller, response.StatusCode, await response.Content.ReadAsStringAsync())
-        {
-            RetryAfter = response.Headers.RetryAfter?.ToString()
-        };
     }
 
     /// <summary>A <c>GET</c> with no token, as a probe sends it.</summary>

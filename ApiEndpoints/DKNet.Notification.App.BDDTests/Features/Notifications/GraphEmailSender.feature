@@ -2,11 +2,9 @@ Feature: Microsoft Graph email sender
 
   # DRK-2028 §5 (spec revision 16). Gherkin copied from the spec.
   # Surface A (brief DRK-2033 §7): the @integration scenarios of the Graph settings, the sender choice at start-up,
-  # the sender change and the health check, steps in Steps/GraphEmailSenderSteps.cs. Its @unit scenarios live in
-  # DKNet.Notification.App.Tests/Unit: RetryAfterWaitTests ("A wait above 60 seconds is cut to 60 seconds") and
-  # ReleasedSettingsFilesTests ("No released settings file holds a Graph client secret"). "The local run still sends
-  # to the mail catcher" lives in DKNet.Notification.App.Tests/Scaffold/LocalAppHostTests, the one project allowed
-  # Aspire.Hosting.Testing.
+  # the sender change and the health check, steps in Steps/GraphEmailSenderSteps.cs. Its @unit scenario lives in
+  # DKNet.Notification.App.Tests/Unit: RetryAfterWaitTests ("A wait above 60 seconds is cut to 60 seconds"). "The local run still sends
+  # to the mail catcher" has no test: the AppHost is for local runs only.
   # Surface B (brief DRK-2031 §7): the scenarios that send through the Graph stub and the token stub, steps in
   # Steps/GraphDeliverySteps.cs. Its @unit scenario "The Graph sender uses Microsoft's global cloud" lives in
   # DKNet.Notification.App.Tests/Unit/Delivery/GraphGlobalCloudTests.
