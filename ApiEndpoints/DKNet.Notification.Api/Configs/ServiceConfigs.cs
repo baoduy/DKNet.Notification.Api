@@ -34,8 +34,9 @@ internal static class ServiceConfigs
         else
         {
             // One connection for the delivery bus and the backlog count, opened on first use, not at registration.
+            // Not registered as IConnectionMultiplexer: the idempotency store registers its own, and the last one wins.
             redis = new Lazy<IConnectionMultiplexer>(() => ConnectionMultiplexer.Connect(redisConnectionString));
-            services.AddSingleton(_ => redis.Value).AddSingleton<IDeliveryBacklog, RedisDeliveryBacklog>();
+            services.AddSingleton<IDeliveryBacklog>(_ => new RedisDeliveryBacklog(redis.Value));
         }
 
         var assembly = typeof(SendNotification).Assembly;
