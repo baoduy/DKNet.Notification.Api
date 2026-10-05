@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using DKNet.AspCore.Idempotency;
 using DKNet.Notification.Api.Configs.Auth;
-using DKNet.Notification.AppServices.Notifications;
 using FluentValidation.Results;
 using SharpGrip.FluentValidation.AutoValidation.Endpoints.Results;
 using SlimMessageBus;

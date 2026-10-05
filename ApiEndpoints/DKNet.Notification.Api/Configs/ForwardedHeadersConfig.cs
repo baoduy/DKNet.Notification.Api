@@ -1,4 +1,3 @@
-using System.Net;
 using Microsoft.AspNetCore.HttpOverrides;
 
 namespace DKNet.Notification.Api.Configs;

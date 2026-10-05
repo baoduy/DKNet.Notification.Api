@@ -2,7 +2,6 @@ using System.Reflection;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
-using Shouldly;
 
 namespace DKNet.Notification.App.Tests.Scaffold;
 

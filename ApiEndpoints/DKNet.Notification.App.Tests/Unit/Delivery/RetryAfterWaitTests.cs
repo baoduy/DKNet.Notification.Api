@@ -1,4 +1,3 @@
-using System.Net;
 using DKNet.Notification.AppServices.Delivery;
 
 namespace DKNet.Notification.App.Tests.Unit.Delivery;

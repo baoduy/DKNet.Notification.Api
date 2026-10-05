@@ -45,7 +45,7 @@ public sealed class ApiHooks(IObjectContainer objectContainer)
     public void BeforeScenario()
     {
         _factory.LogCapture.Clear();
-        objectContainer.RegisterInstanceAs<HttpClient>(_client);
+        objectContainer.RegisterInstanceAs(_client);
         objectContainer.RegisterInstanceAs(_factory);
         objectContainer.RegisterInstanceAs(new ScenarioState());
     }

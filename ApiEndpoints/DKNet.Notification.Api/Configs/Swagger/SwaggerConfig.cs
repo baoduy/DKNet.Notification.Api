@@ -1,6 +1,5 @@
 using Microsoft.OpenApi;
 using DKNet.Notification.Api.Configs.Auth;
-using DKNet.Notification.Api.Configs.Healthz;
 
 namespace DKNet.Notification.Api.Configs.Swagger;
 
