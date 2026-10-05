@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Notifications;
@@ -38,14 +37,6 @@ public sealed class SendNotificationService(
     // The settings are read once at start-up, so whether a channel can send is decided once too.
     private readonly bool _emailConfigured = email.Enabled && email.BadSettings().Count == 0;
     private readonly bool _teamsConfigured = teams.IsConfigured;
-
-    // The service-wide count of the shared queue, read at each scrape.
-    // ponytail: a blocking LLEN per scrape; cache the last count if scrapes become frequent.
-    [SuppressMessage(
-        "Performance",
-        "CA1823:Avoid unused private fields",
-        Justification = "The initializer is the point: a primary constructor has no body to register the gauge in.")]
-    private readonly bool _queueLengthObserved = ObserveQueueLength(metrics, backlog);
 
     #endregion
 
@@ -94,12 +85,6 @@ public sealed class SendNotificationService(
             TeamsWebhookSender.ChannelKey => await SendTeamsAsync(notification, template, traceId, idempotencyKey, cancellationToken),
             _ => await SkipAsync(notification, SkipReason.ChannelNotSupported, traceId, idempotencyKey, cancellationToken)
         };
-    }
-
-    private static bool ObserveQueueLength(NotificationMetrics metrics, IDeliveryBacklog backlog)
-    {
-        metrics.ObserveQueueLength(() => (int)backlog.LengthAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult());
-        return true;
     }
 
     /// <summary>Logs and counts a call refused with <see cref="NotificationErrorCodes.InvalidRequest" />.</summary>

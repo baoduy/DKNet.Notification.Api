@@ -4,6 +4,7 @@ using DKNet.Notification.Api.Configs.Auth;
 using DKNet.Notification.Api.Configs.AzureAppConfig;
 using DKNet.Notification.Api.Configs.RateLimits;
 using DKNet.Notification.Api.Configs.Swagger;
+using DKNet.Notification.AppServices.Delivery;
 
 namespace DKNet.Notification.Api.Configs;
 
@@ -83,7 +84,7 @@ internal static class AppConfig
 
         return services
             .AddCrosConfig(configuration)
-            .AddAllAppServices()
+            .AddAllAppServices(redisConnectionString)
             .AddHealthzConfig(features);
     }
 
@@ -102,6 +103,12 @@ internal static class AppConfig
     {
         // Logged here, through the built host: an entry written while the services are registered is lost.
         app.UseEmailConfig();
+
+        // The service-wide backlog, registered once here so a replica that has taken no call still shows it. The
+        // backlog is resolved at each scrape, so the Redis connection opens on first use.
+        // ponytail: a blocking LLEN per scrape; cache the last count if scrapes become frequent.
+        app.Services.GetRequiredService<NotificationMetrics>().ObserveQueueLength(() => (int)app.Services
+            .GetRequiredService<IDeliveryBacklog>().LengthAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult());
 
         // Forwarded headers and security headers run first: forwarded headers must rewrite RemoteIpAddress
         // before anything (CORS, rate limiting) makes a decision based on it, and security headers must wrap

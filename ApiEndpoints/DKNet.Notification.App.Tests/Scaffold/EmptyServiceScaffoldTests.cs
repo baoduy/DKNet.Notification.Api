@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Hosting;
 using NetArchTest.Rules;
 
 namespace DKNet.Notification.App.Tests.Scaffold;
@@ -325,7 +327,11 @@ public sealed class EmptyServiceScaffoldTests
                 .UseEnvironment(environment)
                 // A deployment refuses to start without a Redis setting (DRK-2013). The store connects lazily
                 // and no idempotent call is sent here, so this placeholder never opens a connection.
-                .UseSetting("ConnectionStrings:Redis", "localhost:6379,abortConnect=false"));
+                .UseSetting("ConnectionStrings:Redis", "localhost:6379,abortConnect=false")
+                // The bus is not started either: its Redis delivery consumer would poll the placeholder, and its
+                // stop throws once a poll has failed. Only the sign-in registrations are read here.
+                .ConfigureTestServices(services => services.Remove(services.Single(
+                    d => d.ServiceType == typeof(IHostedService) && d.ImplementationType?.Name == "MessageBusHostedService"))));
         var provider = factory.Services.GetService<IAuthenticationSchemeProvider>();
         if (provider is null)
         {

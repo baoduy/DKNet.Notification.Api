@@ -49,20 +49,22 @@ public sealed class UnconvertibleSettingStartupTests
         logged.ShouldAllBe(text => !UnconvertibleValue.IsMatch(text), "a log entry holds the setting's value");
     }
 
-    [Fact]
-    public void A_delivery_setting_the_binder_cannot_convert_stops_the_start_up_and_names_the_key()
+    [Theory]
+    [InlineData("Notifications:Delivery:QueueCapacity")]
+    [InlineData("Notifications:Status:RetentionHours")]
+    public void A_delivery_or_status_setting_the_binder_cannot_convert_stops_the_start_up_and_names_the_key(string key)
     {
         using var factory = new StartupApiFactory(new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["Notifications:Delivery:QueueCapacity"] = Unconvertible
+            [key] = Unconvertible
         });
 
         var error = Should.Throw<Exception>(() => factory.Services);
 
         var messages = Chain(error).Select(e => e.Message).ToArray();
         messages.ShouldContain(
-            message => message.Contains("Notifications:Delivery:QueueCapacity", StringComparison.Ordinal),
-            $"the start-up must name the queue size, but failed with: {error}");
+            message => message.Contains(key, StringComparison.Ordinal),
+            $"the start-up must name {key}, but failed with: {error}");
         messages.ShouldAllBe(message => !UnconvertibleValue.IsMatch(message), "the refusal holds the setting's value");
     }
 

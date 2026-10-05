@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Hosting;
 
 namespace DKNet.Notification.App.BDDTests.Features.Scaffold.Steps;
 
@@ -24,6 +25,11 @@ public sealed class ScaffoldApiFactory(string environment, bool withValidCaller)
         // A deployment refuses to start without a Redis setting (DRK-2013). The store connects lazily, and no
         // scaffold scenario sends an idempotent call, so this placeholder never opens a connection.
         builder.UseSetting("ConnectionStrings:Redis", "localhost:6379,abortConnect=false");
+
+        // The bus is not started either: its Redis delivery consumer would poll the placeholder, and its stop throws
+        // once a poll has failed. No scaffold scenario sends a notification.
+        builder.ConfigureTestServices(services => services.Remove(services.Single(
+            d => d.ServiceType == typeof(IHostedService) && d.ImplementationType?.Name == "MessageBusHostedService")));
 
         if (withValidCaller)
         {
