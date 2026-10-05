@@ -130,7 +130,10 @@ public sealed class SendTeamsServiceTests : IDisposable
             "Account 0012345678 opened",
             "**Jane Tan** opened account 0012345678.",
             BodyFormat.Markdown));
-        _host.Bus.Published.ShouldHaveSingleItem();
+        _host.Bus.Published.ShouldHaveSingleItem().ShouldBe(new DeliverNotification(
+            DeliverNotification.CurrentSchemaVersion, notification.NotificationId, StaffAccountOpened, "teams", "treasury-ops", null,
+            _host.Time.GetUtcNow(), "trace-1", null, "ops-alerts", "Account 0012345678 opened", "**Jane Tan** opened account 0012345678.",
+            BodyFormat.Markdown, 0, _host.Time.GetUtcNow()));
         var entry = _host.Logs.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Information);
         entry.EventId.Name.ShouldBe("NotificationQueued");

@@ -7,6 +7,7 @@ using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Templates;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using SlimMessageBus;
 
 namespace DKNet.Notification.App.Tests.Unit.Notifications;
@@ -21,6 +22,9 @@ internal sealed class SendServiceHost : IDisposable
     private ServiceProvider? _services;
 
     public TestLogCapture Logs { get; } = new();
+
+    /// <summary>The service's clock: fixed, so a test knows the exact acceptance time.</summary>
+    public FakeTimeProvider Time { get; } = new(new DateTimeOffset(2026, 10, 5, 8, 0, 0, TimeSpan.Zero));
 
     /// <summary>The delivery bus: records what the service publishes.</summary>
     public RecordingBus Bus { get; } = new();
@@ -59,7 +63,7 @@ internal sealed class SendServiceHost : IDisposable
             .AddDistributedMemoryCache()
             .AddSingleton(new NotificationStatusSettings())
             .AddSingleton<NotificationStatusStore>()
-            .AddSingleton(TimeProvider.System)
+            .AddSingleton<TimeProvider>(Time)
             .AddSingleton<NotificationMetrics>()
             .AddSingleton<SendNotificationService>()
             .BuildServiceProvider();

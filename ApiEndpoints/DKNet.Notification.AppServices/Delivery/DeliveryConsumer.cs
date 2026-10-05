@@ -244,6 +244,9 @@ internal sealed class DeliveryConsumer(
         ActivityLink[]? links = ActivityContext.TryParse(message.TraceId, traceState: null, out var accepted)
             ? [new ActivityLink(accepted)]
             : null;
+        // Each attempt starts a trace of its own and links to its call's trace instead: a default parent context would
+        // still take the ambient activity (the bus consumer's) as parent.
+        Activity.Current = null;
         var activity = Source.StartActivity("DeliverNotification", ActivityKind.Client, parentContext: default, links: links);
         activity?.SetTag("notification.id", message.NotificationId);
         activity?.SetTag("notification.attempt", attempt);

@@ -180,10 +180,11 @@ public sealed class SendEmailServiceTests : IDisposable
 
         notification.Status.ShouldBe(NotificationStatus.Queued);
         seenAtPublish.ShouldBe(new NotificationStatusRecord(notification.NotificationId, "order-42", NotificationOutcome.Pending));
-        var message = _host.Bus.Published.ShouldHaveSingleItem();
-        message.EmailAddress.ShouldBe("jane@example.com");
-        message.AttemptsMade.ShouldBe(0);
-        message.IdempotencyKey.ShouldBe("order-42");
+        var rendered = notification.RenderedMessage.ShouldNotBeNull();
+        _host.Bus.Published.ShouldHaveSingleItem().ShouldBe(new DeliverNotification(
+            DeliverNotification.CurrentSchemaVersion, notification.NotificationId, AccountOpened, "email", "treasury-ops", "order-42",
+            _host.Time.GetUtcNow(), "trace-1", "jane@example.com", null, rendered.Subject, rendered.Body, rendered.Format, 0, _host.Time.GetUtcNow()));
+        rendered.ShouldBe(new RenderedMessage("Your account is open", "Dear Jane Tan, your account 0012345678 is open.", BodyFormat.Html));
     }
 
     [Fact]

@@ -1,3 +1,6 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using DKNet.Notification.App.TestSupport;
 using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Notifications;
@@ -12,10 +15,12 @@ using Microsoft.Extensions.Time.Testing;
 namespace DKNet.Notification.App.Tests.Unit.Delivery;
 
 /// <summary>Spec §6 "Delivering": one attempt per queued message, then a final status or the message back in the queue.</summary>
-// Serial: the delivery metrics it emits would reach the process-wide meter listener of DeliveryWorkerTests while that runs.
-[Collection(SerialTestsCollection.Name)]
+// Not serial: the meter listener only takes the meters of this class's own IMeterFactory, and the activity listener's
+// source is process-wide but each test keeps only the activity of its own message id.
 public sealed class DeliveryConsumerTests : IDisposable
 {
+    private const string TraceId = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+
     private static readonly DateTimeOffset Now = new(2026, 10, 5, 8, 0, 0, TimeSpan.Zero);
 
     private readonly FakeTimeProvider _time = new(Now);
@@ -23,6 +28,9 @@ public sealed class DeliveryConsumerTests : IDisposable
     private readonly ServiceProvider _services;
     private readonly RecordingBus _bus = new();
     private readonly NotificationStatusStore _status;
+    private readonly MeterListener _listener = new();
+    private readonly ConcurrentQueue<(string Instrument, double Value, string? Channel)> _measurements = new();
+    private readonly ConcurrentDictionary<string, string?> _units = new(StringComparer.Ordinal);
 
     public DeliveryConsumerTests()
     {
@@ -31,9 +39,26 @@ public sealed class DeliveryConsumerTests : IDisposable
             new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())),
             new NotificationStatusSettings(),
             _services.GetRequiredService<ILogger<NotificationStatusStore>>());
+
+        var meterFactory = _services.GetRequiredService<IMeterFactory>();
+        _listener.InstrumentPublished = (instrument, listener) =>
+        {
+            if (ReferenceEquals(instrument.Meter.Scope, meterFactory))
+            {
+                _units[instrument.Name] = instrument.Unit;
+                listener.EnableMeasurementEvents(instrument);
+            }
+        };
+        _listener.SetMeasurementEventCallback<long>((i, value, tags, _) => Record(i, value, tags));
+        _listener.SetMeasurementEventCallback<double>((i, value, tags, _) => Record(i, value, tags));
+        _listener.Start();
     }
 
-    public void Dispose() => _services.Dispose();
+    public void Dispose()
+    {
+        _listener.Dispose();
+        _services.Dispose();
+    }
 
     private DeliveryConsumer Consumer(Func<DomainNotification, CancellationToken, Task<DeliveryFailure?>> send, DeliverySettings? settings = null) =>
         new(_bus, new ScriptedSender(send), settings ?? new DeliverySettings(), _status,
@@ -42,7 +67,7 @@ public sealed class DeliveryConsumerTests : IDisposable
 
     private static DeliverNotification Message(int attemptsMade = 0, DateTimeOffset? notBefore = null) =>
         new(DeliverNotification.CurrentSchemaVersion, Guid.CreateVersion7(), "account-opened", "email", "treasury-ops",
-            "order-42", Now.AddSeconds(-1), "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+            "order-42", Now.AddSeconds(-1), TraceId,
             "jane@example.com", null, "Your account is open", "Dear Jane", BodyFormat.Html, attemptsMade, notBefore ?? Now);
 
     private Task<NotificationStatusRecord?> StatusOf(DeliverNotification m) => _status.ReadAsync(m.CallerId, m.NotificationId, CancellationToken.None);
@@ -55,7 +80,16 @@ public sealed class DeliveryConsumerTests : IDisposable
 
         (await StatusOf(message)).ShouldBe(new NotificationStatusRecord(message.NotificationId, "order-42", NotificationOutcome.Success));
         _bus.Published.ShouldBeEmpty();
-        _logs.Entries.ShouldContain(e => e.Value("NotificationId") == message.NotificationId.ToString() && e.EventId.Name == "NotificationDelivered");
+        var delivered = Entries("NotificationDelivered").ShouldHaveSingleItem();
+        delivered.Level.ShouldBe(LogLevel.Information);
+        ShouldCarryTheCallFields(delivered, message);
+        delivered.Value("Attempt").ShouldBe("1");
+        TimeSpan.Parse(delivered.Value("Duration")!, System.Globalization.CultureInfo.InvariantCulture).ShouldBe(TimeSpan.FromSeconds(1));
+        Entries("NotificationAttemptFailed").ShouldBeEmpty();
+        _measurements.Where(m => m.Instrument == "notifications.delivered").ShouldHaveSingleItem().ShouldBe(("notifications.delivered", 1d, "email"));
+        _measurements.Where(m => m.Instrument == "notifications.delivery.duration").ShouldHaveSingleItem().ShouldBe(("notifications.delivery.duration", 1d, "email"));
+        _units["notifications.delivery.duration"].ShouldBe("s");
+        _measurements.Where(m => m.Instrument == "notifications.failed").ShouldBeEmpty();
     }
 
     [Fact]
@@ -66,6 +100,19 @@ public sealed class DeliveryConsumerTests : IDisposable
 
         (await StatusOf(message))!.Status.ShouldBe(NotificationOutcome.Failed);
         _bus.Published.ShouldBeEmpty();
+        var attempt = Entries("NotificationAttemptFailed").ShouldHaveSingleItem();
+        attempt.Level.ShouldBe(LogLevel.Warning);
+        ShouldCarryTheCallFields(attempt, message);
+        attempt.Value("Attempt").ShouldBe("1");
+        attempt.Value("FailureKind").ShouldBe("permanent");
+        attempt.Value("ReplyCode").ShouldBe("550");
+        var failed = Entries("NotificationFailed").ShouldHaveSingleItem();
+        failed.Level.ShouldBe(LogLevel.Error);
+        ShouldCarryTheCallFields(failed, message);
+        failed.Value("AttemptCount").ShouldBe("1");
+        failed.Value("ReplyCode").ShouldBe("550");
+        _measurements.Where(m => m.Instrument == "notifications.failed").ShouldHaveSingleItem().ShouldBe(("notifications.failed", 1d, "email"));
+        _measurements.Where(m => m.Instrument == "notifications.delivered").ShouldBeEmpty();
     }
 
     [Theory]
@@ -119,6 +166,12 @@ public sealed class DeliveryConsumerTests : IDisposable
 
         (await StatusOf(message))!.Status.ShouldBe(NotificationOutcome.Failed);
         _logs.Messages.ShouldAllBe(m => !m.Contains("jane@example.com", StringComparison.Ordinal));
+        var attempt = Entries("NotificationAttemptFailed").ShouldHaveSingleItem();
+        attempt.Value("FailureKind").ShouldBe("permanent");
+        attempt.Value("ReplyCode").ShouldBe(string.Empty);
+        Entries("NotificationFailed").ShouldHaveSingleItem().Value("ReplyCode").ShouldBe(string.Empty);
+        _measurements.Where(m => m.Instrument == "notifications.failed").ShouldHaveSingleItem().ShouldBe(("notifications.failed", 1d, "email"));
+        _logs.Entries.ShouldAllBe(e => e.Exception == null);
     }
 
     [Fact]
@@ -185,6 +238,7 @@ public sealed class DeliveryConsumerTests : IDisposable
         await consumer.OnHandle(message, CancellationToken.None);
 
         seen!.TeamsRecipient!.Name.ShouldBe("ops-alerts");
+        _measurements.Where(m => m.Instrument == "notifications.delivered").ShouldHaveSingleItem().Channel.ShouldBe("teams");
         (await StatusOf(message))!.Status.ShouldBe(NotificationOutcome.Success);
     }
 
@@ -195,6 +249,72 @@ public sealed class DeliveryConsumerTests : IDisposable
         await Consumer((_, _) => Task.FromResult<DeliveryFailure?>(null)).OnHandle(message, CancellationToken.None);
 
         (await StatusOf(message))!.Status.ShouldBe(NotificationOutcome.Failed);
+        var attempt = Entries("NotificationAttemptFailed").ShouldHaveSingleItem();
+        attempt.Value("Channel").ShouldBe("teams");
+        attempt.Value("FailureKind").ShouldBe("permanent");
+        attempt.Value("ReplyCode").ShouldBe(string.Empty);
+        _measurements.Where(m => m.Instrument == "notifications.failed").ShouldHaveSingleItem().ShouldBe(("notifications.failed", 1d, "teams"));
+    }
+
+    [Theory]
+    [InlineData(TraceId, true)]
+    [InlineData("0HN7REQUEST:00000001", false)]
+    public async Task Each_attempt_has_an_activity_of_its_own_that_links_to_the_call_trace(string traceId, bool linked)
+    {
+        var message = Message() with { TraceId = traceId };
+        var activities = new ConcurrentQueue<Activity>();
+        using var activityListener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == DeliveryConsumer.ActivitySourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activities.Enqueue
+        };
+        ActivitySource.AddActivityListener(activityListener);
+        // The accepting call's activity is current when the message is handled: the attempt must not become its child.
+        using var caller = new Activity("caller").Start();
+
+        await Consumer((_, _) => Task.FromResult<DeliveryFailure?>(null)).OnHandle(message, CancellationToken.None);
+
+        var activity = activities.Where(a => Equals(a.GetTagItem("notification.id"), message.NotificationId)).ShouldHaveSingleItem();
+        activity.OperationName.ShouldBe("DeliverNotification");
+        activity.Kind.ShouldBe(ActivityKind.Client);
+        activity.ParentSpanId.ShouldBe(default);
+        activity.TraceId.ShouldNotBe(caller.TraceId);
+        activity.GetTagItem("notification.attempt").ShouldBe(1);
+        if (linked)
+        {
+            activity.Links.ShouldHaveSingleItem().Context.ShouldBe(ActivityContext.Parse(traceId, traceState: null));
+        }
+        else
+        {
+            activity.Links.ShouldBeEmpty();
+        }
+    }
+
+    private CapturedLogEntry[] Entries(string eventName) =>
+        _logs.Entries.Where(e => e.EventId.Name == eventName).ToArray();
+
+    private static void ShouldCarryTheCallFields(CapturedLogEntry entry, DeliverNotification message)
+    {
+        entry.Value("NotificationId").ShouldBe(message.NotificationId.ToString());
+        entry.Value("TemplateId").ShouldBe("account-opened");
+        entry.Value("Channel").ShouldBe("email");
+        entry.Value("CallerId").ShouldBe("treasury-ops");
+        entry.Value("TraceId").ShouldBe(message.TraceId);
+    }
+
+    private void Record(Instrument instrument, double value, ReadOnlySpan<KeyValuePair<string, object?>> tags)
+    {
+        string? channel = null;
+        foreach (var tag in tags)
+        {
+            if (tag.Key == "channel")
+            {
+                channel = tag.Value as string;
+            }
+        }
+
+        _measurements.Enqueue((instrument.Name, value, channel));
     }
 
     private static async Task UntilAsync(Func<bool> condition)
