@@ -10,8 +10,6 @@ internal static class ServiceConfigs
 
     public static IServiceCollection AddAllAppServices(this IServiceCollection services) =>
         services
-            .AddSingleton<IHttpContextAccessor, HttpContextAccessor>()
-            .AddScoped<IPrincipalProvider, PrincipalProvider>()
             .AddSingleton<NotificationMetrics>()
             .AddSingleton<SendNotificationService>()
             // In-memory bus as the mediator from endpoint to handler (ADR-0011); not the delivery queue (ADR-0003).
