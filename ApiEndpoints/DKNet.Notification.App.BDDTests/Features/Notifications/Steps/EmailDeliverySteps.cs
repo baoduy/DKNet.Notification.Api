@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using DKNet.Notification.Domains.Templates;
 using Microsoft.Extensions.Logging;
 using static DKNet.Notification.App.BDDTests.Features.Notifications.Steps.SendScenario;
 
@@ -105,18 +106,14 @@ public sealed class EmailDeliverySteps(SendScenario scenario)
     [Given(@"^the template ""([^""]*)"" has the email subject ""([^""]*)""$")]
     public async Task GivenTheTemplateHasTheEmailSubject(string templateId, string subject)
     {
-        // Index 90 keeps the entry clear of the released registrations. The loader reads the release's template
-        // folder, where a test file would ship too, so the body is the released one and the call gives its account
-        // number too.
-        var settings = new Dictionary<string, string?>(Catcher.EmailSettings(), StringComparer.Ordinal)
-        {
-            ["Notifications:Templates:90:TemplateId"] = templateId,
-            ["Notifications:Templates:90:Versions:0:Channel"] = "email",
-            ["Notifications:Templates:90:Versions:0:File"] = "account-opened.email.html",
-            ["Notifications:Templates:90:Versions:0:Format"] = "Html",
-            ["Notifications:Templates:90:Versions:0:Subject"] = subject
-        };
-        await StartAsync(Catcher, settings);
+        // The subject lives in the template file's front matter, and the release ships no test file, so the test
+        // template goes into the running catalogue: the released body with this subject. The call gives the
+        // released body's account number too.
+        await StartAsync(Catcher, Catcher.EmailSettings());
+        var released = scenario.Factory.Gate.Find("account-opened").ShouldNotBeNull().Versions
+            .Single(v => v.Channel == "email");
+        scenario.Factory.Gate.Add(new NotificationTemplate(
+            templateId, "A test template of DRK-2020.", [released with { Subject = subject }]));
     }
 
     [Given(@"^attempt 1 meets (.+)$")]
@@ -393,7 +390,7 @@ public sealed class EmailDeliverySteps(SendScenario scenario)
     public async Task ThenTheMailSays(string text)
     {
         var content = await Catcher.MailContentAsync((_mail ?? await SingleMailToAsync(LastRecipient())).ID);
-        VisibleText(content.HTML).ShouldBe(text);
+        VisibleText(content.HTML).ShouldContain(text);
     }
 
     [Then(@"^the mail comes from the sender address and sender name of the settings$")]
@@ -424,7 +421,7 @@ public sealed class EmailDeliverySteps(SendScenario scenario)
     {
         var content = await Catcher.MailContentAsync((await SingleMailToAsync(LastRecipient())).ID);
         // The released body (§2), filled with the call's values: the value reads as it was sent.
-        VisibleText(content.HTML).ShouldBe($"Dear {value}, your account {AccountNumber} is open.");
+        VisibleText(content.HTML).ShouldContain($"Dear {value}, your account {AccountNumber} is open.");
         Regex.IsMatch(content.HTML, @"<\s*b[\s>]", RegexOptions.IgnoreCase).ShouldBeFalse(content.HTML);
     }
 

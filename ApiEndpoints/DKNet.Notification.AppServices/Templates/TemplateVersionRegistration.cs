@@ -12,17 +12,14 @@ public sealed class TemplateVersionRegistration
     /// <summary>Gets or sets the channel: <c>email</c> or <c>teams</c>.</summary>
     public string Channel { get; set; } = string.Empty;
 
-    /// <summary>Gets or sets the version's file, relative to the template folder.</summary>
+    /// <summary>
+    ///     Gets or sets the version's file, relative to the template folder. An email file's
+    ///     <c>&lt;title&gt;</c> is its subject; a Teams file's front matter holds its <c>title</c>.
+    /// </summary>
     public string File { get; set; } = string.Empty;
 
     /// <summary>Gets or sets the markup the file is written in.</summary>
     public TemplateFormat? Format { get; set; }
-
-    /// <summary>Gets or sets the email subject.</summary>
-    public string? Subject { get; set; }
-
-    /// <summary>Gets or sets the Teams message title.</summary>
-    public string? Title { get; set; }
 
     #endregion
 }

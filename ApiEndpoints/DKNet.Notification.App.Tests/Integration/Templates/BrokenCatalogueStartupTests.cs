@@ -45,7 +45,6 @@ public sealed class BrokenCatalogueStartupTests
             builder.UseSetting("Notifications:Templates:90:Versions:0:Channel", "email");
             builder.UseSetting("Notifications:Templates:90:Versions:0:File", "account-opened.email.html");
             builder.UseSetting("Notifications:Templates:90:Versions:0:Format", "Html");
-            builder.UseSetting("Notifications:Templates:90:Versions:0:Subject", "Your account is open");
         }
     }
 }

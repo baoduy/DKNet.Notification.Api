@@ -1,0 +1,27 @@
+### Local calls against the API the AppHost starts. Sign-in is off in Development, so no token.
+### Sent mail lands in the Mailpit inbox: the "http" endpoint of the Mailpit resource on the Aspire dashboard.
+### The Teams webhook URL is a secret, kept in the API's user-secrets (never in appsettings):
+###   dotnet user-secrets --project ApiEndpoints/DKNet.Notification.Api set "Notifications:Teams:Destinations:onboarding:WebhookUrl" "<https webhook url>"
+@api = http://localhost:5000
+
+### 1. Email: the customer's welcome email
+POST {{api}}/v1/notifications
+Content-Type: application/json
+Idempotency-Key: {{$random.uuid}}
+
+{
+  "channel": "email",
+  "templateId": "account-opened",
+  "parameters": { "to": "test@example.com", "customerName": "Jane Tan", "accountNumber": "0012345678" }
+}
+
+### 2. MS Teams: the staff notice to the "onboarding" destination
+POST {{api}}/v1/notifications
+Content-Type: application/json
+Idempotency-Key: {{$random.uuid}}
+
+{
+  "channel": "teams",
+  "templateId": "account-opened",
+  "parameters": { "teamsDestination": "onboarding", "customerName": "Jane Tan", "accountNumber": "0012345678" }
+}

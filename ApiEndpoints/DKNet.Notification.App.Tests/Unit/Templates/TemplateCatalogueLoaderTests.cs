@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Templates;
 
@@ -11,7 +12,7 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
 {
     private const string EmailFile = "account-opened.email.html";
     private const string TeamsFile = "account-opened.teams.md";
-    private const string EmailBody = "<p>Dear {{customerName}}.</p>";
+    private const string EmailBody = "<title>Your account is open</title><p>Dear {{customerName}}.</p>";
     private const string TeamsBody = "**Dear {{customerName}}.**";
     private const string IdRule = "R1 the id must match ^[a-z0-9-]{1,100}$.";
 
@@ -96,10 +97,9 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
     [Fact]
     public void ATitleOf201CharactersIsRefused()
     {
-        var teams = Teams(TeamsFile);
-        teams.Title = new string('t', 201);
+        Write(TeamsFile, "title: " + new string('t', 201), TeamsBody);
 
-        ShouldBreak(Template("account-opened", teams),
+        ShouldBreak(Template("account-opened", Teams(TeamsFile)),
             "^Template 'account-opened': R5 the title is longer than 200 characters\\.$");
     }
 
@@ -186,11 +186,59 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
     [Fact]
     public void AnEmailVersionWithAnEmptySubjectIsRefused()
     {
-        var version = Email(EmailFile);
-        version.Subject = string.Empty;
+        File.WriteAllText(Path.Combine(_templateFolder, EmailFile), "<title> </title><p>Dear {{customerName}}.</p>");
 
-        ShouldBreak(Template("account-opened", version),
-            "^Template 'account-opened': R3 an email version needs a subject of 1 to 500 characters\\.$");
+        ShouldBreak(Template("account-opened", Email(EmailFile)),
+            "^Template 'account-opened': R3 an email version needs a <title> of 1 to 500 characters\\.$");
+    }
+
+    [Fact]
+    public void TheEmailSubjectIsTheDecodedTitleAndTheTitleStaysInTheBody()
+    {
+        const string body = "<head>\n<TITLE lang=\"en\">\n  Tom &amp; {{customerName}}\n</TITLE>\n</head><p>Hi.</p>";
+        File.WriteAllText(Path.Combine(_templateFolder, EmailFile), body);
+
+        var version = TemplateCatalogueLoader.Load([Template("account-opened", Email(EmailFile))], _templateFolder)
+            .Find("account-opened")!.Versions.ShouldHaveSingleItem();
+
+        version.Subject.ShouldBe("Tom & {{customerName}}");
+        version.Body.ShouldBe(body);
+    }
+
+    [Fact]
+    public void ATeamsVersionWithNoFrontMatterLoadsWithNoTitle() =>
+        TemplateCatalogueLoader.Load([Template("account-opened", Teams(TeamsFile))], _templateFolder)
+            .Find("account-opened")!.Versions.ShouldHaveSingleItem().Title.ShouldBeNull();
+
+    [Fact]
+    public void AFrontMatterWithWindowsLineEndingsAndQuotedValuesLoads()
+    {
+        File.WriteAllText(Path.Combine(_templateFolder, TeamsFile),
+            "---\r\ntitle: \"Account {{accountNumber}} opened\"\r\nauthor: 'ops'\r\n---\r\n" + TeamsBody);
+
+        var version = TemplateCatalogueLoader.Load([Template("account-opened", Teams(TeamsFile))], _templateFolder)
+            .Find("account-opened")!.Versions.ShouldHaveSingleItem();
+
+        version.Title.ShouldBe("Account {{accountNumber}} opened");
+        version.Body.ShouldBe(TeamsBody);
+    }
+
+    [Fact]
+    public void AFrontMatterThatIsNeverClosedIsRefused()
+    {
+        File.WriteAllText(Path.Combine(_templateFolder, TeamsFile), "---\ntitle: Account opened\n" + TeamsBody);
+
+        ShouldBreak(Template("account-opened", Teams(TeamsFile)),
+            $"^Template 'account-opened': R4 the file '{Regex.Escape(TeamsFile)}' opens a front matter it never closes\\.$");
+    }
+
+    [Fact]
+    public void AFrontMatterLineThatIsNotKeyValueIsRefused()
+    {
+        Write(TeamsFile, "Account opened", TeamsBody);
+
+        ShouldBreak(Template("account-opened", Teams(TeamsFile)),
+            $"^Template 'account-opened': R4 the file '{Regex.Escape(TeamsFile)}' has a front matter line that is not 'key: value'\\.$");
     }
 
     [Fact]
@@ -209,12 +257,9 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
         var id = new string('a', 100);
         var longName = new string('f', 195) + ".html";
         longName.Length.ShouldBe(200);
-        File.WriteAllText(Path.Combine(_templateFolder, longName), EmailBody);
-        var email = Email(longName);
-        email.Subject = new string('s', 500);
-        var teams = Teams(TeamsFile);
-        teams.Title = new string('t', 200);
-        var template = Template(id, email, teams);
+        File.WriteAllText(Path.Combine(_templateFolder, longName), $"<title>{new string('s', 500)}</title>");
+        Write(TeamsFile, "title: " + new string('t', 200), TeamsBody);
+        var template = Template(id, Email(longName), Teams(TeamsFile));
         template.Description = new string('d', 200);
 
         var catalogue = TemplateCatalogueLoader.Load([template], _templateFolder);
@@ -229,11 +274,10 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
     [Fact]
     public void TheCatalogueHoldsEveryVersionWithItsFileText()
     {
-        var teams = Teams(TeamsFile);
-        teams.Title = "Account opened";
+        Write(TeamsFile, "title: Account opened", TeamsBody);
         var registrations = new[]
         {
-            Template("account-opened", Email(EmailFile), teams),
+            Template("account-opened", Email(EmailFile), Teams(TeamsFile)),
             Template("account-closed", Email(EmailFile))
         };
 
@@ -281,6 +325,9 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
         Should.Throw<ArgumentException>(() => TemplateCatalogueLoader.Load([], " "));
     }
 
+    private void Write(string name, string frontMatter, string body) =>
+        File.WriteAllText(Path.Combine(_templateFolder, name), $"---\n{frontMatter}\n---\n{body}");
+
     private void ShouldBreak(TemplateRegistration template, string messagePattern)
     {
         var error = Should.Throw<InvalidOperationException>(
@@ -308,8 +355,7 @@ public sealed class TemplateCatalogueLoaderTests : IDisposable
     {
         Channel = "email",
         File = file,
-        Format = TemplateFormat.Html,
-        Subject = "Your account is open"
+        Format = TemplateFormat.Html
     };
 
     private static TemplateVersionRegistration Teams(string file) => new()

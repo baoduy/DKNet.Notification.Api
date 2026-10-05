@@ -74,7 +74,7 @@ public sealed class BrokenTemplateCatalogueTests : IDisposable
                 email.Format = TemplateFormat.Markdown;
                 break;
             case "an email version with no subject":
-                email.Subject = null;
+                File.WriteAllText(Path.Combine(_templateFolder, EmailFile), "<p>Dear {{customerName}}.</p>");
                 break;
             case "a Teams version in HTML":
                 WriteTemplateFile("account-opened.teams.md");
@@ -97,7 +97,7 @@ public sealed class BrokenTemplateCatalogueTests : IDisposable
                 email.File = "../outside.html";
                 break;
             case "an email version with a subject of 501 characters":
-                email.Subject = new string('s', 501);
+                WriteTemplateFile(EmailFile, new string('s', 501));
                 break;
             case "a template with a description of 201 characters":
                 template.Description = new string('d', 201);
@@ -127,12 +127,11 @@ public sealed class BrokenTemplateCatalogueTests : IDisposable
     {
         Channel = "email",
         File = file,
-        Format = TemplateFormat.Html,
-        Subject = EmailSubject
+        Format = TemplateFormat.Html
     };
 
-    private void WriteTemplateFile(string name) =>
-        File.WriteAllText(Path.Combine(_templateFolder, name), "<p>Dear {{customerName}}.</p>");
+    private void WriteTemplateFile(string name, string subject = EmailSubject) =>
+        File.WriteAllText(Path.Combine(_templateFolder, name), $"<title>{subject}</title><p>Dear {{{{customerName}}}}.</p>");
 
     public void Dispose()
     {

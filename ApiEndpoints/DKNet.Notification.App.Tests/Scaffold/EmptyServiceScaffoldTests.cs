@@ -59,7 +59,7 @@ public sealed class EmptyServiceScaffoldTests
         // DKNet.Svc.Transformation: the renderer, DRK-2020 §3b and ADR-0004.
         ["DKNet.AspCore.Extensions", "DKNet.AspCore.Idempotency", "DKNet.AspCore.Idempotency.RedisStore", "DKNet.Svc.Transformation"];
 
-    private const string DesignDKNetPackageVersion = "13.1.3";
+    private const string DesignDKNetPackageVersion = "13.2.5";
 
     #region Scenario: The solution references no removed part
 
