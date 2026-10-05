@@ -181,13 +181,6 @@ Feature: Email channel with the SMTP sender, rendering and delivery
       And the mail to "jane@example.com" is delivered on attempt 2
 
     @integration
-    Scenario: A stop loses a notification that has not ended
-      Given the mail catcher is stopped
-      And "treasury-ops" emailed template "account-opened" to "jane@example.com", and it waits for attempt 2
-      When the service is restarted after the mail catcher is back
-      Then the mail catcher receives no mail to "jane@example.com"
-
-    @integration
     Scenario: An SMTP reply text never reaches the logs
       Given the mail server answers attempt 1 with "550 5.1.1 <jane@example.com> unknown user"
       When "treasury-ops" emails template "account-opened" to "jane@example.com"

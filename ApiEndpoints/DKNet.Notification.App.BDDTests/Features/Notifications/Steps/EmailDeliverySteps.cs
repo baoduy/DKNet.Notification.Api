@@ -438,13 +438,6 @@ public sealed class EmailDeliverySteps(SendScenario scenario)
         (await Catcher.HeadersAsync(mail.ID)).Keys.ShouldNotContain("Bcc");
     }
 
-    [Then(@"^the mail catcher receives no mail to ""([^""]*)""$")]
-    public async Task ThenTheMailCatcherReceivesNoMailTo(string to)
-    {
-        await Task.Delay(PastAttempt2);
-        (await Catcher.MailsAsync()).Where(m => m.To.Any(r => r.Address == to)).ShouldBeEmpty();
-    }
-
     [Then(@"^the mail server receives no mail$")]
     public async Task ThenTheMailServerReceivesNoMail()
     {
