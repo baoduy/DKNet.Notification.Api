@@ -1,0 +1,27 @@
+title: DKNet Notification
+description: Template-based email and Microsoft Teams notifications for backend services.
+theme: minima
+
+# The classic GitHub Pages build turns these on by itself; a workflow build does not.
+plugins:
+  - jekyll-optional-front-matter # render .md files that have no front matter
+  - jekyll-relative-links # rewrite links to .md files into links to the built pages
+  - jekyll-readme-index # serve architect/README.md as architect/
+  - jekyll-titles-from-headings
+
+titles_from_headings:
+  strip_title: true # the layout prints the title; drop the duplicate first heading
+
+header_pages:
+  - operator-guide.md
+  - runtime-architecture.md
+  - architect/README.md
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: page
+      # The docs show template tokens as {{name}}; Liquid would replace them with nothing.
+      # Needs Jekyll 4, which is why the site is built by .github/workflows/docs-pages.yml.
+      render_with_liquid: false

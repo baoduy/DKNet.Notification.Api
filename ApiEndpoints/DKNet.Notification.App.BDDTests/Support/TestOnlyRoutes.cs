@@ -3,7 +3,6 @@ using DKNet.AspCore.Extensions.Responses;
 using DKNet.Notification.AppServices.Share;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 
 namespace DKNet.Notification.App.BDDTests.Support;
 

@@ -13,6 +13,7 @@
         <!-- The Graph sender's sign-in (ADR-0010); the Api already pins and uses it for Azure App Configuration. -->
         <PackageReference Include="Azure.Identity" />
         <!-- Template rendering (ADR-0004). -->
+        <PackageReference Include="DKNet.SlimBus.Extensions" />
         <PackageReference Include="DKNet.Svc.Transformation" />
         <PackageReference Include="FluentValidation" />
         <!-- SMTP submission (ADR-0005). -->

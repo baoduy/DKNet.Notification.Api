@@ -97,7 +97,7 @@ public sealed class SmtpEmailSenderTests : IDisposable
     [Fact]
     public async Task Only_a_queued_notification_can_be_sent()
     {
-        var received = Domains.Notifications.Notification.Receive("account-opened", "email", new Dictionary<string, string>(), "treasury-ops");
+        var received = Domains.Notifications.Notification.Receive("account-opened", "email", new Dictionary<string, string>(), "treasury-ops", DateTimeOffset.UtcNow);
 
         (await Should.ThrowAsync<InvalidOperationException>(Sender(Port).SendAsync(received, CancellationToken.None)))
             .Message.ShouldBe("Only a queued notification has a message to send.");
@@ -189,7 +189,8 @@ public sealed class SmtpEmailSenderTests : IDisposable
             "account-opened",
             "email",
             new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = to },
-            "treasury-ops");
+            "treasury-ops",
+            DateTimeOffset.UtcNow);
         EmailRecipient.TryCreate(to, out var recipient).ShouldBeTrue();
         notification.Queue(recipient, new RenderedMessage("Your account is open", "Dear Jane", BodyFormat.Html));
         notification.StartAttempt();

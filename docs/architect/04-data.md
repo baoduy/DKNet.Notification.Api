@@ -66,8 +66,8 @@ The in-memory idempotency store is allowed only for local runs and tests. The pa
 | Channel | string | 1–50 | Yes | Unique within its template | — | `email` or `teams` in version 1 |
 | File | string | ≤ 200 | Yes | — | — | Relative path inside the `Templates` folder |
 | Format | enum | — | Yes | — | — | `Html` for email, `Markdown` for Teams |
-| Subject | string | 1–500 | Email only | — | — | May hold `{{name}}` tokens |
-| Title | string | ≤ 200 | No | — | Empty | Teams only. May hold `{{name}}` tokens |
+| Subject | string | 1–500 | Email only | — | — | The HTML `<title>` of the file; it stays in the sent body. May hold `{{name}}` tokens |
+| Title | string | ≤ 200 | No | — | Empty | Teams only. Read from the file's front matter (`title:`). May hold `{{name}}` tokens |
 
 ### EmailChannelSettings (configuration, one per deployment)
 

@@ -36,9 +36,8 @@ public sealed class TestAuthHandler(
     public const string InvalidToken = "invalid-token";
 
     /// <summary>
-    /// The claim <c>PrincipalProvider</c> reads as <c>ProfileId</c> and returns from <c>GetOwnershipKey()</c>
-    /// (this value's string form), not <see cref="CallerName" />. A real token carries this as its
-    /// <c>sub</c>/<c>oid</c> claim.
+    /// The caller's user id claim (this value's string form), not <see cref="CallerName" />. A real token
+    /// carries this as its <c>sub</c>/<c>oid</c> claim.
     /// </summary>
     public static readonly Guid CallerProfileId = Guid.Parse("11111111-2222-3333-4444-555555555555");
 

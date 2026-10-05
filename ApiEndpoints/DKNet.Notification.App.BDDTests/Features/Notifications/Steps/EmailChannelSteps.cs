@@ -78,8 +78,7 @@ public sealed class EmailChannelSteps(SendScenario scenario)
             ["Notifications:Templates:90:TemplateId"] = templateId,
             ["Notifications:Templates:90:Versions:0:Channel"] = "teams",
             ["Notifications:Templates:90:Versions:0:File"] = "account-opened.email.html",
-            ["Notifications:Templates:90:Versions:0:Format"] = "Markdown",
-            ["Notifications:Templates:90:Versions:0:Title"] = "Team digest"
+            ["Notifications:Templates:90:Versions:0:Format"] = "Markdown"
         };
         await StartAsync(settings);
         ShouldHaveStartedTheEmailSender();

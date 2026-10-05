@@ -29,6 +29,7 @@ public sealed class ReleasedTemplateCatalogueTests
         version.Channel.ShouldBe("email");
         version.Format.ShouldBe(TemplateFormat.Html);
         version.Subject.ShouldBe("Your account is open");
-        version.Body.Trim().ShouldBe("<p>Dear {{customerName}}, your account {{accountNumber}} is open.</p>");
+        version.Body.ShouldStartWith("<!DOCTYPE html>");
+        version.Body.ShouldContain(">Dear {{customerName}}, your account {{accountNumber}} is open.</p>");
     }
 }

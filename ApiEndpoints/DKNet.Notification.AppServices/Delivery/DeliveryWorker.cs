@@ -15,6 +15,7 @@ namespace DKNet.Notification.AppServices.Delivery;
 /// <param name="sender">The email sender: every channel but <c>teams</c> goes through it.</param>
 /// <param name="settings">The attempts and waits.</param>
 /// <param name="metrics">The delivery counters.</param>
+/// <param name="time">The clock the waits and the delivery duration are measured on.</param>
 /// <param name="logger">The delivery log entries.</param>
 /// <param name="teams">
 ///     The Teams sender, registered under <see cref="TeamsWebhookSender.ChannelKey" />; <see langword="null" /> when
@@ -25,6 +26,7 @@ public sealed class DeliveryWorker(
     IDeliverySender sender,
     DeliverySettings settings,
     NotificationMetrics metrics,
+    TimeProvider time,
     ILogger<DeliveryWorker> logger,
     [FromKeyedServices(TeamsWebhookSender.ChannelKey)] IDeliverySender? teams = null)
 {
@@ -116,7 +118,7 @@ public sealed class DeliveryWorker(
     {
         var notification = queued.Notification;
         notification.Deliver();
-        var duration = DateTimeOffset.UtcNow - notification.AcceptedAt;
+        var duration = time.GetUtcNow() - notification.AcceptedAt;
         logger.NotificationDelivered(
             notification.NotificationId,
             notification.AttemptCount,
@@ -149,7 +151,7 @@ public sealed class DeliveryWorker(
     {
         try
         {
-            await Task.Delay(wait, stoppingToken);
+            await Task.Delay(wait, time, stoppingToken);
             queue.Requeue(queued);
         }
         catch (OperationCanceledException)

@@ -6,7 +6,6 @@ global using Asp.Versioning.Builder;
 global using Scalar.AspNetCore;
 global using System.Security.Claims;
 global using DKNet.Notification.Api.Configs;
-global using DKNet.Notification.Api.Configs.Handlers;
 global using DKNet.AspCore.Extensions;
 global using DKNet.AspCore.Extensions.Endpoints;
 global using DKNet.AspCore.Extensions.ModelBinding;

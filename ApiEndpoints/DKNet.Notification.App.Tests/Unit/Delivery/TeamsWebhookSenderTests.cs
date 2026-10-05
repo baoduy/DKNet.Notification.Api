@@ -146,7 +146,7 @@ public sealed class TeamsWebhookSenderTests
     [Fact]
     public async Task A_notification_queued_for_email_has_no_destination_to_send_to()
     {
-        var notification = Domains.Notifications.Notification.Receive("account-opened", "email", new Dictionary<string, string>(), "treasury-ops");
+        var notification = Domains.Notifications.Notification.Receive("account-opened", "email", new Dictionary<string, string>(), "treasury-ops", DateTimeOffset.UtcNow);
         EmailRecipient.TryCreate("jane@example.com", out var recipient).ShouldBeTrue();
         notification.Queue(recipient, Message);
         using var sender = new TeamsWebhookSender(_settings, _webhook);
@@ -158,7 +158,7 @@ public sealed class TeamsWebhookSenderTests
     [Fact]
     public async Task A_notification_not_yet_queued_has_no_message_to_send()
     {
-        var notification = Domains.Notifications.Notification.Receive("account-opened", "teams", new Dictionary<string, string>(), "treasury-ops");
+        var notification = Domains.Notifications.Notification.Receive("account-opened", "teams", new Dictionary<string, string>(), "treasury-ops", DateTimeOffset.UtcNow);
         using var sender = new TeamsWebhookSender(_settings, _webhook);
 
         await Should.ThrowAsync<InvalidOperationException>(() => sender.SendAsync(notification, CancellationToken.None));
@@ -178,7 +178,7 @@ public sealed class TeamsWebhookSenderTests
 
     private async Task<DeliveryFailure?> SendAsync(CancellationToken stoppingToken = default, string destination = "ops-alerts")
     {
-        var notification = Domains.Notifications.Notification.Receive("account-opened", "teams", new Dictionary<string, string>(), "treasury-ops");
+        var notification = Domains.Notifications.Notification.Receive("account-opened", "teams", new Dictionary<string, string>(), "treasury-ops", DateTimeOffset.UtcNow);
         TeamsRecipient.TryCreate(destination, out var recipient).ShouldBeTrue();
         notification.Queue(recipient, Message);
         using var sender = new TeamsWebhookSender(_settings, _webhook);

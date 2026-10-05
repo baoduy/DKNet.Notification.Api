@@ -18,6 +18,7 @@ public sealed class SendNotificationService(
     TeamsChannelSettings teams,
     DeliveryQueue queue,
     NotificationMetrics metrics,
+    TimeProvider time,
     ILogger<SendNotificationService> logger)
 {
     #region Fields
@@ -55,7 +56,8 @@ public sealed class SendNotificationService(
             request.TemplateId,
             request.Channel,
             request.Parameters,
-            callerId);
+            callerId,
+            time.GetUtcNow());
 
         // Step 4 — template.
         var template = catalogue.Find(notification.TemplateId);

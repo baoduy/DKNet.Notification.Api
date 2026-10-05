@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.Authentication;
@@ -7,7 +6,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using NetArchTest.Rules;
-using Shouldly;
 
 namespace DKNet.Notification.App.Tests.Scaffold;
 
@@ -29,14 +27,17 @@ public sealed class EmptyServiceScaffoldTests
         // Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore or LinqKit.Microsoft.EntityFrameworkCore.
         ("EF Core", new Regex(@"EntityFrameworkCore|EFCore|\.EF$", IgnoreCase)),
         ("DKNet.EfCore", new Regex(@"^DKNet\.EfCore\.", IgnoreCase)),
-        ("DKNet.SlimBus", new Regex(@"^DKNet\.SlimBus\.", IgnoreCase)),
-        ("message bus", new Regex("SlimMessageBus|ServiceBus|MassTransit|RabbitMQ", IgnoreCase)),
+        // ADR-0011 allows SlimMessageBus's in-memory bus as the mediator; a message broker stays removed.
+        ("message broker", new Regex("ServiceBus|MassTransit|RabbitMQ", IgnoreCase)),
         ("typed client", new Regex(@"^Refit", IgnoreCase))
     ];
 
-    /// <summary>Namespaces of the removed parts' types (§3: EF Core, DKNet.EfCore, the message bus).</summary>
+    /// <summary>
+    ///     Namespaces of the removed parts' types (§3: EF Core, DKNet.EfCore). The message bus left this list with
+    ///     ADR-0011: SlimMessageBus and DKNet.SlimBus are the in-memory mediator.
+    /// </summary>
     private static readonly string[] RemovedPartNamespaces =
-        ["Microsoft.EntityFrameworkCore", "DKNet.EfCore", "SlimMessageBus", "DKNet.SlimBus"];
+        ["Microsoft.EntityFrameworkCore", "DKNet.EfCore"];
 
     /// <summary>Words that name a removed part in a settings file or a document.</summary>
     private static readonly (string Part, Regex Word)[] RemovedPartWords =
@@ -46,7 +47,8 @@ public sealed class EmptyServiceScaffoldTests
         ("the samples' generated data", new Regex("SampleData", IgnoreCase)),
         ("PostgreSQL", new Regex(@"postgre|npgsql|\bAppDb\b|DbMigration", IgnoreCase)),
         ("EF Core", new Regex(@"\bEF ?Core|EntityFramework", IgnoreCase)),
-        ("the message bus", new Regex("message ?bus|SlimBus|ServiceBus|AzureBus|busConfig", IgnoreCase))
+        // ADR-0011: the in-memory bus may be named; the Azure Service Bus and its settings stay removed.
+        ("the Azure Service Bus", new Regex("ServiceBus|AzureBus|busConfig", IgnoreCase))
     ];
 
     /// <summary>Setting keys that hold a connection string, password or client secret.</summary>
@@ -57,9 +59,13 @@ public sealed class EmptyServiceScaffoldTests
 
     private static readonly string[] DesignDKNetPackages =
         // DKNet.Svc.Transformation: the renderer, DRK-2020 §3b and ADR-0004.
-        ["DKNet.AspCore.Extensions", "DKNet.AspCore.Idempotency", "DKNet.AspCore.Idempotency.RedisStore", "DKNet.Svc.Transformation"];
+        // DKNet.SlimBus.Extensions: the Fluents command and handler contracts, ADR-0011.
+        [
+            "DKNet.AspCore.Extensions", "DKNet.AspCore.Idempotency", "DKNet.AspCore.Idempotency.RedisStore",
+            "DKNet.SlimBus.Extensions", "DKNet.Svc.Transformation"
+        ];
 
-    private const string DesignDKNetPackageVersion = "13.1.3";
+    private const string DesignDKNetPackageVersion = "13.2.5";
 
     #region Scenario: The solution references no removed part
 
@@ -84,9 +90,9 @@ public sealed class EmptyServiceScaffoldTests
         offenders.ShouldBeEmpty($"Removed parts still referenced:{Environment.NewLine}{string.Join(Environment.NewLine, offenders)}");
     }
 
-    /// <summary>§5 contract row "package" — the only direct DKNet packages are the 4 the design names, at 13.1.3.</summary>
+    /// <summary>§5 contract row "package" — the only direct DKNet packages are the 5 the design names, at 13.2.5.</summary>
     [Fact]
-    public void TheOnlyDirectDKNetPackagesAreTheFourTheDesignNames_At13_1_3()
+    public void TheOnlyDirectDKNetPackagesAreTheFiveTheDesignNames_At13_2_5()
     {
         DirectPackageReferences()
             .Select(r => r.Id)
@@ -102,9 +108,9 @@ public sealed class EmptyServiceScaffoldTests
             .ShouldBe(DesignDKNetPackages.Select(id => $"{id} {DesignDKNetPackageVersion}"));
     }
 
-    /// <summary>§5 contract row "test package" — <c>Aspire.Hosting.Testing</c> 13.5.4 in App.Tests only (DRK-1994 Q1).</summary>
+    /// <summary>§5 contract row "test package" — <c>Aspire.Hosting.Testing</c> 13.6.0 in App.Tests only (DRK-1994 Q1).</summary>
     [Fact]
-    public void AspireHostingTestingIsReferencedByAppTestsOnly_At13_5_4()
+    public void AspireHostingTestingIsReferencedByAppTestsOnly_At13_6_0()
     {
         DirectPackageReferences()
             .Where(r => r.Id == "Aspire.Hosting.Testing")
@@ -112,15 +118,15 @@ public sealed class EmptyServiceScaffoldTests
             .ShouldBe(["DKNet.Notification.App.Tests.csproj"]);
 
         CentralPackageVersions().Where(v => v.Id == "Aspire.Hosting.Testing").Select(v => v.Version)
-            .ShouldBe(["13.5.4"]);
+            .ShouldBe(["13.6.0"]);
     }
 
     #endregion
 
-    #region Scenario: The service's own code uses no EF Core or message bus
+    #region Scenario: The service's own code uses no EF Core
 
     [Fact]
-    public void TheServicesOwnCodeUsesNoEfCoreOrMessageBus()
+    public void TheServicesOwnCodeUsesNoEfCore()
     {
         var types = Types.InAssemblies(ScaffoldRepo.ServiceAssemblies());
         types.GetTypes().ShouldNotBeEmpty();
@@ -128,7 +134,7 @@ public sealed class EmptyServiceScaffoldTests
         var result = types.ShouldNot().HaveDependencyOnAny(RemovedPartNamespaces).GetResult();
 
         result.IsSuccessful.ShouldBeTrue(
-            "These types use EF Core, a DKNet.EfCore package or the message bus: " +
+            "These types use EF Core or a DKNet.EfCore package: " +
             string.Join(", ", (result.FailingTypes ?? []).Select(t => t.FullName)));
     }
 

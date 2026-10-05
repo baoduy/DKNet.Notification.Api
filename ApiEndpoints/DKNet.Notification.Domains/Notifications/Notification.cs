@@ -28,14 +28,15 @@ public sealed class Notification
         string templateId,
         string channel,
         IReadOnlyDictionary<string, string> parameters,
-        string callerId)
+        string callerId,
+        DateTimeOffset acceptedAt)
     {
         NotificationId = Guid.CreateVersion7();
         TemplateId = templateId;
         Channel = channel.ToLowerInvariant();
         Parameters = parameters;
         CallerId = callerId;
-        AcceptedAt = DateTimeOffset.UtcNow;
+        AcceptedAt = acceptedAt;
     }
 
     #endregion
@@ -93,13 +94,15 @@ public sealed class Notification
     /// <param name="channel">The channel the caller named, in any case.</param>
     /// <param name="parameters">The template parameters.</param>
     /// <param name="callerId">The calling application's id.</param>
+    /// <param name="acceptedAt">When the call was accepted, from the service's clock.</param>
     /// <returns>A notification in <see cref="NotificationStatus.Received" />.</returns>
     public static Notification Receive(
         string templateId,
         string channel,
         IReadOnlyDictionary<string, string> parameters,
-        string callerId) =>
-        new(templateId, channel, parameters, callerId);
+        string callerId,
+        DateTimeOffset acceptedAt) =>
+        new(templateId, channel, parameters, callerId, acceptedAt);
 
     /// <summary>Rejects the call: nothing is queued.</summary>
     public void Reject()

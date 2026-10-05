@@ -200,6 +200,7 @@ No library retries inside an attempt. The `Azure.Identity` credential is built w
 | DKNet.Svc.Transformation | NuGet library | service → library | ADR-0004 |
 | DKNet.AspCore.Idempotency, DKNet.AspCore.Idempotency.RedisStore | NuGet library | service → library | Same packages DKNet.Accounts.Api uses |
 | DKNet.AspCore.Extensions | NuGet library | service → library | Error responses, endpoint scopes |
+| DKNet.SlimBus.Extensions, SlimMessageBus.Host.Memory | NuGet library | service → library | In-process mediator from endpoint to handler. ADR-0011 |
 | MailKit | NuGet library (third party) | service → library | New to the DKNet repos. ADR-0005 |
 | Azure.Identity | NuGet library (third party) | service → library | Graph token, both credential modes. DKNet.Accounts.Api pins it too. ADR-0010 |
 | DKNet.Templates | Solution template | one-time scaffold | Not referenced after slice 1 |
@@ -209,7 +210,7 @@ No library retries inside an attempt. The `Azure.Identity` credential is built w
 | Microsoft Graph and the sending mailbox | External service | service → Graph | ADR-0009, ADR-0010 |
 | Microsoft Teams Workflows | External service | service → webhook | ADR-0006 |
 
-Every arrow points from this service to a library or an external system. No library points back. No DKNet repo depends on this service at build time, so there is no cycle. DKNet.SlimBus.Extensions is not used (ADR-0003).
+Every arrow points from this service to a library or an external system. No library points back. No DKNet repo depends on this service at build time, so there is no cycle. DKNet.SlimBus.Extensions supplies only the command and handler contracts; its EF Core helpers are not used (ADR-0011).
 
 ## Main flows
 

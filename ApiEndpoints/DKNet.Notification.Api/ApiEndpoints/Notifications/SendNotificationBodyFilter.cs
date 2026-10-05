@@ -1,4 +1,3 @@
-using DKNet.Notification.AppServices.Notifications;
 using FluentValidation;
 using FluentValidation.Results;
 using SharpGrip.FluentValidation.AutoValidation.Endpoints.Results;

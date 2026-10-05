@@ -365,7 +365,7 @@ public sealed class GraphDeliverySteps(SendScenario scenario, GraphScenario grap
     {
         var body = MessageOf((await SendsAsync(1)).ShouldHaveSingleItem()).GetProperty("body");
         body.GetProperty("contentType").GetString().ShouldBe("HTML");
-        VisibleText(body.GetProperty("content").GetString().ShouldNotBeNull()).ShouldBe(text);
+        VisibleText(body.GetProperty("content").GetString().ShouldNotBeNull()).ShouldContain(text);
     }
 
     [Then(@"^the send has no copy recipient, no attachment, no sender address, no sender name and no Sent Items choice$")]

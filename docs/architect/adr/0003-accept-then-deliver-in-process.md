@@ -18,7 +18,7 @@
 - **Alternatives:**
   - *Deliver inside the API call.* Rejected: callers wait on SMTP. A 502 would tell callers about delivery, which the skip rule does not allow for other cases.
   - *Azure Service Bus queue.* Rejected for version 1: it adds infrastructure and a dead-letter process for a service with no delivery guarantee asked for. It is the upgrade path when loss on restart is no longer acceptable.
-  - *SlimMessageBus in-memory bus with DKNet.SlimBus.Extensions.* Rejected: its setup methods need an EF Core context, and this service has none (ADR-0002). The in-memory bus is no more durable than a plain queue.
+  - *SlimMessageBus in-memory bus as the delivery queue.* Rejected: it is no more durable than a plain queue, and the 1,000-per-replica bound and the 503 answer would still have to be built around it. The send call does use the same bus as an in-process mediator from the endpoint to its handler (ADR-0011); that is a separate role from this queue. (Revision 1 of this ADR gave a different reason: that the bus needs an EF Core context. Only the EF Core helpers in DKNet.SlimBus.Extensions need one; the bus does not.)
   - *DKNet.AspCore.Tasks for the worker.* Rejected: it runs one-shot jobs at start-up. It is not a long-running consumer.
   - *A database outbox.* Rejected: it needs the database that ADR-0002 removes.
 - **Consequences:**

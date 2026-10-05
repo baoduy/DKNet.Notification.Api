@@ -16,6 +16,7 @@ namespace DKNet.Notification.App.Tests.Unit.Configs;
 /// ID's error text. The host is the release's log set-up with an Azure Monitor connection string that points at a
 /// port where nothing listens; the token request fails at a fake Entra ID that answers with an error text.
 /// </summary>
+[Collection(SerialTestsCollection.Name)]
 public sealed class AzureIdentityLogFilterTests
 {
     [Fact]

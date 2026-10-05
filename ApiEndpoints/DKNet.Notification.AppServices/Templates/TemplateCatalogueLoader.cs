@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.RegularExpressions;
 using DKNet.Notification.Domains.Templates;
 
@@ -94,20 +95,63 @@ public static partial class TemplateCatalogueLoader
             _ => throw Broken(id, "R2", $"the channel must be {EmailChannel} or {TeamsChannel}.")
         };
 
-        if (channel == EmailChannel && version.Subject is not { Length: > 0 and <= MaxSubjectLength })
+        var file = version.File ?? string.Empty;
+        var text = ReadBody(id, file, ResolvePath(id, file, folder));
+        if (channel == EmailChannel)
         {
-            throw Broken(id, "R3", $"an email version needs a subject of 1 to {MaxSubjectLength} characters.");
+            // The subject is the HTML <title>. It stays in the body: a browser preview and a mail client do not
+            // show it on the page.
+            var subject = WebUtility.HtmlDecode(HtmlTitlePattern().Match(text).Groups["title"].Value).Trim();
+            if (subject is not { Length: > 0 and <= MaxSubjectLength })
+            {
+                throw Broken(id, "R3", $"an email version needs a <title> of 1 to {MaxSubjectLength} characters.");
+            }
+
+            return new TemplateVersion(channel, file, format, subject, Title: null, text);
         }
 
-        if (version.Title?.Length > MaxTextLength)
+        var (fields, body) = SplitFrontMatter(id, file, text);
+        var title = fields.GetValueOrDefault("title");
+
+        if (title?.Length > MaxTextLength)
         {
             throw Broken(id, "R5", $"the title is longer than {MaxTextLength} characters.");
         }
 
-        var file = version.File ?? string.Empty;
-        var body = ReadBody(id, file, ResolvePath(id, file, folder));
-        return new TemplateVersion(channel, file, format, version.Subject, version.Title, body);
+        return new TemplateVersion(channel, file, format, Subject: null, title, body);
     }
+
+    // Front matter: a first line "---", then "key: value" lines, then a line "---". A value may sit in quotes, as
+    // YAML needs when it starts with "{{". The loader reads title only; any other key is ignored.
+    private static (Dictionary<string, string> Fields, string Body) SplitFrontMatter(string id, string file, string text)
+    {
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal);
+        var match = FrontMatterPattern().Match(text);
+        if (!match.Success)
+        {
+            return FrontMatterOpenPattern().IsMatch(text)
+                ? throw Broken(id, "R4", $"the file '{file}' opens a front matter it never closes.")
+                : (fields, text);
+        }
+
+        var lines = match.Groups["fields"].Value.Split(
+            '\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var colon = line.IndexOf(':', StringComparison.Ordinal);
+            if (colon < 1)
+            {
+                throw Broken(id, "R4", $"the file '{file}' has a front matter line that is not 'key: value'.");
+            }
+
+            fields[line[..colon].TrimEnd()] = Unquote(line[(colon + 1)..].TrimStart());
+        }
+
+        return (fields, text[match.Length..]);
+    }
+
+    private static string Unquote(string value) =>
+        value.Length >= 2 && value[0] == value[^1] && value[0] is '"' or '\'' ? value[1..^1] : value;
 
     private static string ResolvePath(string id, string file, string folder)
     {
@@ -148,6 +192,16 @@ public static partial class TemplateCatalogueLoader
     // \z, not $: $ also matches before a trailing new line.
     [GeneratedRegex(@"^[a-z0-9-]{1,100}\z", RegexOptions.CultureInvariant)]
     private static partial Regex TemplateIdPattern();
+
+    [GeneratedRegex(@"<title\b[^>]*>(?<title>.*?)</title\s*>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex HtmlTitlePattern();
+
+    [GeneratedRegex(@"\A---[ \t]*\r?\n(?<fields>(?:.*\r?\n)*?)---[ \t]*(?:\r?\n|\z)", RegexOptions.CultureInvariant)]
+    private static partial Regex FrontMatterPattern();
+
+    [GeneratedRegex(@"\A---[ \t]*\r?\n", RegexOptions.CultureInvariant)]
+    private static partial Regex FrontMatterOpenPattern();
 
     #endregion
 }

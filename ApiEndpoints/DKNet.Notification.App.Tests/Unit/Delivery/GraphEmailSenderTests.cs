@@ -15,6 +15,7 @@ namespace DKNet.Notification.App.Tests.Unit.Delivery;
 /// throttling after a token 429. The sender and its sign-in are the real ones; only the transport is a fake that
 /// answers in place of Entra ID and Graph. The send and sign-in through HTTPS stubs run in the BDD suite.
 /// </summary>
+[Collection(SerialTestsCollection.Name)]
 public sealed class GraphEmailSenderTests
 {
     private const string TenantId = "3f2b9c1e-6a4d-4e0b-9d57-1c2f8a7e5b10";
@@ -173,7 +174,8 @@ public sealed class GraphEmailSenderTests
             "account-opened",
             "email",
             new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = "jane@example.com" },
-            "treasury-ops");
+            "treasury-ops",
+            DateTimeOffset.UtcNow);
 
         await Should.ThrowAsync<InvalidOperationException>(() =>
             Sender(Settings()).SendAsync(notification, CancellationToken.None));
@@ -468,7 +470,8 @@ public sealed class GraphEmailSenderTests
             "account-opened",
             "email",
             new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = "jane@example.com" },
-            "treasury-ops");
+            "treasury-ops",
+            DateTimeOffset.UtcNow);
         EmailRecipient.TryCreate("jane@example.com", out var recipient).ShouldBeTrue();
         notification.Queue(recipient, new RenderedMessage("Your account is open", "<p>Dear Jane Tan</p>", BodyFormat.Html));
         notification.StartAttempt();

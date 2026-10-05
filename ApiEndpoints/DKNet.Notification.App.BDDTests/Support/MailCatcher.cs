@@ -24,8 +24,9 @@ public enum MailCatcherKind
 }
 
 /// <summary>
-/// Mailpit mail catchers for the whole test run (DRK-2020 §3b: the tests start a Mailpit test container), one per
-/// <see cref="MailCatcherKind" />, each started on first use and disposed by <see cref="ApiHooks" /> after the run.
+/// Mailpit mail catchers (DRK-2020 §3b: the tests start a Mailpit test container), one per
+/// <see cref="MailCatcherKind" /> and feature (features run in parallel, see <see cref="FeatureKey" />), each started
+/// on first use and disposed by <see cref="ApiHooks" /> after the run.
 /// Needs Docker. Every kind but <see cref="MailCatcherKind.Untrusted" /> serves a certificate signed by
 /// <see cref="TestCertificateAuthority.Trusted" />, which the service trusts only through the seam its test host
 /// overrides, never through a setting. Mails are read through Mailpit's HTTP API.
@@ -46,7 +47,10 @@ public sealed class MailCatcher : IAsyncDisposable
     private const int SmtpPort = 1025;
     private const int HttpPort = 8025;
 
-    private static readonly ConcurrentDictionary<MailCatcherKind, Lazy<Task<MailCatcher>>> Instances = new();
+    private static readonly ConcurrentDictionary<(string Feature, MailCatcherKind Kind), Lazy<Task<MailCatcher>>> Instances = new();
+
+    // Host ports handed out so far: catchers of parallel features pick theirs at the same time.
+    private static readonly ConcurrentDictionary<int, bool> HandedPorts = new();
 
     private readonly IContainer _container;
     private readonly HttpClient _api;
@@ -73,12 +77,12 @@ public sealed class MailCatcher : IAsyncDisposable
 
     public bool IsRunning => _container.State == TestcontainersStates.Running;
 
-    /// <summary>The STARTTLS catcher of the test run.</summary>
+    /// <summary>The STARTTLS catcher of the calling feature.</summary>
     public static Task<MailCatcher> SharedAsync() => SharedAsync(MailCatcherKind.StartTls);
 
-    /// <summary>The catcher of <paramref name="kind" />, started on first use.</summary>
+    /// <summary>The calling feature's catcher of <paramref name="kind" />, started on first use.</summary>
     public static Task<MailCatcher> SharedAsync(MailCatcherKind kind) =>
-        Instances.GetOrAdd(kind, k => new Lazy<Task<MailCatcher>>(() => StartSharedAsync(k))).Value;
+        Instances.GetOrAdd((FeatureKey.Current, kind), k => new Lazy<Task<MailCatcher>>(() => StartSharedAsync(k.Kind))).Value;
 
     /// <summary>
     /// The settings of a service with email set up to send to this catcher, without sign-in: security mode
@@ -229,9 +233,16 @@ public sealed class MailCatcher : IAsyncDisposable
 
     private static int FreePort()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
+        while (true)
+        {
+            using var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            if (HandedPorts.TryAdd(port, true))
+            {
+                return port;
+            }
+        }
     }
 
     /// <summary>One address of a mail, as Mailpit reports it.</summary>

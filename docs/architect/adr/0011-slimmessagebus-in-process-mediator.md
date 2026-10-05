@@ -1,0 +1,21 @@
+# ADR-0011: Use SlimMessageBus's in-memory bus as the in-process mediator
+
+- **Status:** Accepted
+- **Context:**
+  - The other DKNet services send each API call to a handler through SlimMessageBus's in-memory bus, used as a MediatR replacement, with the command and handler contracts from DKNet.SlimBus.Extensions (`Fluents.Requests`).
+  - This service started without it: ADR-0003 rejected the bus, giving the reason that it needs an EF Core context. That reason was wrong. Only the EF Core helpers in DKNet.SlimBus.Extensions (`AddSlimBusEventPublisher`, `AddSlimBusEfCoreInterceptor`) need a context; the bus and the `Fluents` contracts do not.
+  - DKNet.AspCore.Extensions already brings in SlimMessageBus, DKNet.SlimBus.Extensions and the EF Core assemblies transitively. Using the bus adds one package, SlimMessageBus.Host.Memory, and no new external dependency.
+  - ADR-0008 holds an idempotency key for 30 seconds after any answer that is not 2xx. A body refused before the key is reserved holds no key.
+- **Decision:**
+  - The endpoint sends `SendNotification`, a `Fluents.Requests.IWitResponse<Guid>`, on the in-memory bus. `SendNotificationHandler` runs the send steps and answers the notification id, or a failure whose error carries the refusal's `Code` and `Field` metadata.
+  - The endpoint reads the caller id and the trace id from the HTTP request and puts them on the command, so the handler does not depend on the HTTP request.
+  - Body validation stays in the endpoint filter that runs before the idempotency filter. It does not move into a bus validation interceptor, which would run inside the idempotency filter and hold the key of every refused body (ADR-0008).
+  - The endpoint maps a failure to the HTTP answer itself: 400 with the field, or 503 with `Retry-After: 30` for a full queue. DKNet's FluentResults response drops the field and cannot set the header.
+  - The bus is only a mediator. Delivery keeps the bounded queue and worker of ADR-0003.
+- **Alternatives:**
+  - *Call the send service directly from the endpoint.* This was revision 1 of the service. Rejected: it does not match the command and handler shape of the other DKNet services, and each new endpoint would wire its own service.
+  - *DKNet.AspCore.Extensions' `MapPost<TCommand, TResponse>`.* Rejected for this route: it answers 200 or 201, binds the body itself, and cannot answer 202, 413 or 503 with `Retry-After`. Later routes without those needs can use it.
+  - *Validate with SlimMessageBus.Host.FluentValidation.* Rejected: it validates inside the idempotency filter (see above).
+- **Consequences:**
+  - Easier: new operations follow the same command and handler pattern as the rest of DKNet; a handler is tested without HTTP.
+  - Harder: one more hop and registration at start-up for a single route. Caller id and trace id stay explicit command fields, not values filled from claims or headers: the caller id falls back across three claims (`client_id`, `azp`, `appid`), which a single `[FromClaim]` cannot express, and the trace id comes from the current `Activity`.

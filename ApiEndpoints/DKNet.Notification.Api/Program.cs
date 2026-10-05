@@ -1,4 +1,3 @@
-using DKNet.Notification.Api.Configs;
 using DKNet.Notification.Api.Configs.AzureAppConfig;
 using SharpGrip.FluentValidation.AutoValidation.Endpoints.Extensions;
 

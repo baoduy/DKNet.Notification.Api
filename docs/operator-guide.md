@@ -71,9 +71,18 @@ Exactly one sender is active per deployment, chosen by `Notifications:Email:Send
 
 - `Notifications:Templates` is a list of template registrations; each names an id, a description and one version per channel (`email` → HTML, `teams` → Markdown), and each version's file is loaded from the `Templates` folder inside the container image at start-up.
 - The container's root filesystem is read-only in the chart (`securityContext.readOnlyRootFilesystem: true`), so **a new template file can only ship in a new image** — you cannot add or edit a template file at deploy time through settings.
-- You *can* change a shipped template's metadata (description, subject, title) through settings, because `Notifications:Templates` is bound as an indexed list: an environment variable such as `Notifications__Templates__0__Versions__0__Subject` overwrites that field of the shipped `account-opened` entry at index 0. Adding a new index (e.g. index `1`) adds a template registration, but its file must already exist in the image.
+- The email subject and the Teams title live in the template file, so **changing them needs a new image** too:
+  - Email: the HTML `<title>` in `<head>` is the subject (entities such as `&amp;` are decoded). It stays in the sent mail; a browser preview and mail clients do not show it on the page.
+  - Teams: the YAML front matter `title` key. Quote a value that starts with `{{`. The front matter is not part of the sent body.
+  ```markdown
+  ---
+  title: "Account {{accountNumber}} opened"
+  ---
+  **{{customerName}}** has completed onboarding.
+  ```
+- You *can* change a shipped template's description through settings, because `Notifications:Templates` is bound as an indexed list: an environment variable such as `Notifications__Templates__0__Description` overwrites that field of the shipped `account-opened` entry at index 0. A leftover `Subject` or `Title` setting is ignored without an error. Adding a new index (e.g. index `1`) adds a template registration, but its file must already exist in the image.
   > ⚠️ **Index `0` is the shipped `account-opened` template.** An environment variable at `Notifications__Templates__0__...` silently overwrites that entry's field instead of adding a new one — there is no separate "add" key. Use an index the release's own catalogue does not already use (check the image's `appsettings.json` first) for anything you mean to add rather than change.
-- A broken catalogue — a bad id, a missing file, two versions for one channel, a subject over 500 characters — **stops the service from starting**.
+- A broken catalogue — a bad id, a missing file, two versions for one channel, an email file with no `<title>`, a subject over 500 characters — **stops the service from starting**.
 
 ### What a bad value does
 

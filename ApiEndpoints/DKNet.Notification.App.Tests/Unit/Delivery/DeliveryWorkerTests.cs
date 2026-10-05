@@ -6,12 +6,14 @@ using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Notifications;
 using DKNet.Notification.Domains.Notifications;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 
 namespace DKNet.Notification.App.Tests.Unit.Delivery;
 
 /// <summary>
 /// DRK-2020 §3 Delivery, at the worker: what each attempt result does, the retry clock and <c>MaxAttempts</c> (brief
-/// DRK-2022 §3 row 15), with a scripted sender in place of the SMTP provider.
+/// DRK-2022 §3 row 15), with a scripted sender in place of the SMTP provider. The worker waits on a fake clock that
+/// only the test moves, so every wait is exact and takes no real time.
 /// </summary>
 public sealed class DeliveryWorkerTests : IAsyncDisposable
 {
@@ -20,6 +22,7 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
     private static readonly RenderedMessage Message = new("Your account is open", "Dear Jane", BodyFormat.Html);
     private static readonly DeliveryFailure Transient = new(IsTransient: true, ReplyCode: string.Empty);
 
+    private readonly TestClock _clock = new();
     private readonly TestLogCapture _logs = new();
     private readonly ServiceProvider _services;
     private readonly MeterListener _listener = new();
@@ -115,7 +118,7 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         _measurements.Where(m => m.Instrument == "notifications.failed").ShouldHaveSingleItem().ShouldBe(("notifications.failed", 1d, "email"));
         _measurements.Where(m => m.Instrument == "notifications.delivered").ShouldBeEmpty();
 
-        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        await LongPastEveryWaitAsync();
         sender.Attempts.Count.ShouldBe(1);
     }
 
@@ -219,12 +222,15 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
                 return null;
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(1.5), token);
+            await Task.Delay(TimeSpan.FromSeconds(1.5), _clock, token);
             return Transient;
         });
         var queue = Start(new DeliverySettings(retryDelaysSeconds: [1, 1]), sender);
 
         var notification = Enqueue(queue);
+        await UntilAsync(() => _clock.Timers >= 1);
+        _clock.Advance(TimeSpan.FromSeconds(1.5));
+        await PassWaitAsync(2, TimeSpan.FromSeconds(1), sender);
         await UntilAsync(() => notification.Status == NotificationStatus.Delivered);
 
         var attempts = sender.Attempts.ToArray();
@@ -259,7 +265,13 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         var queue = Start(new DeliverySettings(retryDelaysSeconds: [4, 4]), sender);
 
         var notification = Enqueue(queue);
-        await UntilAsync(() => notification.Status == NotificationStatus.Delivered, TimeSpan.FromSeconds(10));
+        var wait = failure.RetryAfter ?? TimeSpan.FromSeconds(4);
+        if (wait > TimeSpan.Zero)
+        {
+            await PassWaitAsync(1, wait, sender);
+        }
+
+        await UntilAsync(() => notification.Status == NotificationStatus.Delivered);
 
         var attempts = sender.Attempts.ToArray();
         attempts.Length.ShouldBe(2);
@@ -285,7 +297,8 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         await UntilAsync(() => next.Status == NotificationStatus.Delivered);
 
         notification.Status.ShouldBe(NotificationStatus.RetryWaiting);
-        await UntilAsync(() => notification.Status == NotificationStatus.Delivered, TimeSpan.FromSeconds(10));
+        await PassWaitAsync(1, TimeSpan.FromSeconds(3), sender);
+        await UntilAsync(() => notification.Status == NotificationStatus.Delivered);
         notification.AttemptCount.ShouldBe(2);
     }
 
@@ -302,7 +315,9 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         await UntilAsync(() => notification.Status == NotificationStatus.RetryWaiting);
         notification.Status.ShouldBe(NotificationStatus.RetryWaiting);
         queue.Length.ShouldBe(1);
-        await UntilAsync(() => notification.Status == NotificationStatus.Delivered, TimeSpan.FromSeconds(10));
+        await PassWaitAsync(1, TimeSpan.FromSeconds(1), sender);
+        await PassWaitAsync(2, TimeSpan.FromSeconds(2), sender);
+        await UntilAsync(() => notification.Status == NotificationStatus.Delivered);
 
         var attempts = sender.Attempts.ToArray();
         (attempts[1].Start - attempts[0].End).ShouldBeGreaterThanOrEqualTo(TimeSpan.FromSeconds(0.95));
@@ -323,7 +338,12 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         var queue = Start(new DeliverySettings(maxAttempts: maxAttempts, retryDelaysSeconds: [1, 1]), sender);
 
         var notification = Enqueue(queue);
-        await UntilAsync(() => notification.Status == NotificationStatus.Failed, TimeSpan.FromSeconds(10));
+        for (var wait = 1; wait < maxAttempts; wait++)
+        {
+            await PassWaitAsync(wait, TimeSpan.FromSeconds(1), sender);
+        }
+
+        await UntilAsync(() => notification.Status == NotificationStatus.Failed);
 
         notification.AttemptCount.ShouldBe(maxAttempts);
         Entries("NotificationAttemptFailed").Select(e => e.Value("Attempt"))
@@ -333,7 +353,7 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         failed.Value("ReplyCode").ShouldBe(string.Empty);
         queue.Length.ShouldBe(0);
 
-        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        await LongPastEveryWaitAsync();
         sender.Attempts.Count.ShouldBe(maxAttempts);
     }
 
@@ -347,7 +367,7 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
 
         await _stop.CancelAsync();
         await _running.ShouldNotBeNull();
-        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        await LongPastEveryWaitAsync();
 
         sender.Attempts.Count.ShouldBe(1);
         notification.Status.ShouldBe(NotificationStatus.RetryWaiting);
@@ -417,30 +437,34 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
     {
         var metrics = new NotificationMetrics(_services.GetRequiredService<IMeterFactory>());
         var queue = new DeliveryQueue(settings, metrics);
-        var worker = new DeliveryWorker(queue, sender, settings, metrics, _services.GetRequiredService<ILogger<DeliveryWorker>>(), teams);
+        sender.Clock = _clock;
+        teams?.Clock = _clock;
+        var worker = new DeliveryWorker(queue, sender, settings, metrics, _clock, _services.GetRequiredService<ILogger<DeliveryWorker>>(), teams);
         _running = Task.Run(() => worker.RunAsync(_stop.Token));
         return queue;
     }
 
-    private static Domains.Notifications.Notification Enqueue(DeliveryQueue queue, string traceId = TraceId)
+    private Domains.Notifications.Notification Enqueue(DeliveryQueue queue, string traceId = TraceId)
     {
         var notification = Domains.Notifications.Notification.Receive(
             "account-opened",
             "email",
             new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = "jane@example.com" },
-            "treasury-ops");
+            "treasury-ops",
+            _clock.GetUtcNow());
         EmailRecipient.TryCreate("jane@example.com", out var recipient).ShouldBeTrue();
         queue.TryEnqueue(notification, recipient, Message, traceId).ShouldBeTrue();
         return notification;
     }
 
-    private static Domains.Notifications.Notification EnqueueTeams(DeliveryQueue queue)
+    private Domains.Notifications.Notification EnqueueTeams(DeliveryQueue queue)
     {
         var notification = Domains.Notifications.Notification.Receive(
             "account-opened",
             "teams",
             new Dictionary<string, string>(StringComparer.Ordinal) { ["teamsDestination"] = "ops-alerts" },
-            "treasury-ops");
+            "treasury-ops",
+            _clock.GetUtcNow());
         TeamsRecipient.TryCreate("ops-alerts", out var recipient).ShouldBeTrue();
         queue.TryEnqueue(notification, recipient, new RenderedMessage("Account opened", "**Jane**", BodyFormat.Markdown), TraceId)
             .ShouldBeTrue();
@@ -457,6 +481,27 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         entry.Value("Channel").ShouldBe("email");
         entry.Value("CallerId").ShouldBe("treasury-ops");
         entry.Value("TraceId").ShouldBe(TraceId);
+    }
+
+    /// <summary>
+    ///     Waits until the worker has made its <paramref name="timer" />-th wait on the clock, then lets
+    ///     <paramref name="wait" /> pass: 1 ms short of it first, to show the next attempt does not come early.
+    /// </summary>
+    private async Task PassWaitAsync(int timer, TimeSpan wait, ScriptedSender sender)
+    {
+        await UntilAsync(() => _clock.Timers >= timer);
+        var attempts = sender.Attempts.Count;
+        _clock.Advance(wait - TimeSpan.FromMilliseconds(1));
+        await Task.Delay(TimeSpan.FromMilliseconds(50));
+        sender.Attempts.Count.ShouldBe(attempts, "the next attempt came before its wait ended");
+        _clock.Advance(TimeSpan.FromMilliseconds(1));
+    }
+
+    /// <summary>Moves the clock far past any wait, then gives an attempt that should not come time to show up.</summary>
+    private async Task LongPastEveryWaitAsync()
+    {
+        _clock.Advance(TimeSpan.FromMinutes(5));
+        await Task.Delay(TimeSpan.FromMilliseconds(100));
     }
 
     private static async Task UntilAsync(Func<bool> condition, TimeSpan? timeout = null)
@@ -483,20 +528,50 @@ public sealed class DeliveryWorkerTests : IAsyncDisposable
         _measurements.Enqueue((instrument.Name, value, channel));
     }
 
-    /// <summary>A sender whose answer to attempt n the test gives; it records when each attempt ran.</summary>
+    /// <summary>A sender whose answer to attempt n the test gives; it records when each attempt ran on the clock.</summary>
     private sealed class ScriptedSender(Func<int, CancellationToken, Task<DeliveryFailure?>> answer) : IDeliverySender
     {
-        private static readonly Stopwatch Clock = Stopwatch.StartNew();
-        private readonly ConcurrentQueue<(TimeSpan Start, TimeSpan End)> _attempts = new();
+        private readonly ConcurrentQueue<(DateTimeOffset Start, DateTimeOffset End)> _attempts = new();
 
-        public IReadOnlyCollection<(TimeSpan Start, TimeSpan End)> Attempts => _attempts.ToArray();
+        public TimeProvider Clock { get; set; } = TimeProvider.System;
+
+        public IReadOnlyCollection<(DateTimeOffset Start, DateTimeOffset End)> Attempts => _attempts.ToArray();
 
         public async Task<DeliveryFailure?> SendAsync(Domains.Notifications.Notification notification, CancellationToken stoppingToken)
         {
-            var start = Clock.Elapsed;
+            var start = Clock.GetUtcNow();
             var result = await answer(notification.AttemptCount, stoppingToken);
-            _attempts.Enqueue((start, Clock.Elapsed));
+            _attempts.Enqueue((start, Clock.GetUtcNow()));
             return result;
+        }
+    }
+
+    /// <summary>
+    ///     A fake clock that counts the timers made on it: a test moves it only once the worker waits, since a wait
+    ///     made after the move would count from the new time.
+    /// </summary>
+    private sealed class TestClock : TimeProvider
+    {
+        private readonly FakeTimeProvider _fake = new();
+        private int _timers;
+
+        public int Timers => Volatile.Read(ref _timers);
+
+        public override TimeZoneInfo LocalTimeZone => _fake.LocalTimeZone;
+
+        public override long TimestampFrequency => _fake.TimestampFrequency;
+
+        public void Advance(TimeSpan by) => _fake.Advance(by);
+
+        public override DateTimeOffset GetUtcNow() => _fake.GetUtcNow();
+
+        public override long GetTimestamp() => _fake.GetTimestamp();
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = _fake.CreateTimer(callback, state, dueTime, period);
+            Interlocked.Increment(ref _timers);
+            return timer;
         }
     }
 }

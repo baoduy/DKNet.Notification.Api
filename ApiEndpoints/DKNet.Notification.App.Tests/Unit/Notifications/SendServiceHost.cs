@@ -43,6 +43,7 @@ public sealed class SendServiceHost : IDisposable
             .AddSingleton(teams)
             .AddSingleton(new DeliverySettings(queueCapacity))
             .AddSingleton<DeliveryQueue>()
+            .AddSingleton(TimeProvider.System)
             .AddSingleton<NotificationMetrics>()
             .AddSingleton<SendNotificationService>()
             .BuildServiceProvider();

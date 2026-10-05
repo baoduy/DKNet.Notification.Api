@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using DKNet.Notification.App.TestSupport;
 
 namespace DKNet.Notification.App.BDDTests.Features.Scaffold.Steps;
 

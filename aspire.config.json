@@ -1,0 +1,5 @@
+{
+  "appHost": {
+    "path": "ApiEndpoints/DKNet.Notification.AppHost/DKNet.Notification.AppHost.csproj"
+  }
+}

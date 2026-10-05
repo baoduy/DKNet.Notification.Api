@@ -1,8 +1,3 @@
-using System.Text.Json;
-using DKNet.Notification.App.TestSupport;
-using Reqnroll;
-using Shouldly;
-
 namespace DKNet.Notification.App.BDDTests.Features.Scaffold.Steps;
 
 /// <summary>

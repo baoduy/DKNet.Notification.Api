@@ -1,3 +1,6 @@
+using SlimMessageBus.Host;
+using SlimMessageBus.Host.Memory;
+
 namespace DKNet.Notification.Api.Configs;
 
 [ExcludeFromCodeCoverage]
@@ -7,10 +10,19 @@ internal static class ServiceConfigs
 
     public static IServiceCollection AddAllAppServices(this IServiceCollection services) =>
         services
-            .AddSingleton<IHttpContextAccessor, HttpContextAccessor>()
-            .AddScoped<IPrincipalProvider, PrincipalProvider>()
+            // The one clock: delivery waits and acceptance times read it, so a test can swap in a fake one.
+            .AddSingleton(TimeProvider.System)
             .AddSingleton<NotificationMetrics>()
-            .AddSingleton<SendNotificationService>();
+            .AddSingleton<SendNotificationService>()
+            // In-memory bus as the mediator from endpoint to handler (ADR-0011); not the delivery queue (ADR-0003).
+            .AddSlimMessageBus(mbb => mbb
+                .WithProviderMemory(cf =>
+                {
+                    cf.EnableMessageHeaders = false;
+                    cf.EnableMessageSerialization = false;
+                })
+                .AutoDeclareFrom(typeof(SendNotification).Assembly)
+                .AddServicesFromAssembly(typeof(SendNotification).Assembly));
 
     public static IServiceCollection AddOptions(this IServiceCollection services, IConfiguration configuration)
     {

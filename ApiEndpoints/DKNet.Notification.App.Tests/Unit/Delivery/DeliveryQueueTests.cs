@@ -42,7 +42,8 @@ public sealed class DeliveryQueueTests : IDisposable
             "account-opened",
             "email",
             new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = "jane@example.com" },
-            "treasury-ops");
+            "treasury-ops",
+            DateTimeOffset.UtcNow);
 
     private static readonly RenderedMessage Message = new("Your account is open", "Dear Jane", BodyFormat.Html);
 

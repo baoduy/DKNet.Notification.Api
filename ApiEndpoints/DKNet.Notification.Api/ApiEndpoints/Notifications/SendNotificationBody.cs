@@ -1,5 +1,4 @@
 using System.Text.Json;
-using DKNet.Notification.AppServices.Notifications;
 using JsonOptions = Microsoft.AspNetCore.Http.Json.JsonOptions;
 
 namespace DKNet.Notification.Api.ApiEndpoints.Notifications;

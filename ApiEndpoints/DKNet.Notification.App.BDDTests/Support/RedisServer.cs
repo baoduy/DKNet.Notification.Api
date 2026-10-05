@@ -1,23 +1,25 @@
+using System.Collections.Concurrent;
 using StackExchange.Redis;
 using Testcontainers.Redis;
 
 namespace DKNet.Notification.App.BDDTests.Support;
 
 /// <summary>
-/// One real Redis container for the whole test run (DRK-2013 §3b: the idempotency scenarios run against a real
-/// Redis), started on first use and disposed by <see cref="ApiHooks" /> after the run. Needs Docker.
+/// One real Redis container per feature (DRK-2013 §3b: the idempotency scenarios run against a real Redis; one per
+/// feature because features run in parallel, see <see cref="FeatureKey" />), started on first use and disposed by
+/// <see cref="ApiHooks" /> after the run. Needs Docker.
 /// </summary>
 public static class RedisServer
 {
-    private static readonly Lazy<Task<RedisContainer>> Container = new(StartAsync);
+    private static readonly ConcurrentDictionary<string, Lazy<Task<RedisContainer>>> Containers = new();
 
-    /// <summary>The connection string of the running container.</summary>
-    public static async Task<string> ConnectionStringAsync() => (await Container.Value).GetConnectionString();
+    /// <summary>The connection string of the calling feature's container.</summary>
+    public static async Task<string> ConnectionStringAsync() => (await ContainerAsync()).GetConnectionString();
 
     /// <summary>Removes every key, so a scenario starts from an empty store.</summary>
     public static async Task FlushAsync()
     {
-        var result = await (await Container.Value).ExecAsync(["redis-cli", "FLUSHALL"]);
+        var result = await (await ContainerAsync()).ExecAsync(["redis-cli", "FLUSHALL"]);
         result.ExitCode.ShouldBe(0, result.Stderr);
     }
 
@@ -46,11 +48,14 @@ public static class RedisServer
 
     internal static async Task StopAsync()
     {
-        if (Container.IsValueCreated)
+        foreach (var container in Containers.Values.Where(c => c.IsValueCreated))
         {
-            await (await Container.Value).DisposeAsync();
+            await (await container.Value).DisposeAsync();
         }
     }
+
+    private static Task<RedisContainer> ContainerAsync() =>
+        Containers.GetOrAdd(FeatureKey.Current, _ => new Lazy<Task<RedisContainer>>(StartAsync)).Value;
 
     private static async Task<RedisContainer> StartAsync()
     {
