@@ -39,6 +39,8 @@
         <PackageReference Include="Scalar.AspNetCore" />
         <PackageReference Include="SharpGrip.FluentValidation.AutoValidation.Endpoints" />
         <PackageReference Include="SlimMessageBus.Host.Memory" />
+        <PackageReference Include="SlimMessageBus.Host.Redis" />
+        <PackageReference Include="SlimMessageBus.Host.Serialization.SystemTextJson" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\DKNet.Notification.AppServices\DKNet.Notification.AppServices.csproj" />

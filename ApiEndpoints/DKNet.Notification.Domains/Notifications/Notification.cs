@@ -25,13 +25,14 @@ public sealed class Notification
         "CA1308:Normalize strings to uppercase",
         Justification = "DRK-2013: the channel is used in its lower-case form after step 5.")]
     private Notification(
+        Guid notificationId,
         string templateId,
         string channel,
         IReadOnlyDictionary<string, string> parameters,
         string callerId,
         DateTimeOffset acceptedAt)
     {
-        NotificationId = Guid.CreateVersion7();
+        NotificationId = notificationId;
         TemplateId = templateId;
         Channel = channel.ToLowerInvariant();
         Parameters = parameters;
@@ -102,7 +103,52 @@ public sealed class Notification
         IReadOnlyDictionary<string, string> parameters,
         string callerId,
         DateTimeOffset acceptedAt) =>
-        new(templateId, channel, parameters, callerId, acceptedAt);
+        new(Guid.CreateVersion7(), templateId, channel, parameters, callerId, acceptedAt);
+
+    /// <summary>
+    ///     Rebuilds a queued notification from the delivery queue: Queued when no attempt was made yet, RetryWaiting
+    ///     otherwise. Its parameters are not carried in the queue, so they are empty.
+    /// </summary>
+    /// <param name="notificationId">The id the caller got back.</param>
+    /// <param name="templateId">The template id the caller named.</param>
+    /// <param name="channel">The channel, already in lower case.</param>
+    /// <param name="callerId">The calling application's id.</param>
+    /// <param name="acceptedAt">When the call was accepted.</param>
+    /// <param name="recipient">The email address, for an email notification.</param>
+    /// <param name="teamsRecipient">The Teams destination, for a Teams notification.</param>
+    /// <param name="renderedMessage">The filled subject or title and the body.</param>
+    /// <param name="attemptsMade">Delivery attempts already made: 0 to 2.</param>
+    /// <returns>A notification ready for its next attempt.</returns>
+    public static Notification Resume(
+        Guid notificationId,
+        string templateId,
+        string channel,
+        string callerId,
+        DateTimeOffset acceptedAt,
+        EmailRecipient? recipient,
+        TeamsRecipient? teamsRecipient,
+        RenderedMessage renderedMessage,
+        int attemptsMade)
+    {
+        ArgumentNullException.ThrowIfNull(renderedMessage);
+        ArgumentOutOfRangeException.ThrowIfNegative(attemptsMade);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(attemptsMade, MaxAttempts);
+        if ((recipient is null) == (teamsRecipient is null))
+        {
+            throw new ArgumentException("A notification resumes with exactly one recipient.", nameof(recipient));
+        }
+
+        var notification = new Notification(
+            notificationId, templateId, channel, new Dictionary<string, string>(), callerId, acceptedAt)
+        {
+            Status = attemptsMade == 0 ? NotificationStatus.Queued : NotificationStatus.RetryWaiting,
+            AttemptCount = attemptsMade,
+            Recipient = recipient,
+            TeamsRecipient = teamsRecipient,
+            RenderedMessage = renderedMessage
+        };
+        return notification;
+    }
 
     /// <summary>Rejects the call: nothing is queued.</summary>
     public void Reject()

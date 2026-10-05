@@ -315,4 +315,62 @@ public sealed class NotificationTests
                 throw new ArgumentOutOfRangeException(nameof(end), end, "not an end");
         }
     }
+
+    private static readonly RenderedMessage Rendered = new("Your account is open", "Dear Jane", BodyFormat.Html);
+
+    [Fact]
+    public void A_resumed_notification_with_no_attempt_made_is_queued()
+    {
+        EmailRecipient.TryCreate("jane@example.com", out var to).ShouldBeTrue();
+        var id = Guid.CreateVersion7();
+        var acceptedAt = new DateTimeOffset(2026, 10, 5, 8, 0, 0, TimeSpan.Zero);
+
+        var notification = Domains.Notifications.Notification.Resume(id, "account-opened", "email", "treasury-ops", acceptedAt, to, null, Rendered, 0);
+
+        notification.NotificationId.ShouldBe(id);
+        notification.Status.ShouldBe(NotificationStatus.Queued);
+        notification.AttemptCount.ShouldBe(0);
+        notification.Recipient.ShouldBe(to);
+        notification.RenderedMessage.ShouldBe(Rendered);
+        notification.AcceptedAt.ShouldBe(acceptedAt);
+        notification.Parameters.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void A_resumed_notification_with_attempts_made_waits_for_its_next_attempt_and_still_gets_at_most_3()
+    {
+        TeamsRecipient.TryCreate("ops-alerts", out var to).ShouldBeTrue();
+
+        var notification = Domains.Notifications.Notification.Resume(Guid.CreateVersion7(), "staff-account-opened", "teams", "treasury-ops",
+            DateTimeOffset.UnixEpoch, null, to, Rendered, 2);
+
+        notification.Status.ShouldBe(NotificationStatus.RetryWaiting);
+        notification.AttemptCount.ShouldBe(2);
+        notification.TeamsRecipient.ShouldBe(to);
+        notification.StartAttempt();
+        notification.AttemptCount.ShouldBe(3);
+        notification.WaitForRetry();
+        Should.Throw<InvalidOperationException>(notification.StartAttempt);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(3)]
+    public void A_notification_cannot_resume_outside_its_attempts(int attemptsMade)
+    {
+        EmailRecipient.TryCreate("jane@example.com", out var to).ShouldBeTrue();
+        Should.Throw<ArgumentOutOfRangeException>(() => Domains.Notifications.Notification.Resume(Guid.CreateVersion7(), "t", "email", "c",
+            DateTimeOffset.UnixEpoch, to, null, Rendered, attemptsMade));
+    }
+
+    [Fact]
+    public void A_notification_resumes_with_exactly_one_recipient()
+    {
+        EmailRecipient.TryCreate("jane@example.com", out var email).ShouldBeTrue();
+        TeamsRecipient.TryCreate("ops-alerts", out var teams).ShouldBeTrue();
+        Should.Throw<ArgumentException>(() => Domains.Notifications.Notification.Resume(Guid.CreateVersion7(), "t", "email", "c",
+            DateTimeOffset.UnixEpoch, null, null, Rendered, 0));
+        Should.Throw<ArgumentException>(() => Domains.Notifications.Notification.Resume(Guid.CreateVersion7(), "t", "email", "c",
+            DateTimeOffset.UnixEpoch, email, teams, Rendered, 0));
+    }
 }
