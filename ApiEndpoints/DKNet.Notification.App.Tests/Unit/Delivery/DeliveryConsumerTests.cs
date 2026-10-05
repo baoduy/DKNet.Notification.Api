@@ -152,6 +152,29 @@ public sealed class DeliveryConsumerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_retry_that_cannot_be_queued_again_ends_failed_and_does_not_escape()
+    {
+        var message = Message();
+        _bus.ThrowOnPublish = true;
+        await Consumer((_, _) => Task.FromResult<DeliveryFailure?>(new DeliveryFailure(true, "421"))).OnHandle(message, CancellationToken.None);
+
+        (await StatusOf(message))!.Status.ShouldBe(NotificationOutcome.Failed);
+        _logs.Entries.ShouldContain(e => e.EventId.Name == "NotificationFailed" && e.Value("NotificationId") == message.NotificationId.ToString());
+        _logs.Entries.ShouldNotContain(e => e.EventId.Name == "NotificationRequeued");
+    }
+
+    [Fact]
+    public async Task A_message_that_is_not_due_and_cannot_be_queued_again_ends_failed_and_does_not_escape()
+    {
+        var message = Message(notBefore: Now.AddSeconds(30));
+        _bus.ThrowOnPublish = true;
+        await Consumer((_, _) => Task.FromResult<DeliveryFailure?>(null)).OnHandle(message, CancellationToken.None);
+
+        (await StatusOf(message))!.Status.ShouldBe(NotificationOutcome.Failed);
+        _logs.Entries.ShouldContain(e => e.EventId.Name == "NotificationFailed");
+    }
+
+    [Fact]
     public async Task A_teams_message_goes_to_the_teams_sender()
     {
         var message = Message() with { Channel = "teams", EmailAddress = null, TeamsDestination = "ops-alerts", Format = BodyFormat.Markdown };
@@ -196,8 +219,11 @@ public sealed class DeliveryConsumerTests : IDisposable
         private readonly ConcurrentQueue<DeliverNotification> _published = new();
         public IReadOnlyCollection<DeliverNotification> Published => _published.ToArray();
 
+        public bool ThrowOnPublish { get; set; }
+
         public Task Publish<TMessage>(TMessage message, string? path = null, IDictionary<string, object>? headers = null, CancellationToken cancellationToken = default)
         {
+            if (ThrowOnPublish) throw new InvalidOperationException("redis://secret@host");
             _published.Enqueue((DeliverNotification)(object)message!);
             return Task.CompletedTask;
         }

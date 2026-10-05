@@ -57,7 +57,12 @@ internal sealed class DeliveryConsumer(
         var now = time.GetUtcNow();
         if (message.NotBefore > now)
         {
-            await RequeueAsync(message, "not-due");
+            if (!await RequeueAsync(message, "not-due"))
+            {
+                await EndAsync(message, notification: null, NotificationOutcome.Failed, string.Empty);
+                return;
+            }
+
             await PauseAsync(message.NotBefore - now < NotDuePause ? message.NotBefore - now : NotDuePause, cancellationToken);
             return;
         }
@@ -84,7 +89,11 @@ internal sealed class DeliveryConsumer(
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 // The host stops: the cut-off attempt is not counted (spec §6).
-                await RequeueAsync(message, "stopping");
+                if (!await RequeueAsync(message, "stopping"))
+                {
+                    await EndAsync(message, notification: null, NotificationOutcome.Failed, string.Empty);
+                }
+
                 return;
             }
 #pragma warning disable CA1031 // An unexpected error ends this notification only; its text may hold the recipient.
@@ -114,7 +123,11 @@ internal sealed class DeliveryConsumer(
         {
             // Counted from the end of this attempt: now. A wait the provider asked for replaces the configured one.
             var wait = failure.RetryAfter ?? TimeSpan.FromSeconds(settings.RetryDelaysSeconds[notification.AttemptCount - 1]);
-            await RequeueAsync(message with { AttemptsMade = notification.AttemptCount, NotBefore = time.GetUtcNow() + wait }, "retry");
+            if (!await RequeueAsync(message with { AttemptsMade = notification.AttemptCount, NotBefore = time.GetUtcNow() + wait }, "retry"))
+            {
+                await EndAsync(message, notification, NotificationOutcome.Failed, failure.ReplyCode);
+            }
+
             return;
         }
 
@@ -122,10 +135,22 @@ internal sealed class DeliveryConsumer(
     }
 
     // Always CancellationToken.None: a stopping host must still put the message back (SMB publishes until it is disposed).
-    private async Task RequeueAsync(DeliverNotification message, string reason)
+    // False when the publish failed: the message is lost, so the caller ends the notification failed instead of leaving it pending.
+    private async Task<bool> RequeueAsync(DeliverNotification message, string reason)
     {
-        await bus.Publish(message, cancellationToken: CancellationToken.None);
+        try
+        {
+            await bus.Publish(message, cancellationToken: CancellationToken.None);
+        }
+#pragma warning disable CA1031 // A failed publish ends this notification only; the error text may hold a connection string.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return false;
+        }
+
         logger.NotificationRequeued(message.NotificationId, message.AttemptsMade, reason, message.TraceId);
+        return true;
     }
 
     private async Task PauseAsync(TimeSpan pause, CancellationToken cancellationToken)
