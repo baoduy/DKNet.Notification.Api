@@ -10,6 +10,8 @@ internal static class ServiceConfigs
 
     public static IServiceCollection AddAllAppServices(this IServiceCollection services) =>
         services
+            // The one clock: delivery waits and acceptance times read it, so a test can swap in a fake one.
+            .AddSingleton(TimeProvider.System)
             .AddSingleton<NotificationMetrics>()
             .AddSingleton<SendNotificationService>()
             // In-memory bus as the mediator from endpoint to handler (ADR-0011); not the delivery queue (ADR-0003).

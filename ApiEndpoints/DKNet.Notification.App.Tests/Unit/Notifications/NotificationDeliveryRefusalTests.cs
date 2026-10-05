@@ -11,7 +11,8 @@ public sealed class NotificationDeliveryRefusalTests
             "account-opened",
             "email",
             new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = "jane@example.com" },
-            "treasury-ops");
+            "treasury-ops",
+            DateTimeOffset.UtcNow);
         EmailRecipient.TryCreate("jane@example.com", out var recipient).ShouldBeTrue();
         notification.Queue(recipient, new RenderedMessage("Your account is open", "Dear Jane", BodyFormat.Html));
         return notification;

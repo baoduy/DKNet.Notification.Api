@@ -18,6 +18,7 @@
 - Domain types live in `DKNet.Notification.Domains`, application services and validators in `DKNet.Notification.AppServices`.
 - An endpoint sends a command (`Fluents.Requests.IWitResponse<T>` from `DKNet.SlimBus.Extensions`) on SlimMessageBus's in-memory bus to an `internal sealed` handler in `AppServices`; `AddServicesFromAssembly` in `ServiceConfigs` registers it (ADR-0011). Keep body validation in an endpoint filter registered before `.RequiredIdempotentKey()`, not in the bus, so a refused body holds no idempotency key.
 - A command failure whose error carries a `PreconditionCodes.Prefix`-prefixed `"Code"` metadata entry answers 409 (`FluentValidationConfig`); every other failure keeps the library's status.
+- Time: production reads and waits on the injected `TimeProvider` (registered as `TimeProvider.System` in `ServiceConfigs`), never `DateTimeOffset.UtcNow` or a plain `Task.Delay`. Unit tests drive a fake clock and move it only once the worker's timer exists (see `DeliveryWorkerTests.TestClock`). The exceptions are the sender I/O time limits and the `Retry-After` date, which stay on the real clock because they are about a real provider; BDD runs on the real clock.
 - Request idempotency comes from `DKNet.AspCore.Idempotency` (Redis store when `ConnectionStrings:Redis` is set, in-memory otherwise).
 
 ## Build and run

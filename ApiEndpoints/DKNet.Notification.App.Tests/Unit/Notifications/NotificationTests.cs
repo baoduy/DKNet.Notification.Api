@@ -11,15 +11,14 @@ namespace DKNet.Notification.App.Tests.Unit.Notifications;
 public sealed class NotificationTests
 {
     private static readonly Dictionary<string, string> Parameters = new(StringComparer.Ordinal) { ["to"] = "jane@example.com" };
+    private static readonly DateTimeOffset AcceptedAt = new(2026, 10, 5, 9, 30, 0, TimeSpan.Zero);
 
     private static Domains.Notifications.Notification Received() =>
-        Domains.Notifications.Notification.Receive("account-opened", "Teams", Parameters, "treasury-ops");
+        Domains.Notifications.Notification.Receive("account-opened", "Teams", Parameters, "treasury-ops", AcceptedAt);
 
     [Fact]
     public void A_received_notification_keeps_the_call_with_the_channel_in_lower_case()
     {
-        var before = DateTimeOffset.UtcNow;
-
         var notification = Received();
 
         notification.TemplateId.ShouldBe("account-opened");
@@ -29,7 +28,7 @@ public sealed class NotificationTests
         notification.Status.ShouldBe(NotificationStatus.Received);
         notification.SkipReason.ShouldBeNull();
         notification.NotificationId.Version.ShouldBe(7);
-        notification.AcceptedAt.ShouldBeInRange(before, DateTimeOffset.UtcNow);
+        notification.AcceptedAt.ShouldBe(AcceptedAt);
     }
 
     [Fact]

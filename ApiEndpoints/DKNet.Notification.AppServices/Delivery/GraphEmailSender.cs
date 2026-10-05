@@ -123,6 +123,7 @@ public sealed class GraphEmailSender : IDeliverySender, IDisposable
     }
 
     // 408, 429 and 5xx are transient; any other answer, a redirect among them, is permanent. The Teams sender reuses it.
+    // A Retry-After date is read against the real clock, like the attempt time limits: both are about the provider.
     internal static DeliveryFailure Answer(int status, HttpResponseHeaders? headers)
     {
         var code = status.ToString(CultureInfo.InvariantCulture);

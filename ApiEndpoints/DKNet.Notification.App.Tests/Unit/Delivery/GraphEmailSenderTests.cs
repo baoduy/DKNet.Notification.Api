@@ -174,7 +174,8 @@ public sealed class GraphEmailSenderTests
             "account-opened",
             "email",
             new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = "jane@example.com" },
-            "treasury-ops");
+            "treasury-ops",
+            DateTimeOffset.UtcNow);
 
         await Should.ThrowAsync<InvalidOperationException>(() =>
             Sender(Settings()).SendAsync(notification, CancellationToken.None));
@@ -469,7 +470,8 @@ public sealed class GraphEmailSenderTests
             "account-opened",
             "email",
             new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = "jane@example.com" },
-            "treasury-ops");
+            "treasury-ops",
+            DateTimeOffset.UtcNow);
         EmailRecipient.TryCreate("jane@example.com", out var recipient).ShouldBeTrue();
         notification.Queue(recipient, new RenderedMessage("Your account is open", "<p>Dear Jane Tan</p>", BodyFormat.Html));
         notification.StartAttempt();

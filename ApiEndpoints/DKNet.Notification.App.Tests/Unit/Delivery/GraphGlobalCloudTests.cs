@@ -97,7 +97,8 @@ public sealed class GraphGlobalCloudTests
             "account-opened",
             "email",
             new Dictionary<string, string>(StringComparer.Ordinal) { ["to"] = to },
-            "treasury-ops");
+            "treasury-ops",
+            DateTimeOffset.UtcNow);
         EmailRecipient.TryCreate(to, out var recipient).ShouldBeTrue();
         notification.Queue(recipient, new RenderedMessage("Your account is open", "<p>Dear Jane Tan</p>", BodyFormat.Html));
         notification.StartAttempt();

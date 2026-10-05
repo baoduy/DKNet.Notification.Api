@@ -10,7 +10,8 @@ public sealed class NotificationErrorTests
             "account-opened",
             "email",
             new Dictionary<string, string>(StringComparer.Ordinal),
-            "treasury-ops");
+            "treasury-ops",
+            DateTimeOffset.UtcNow);
 
     [Fact]
     public void A_rejected_notification_keeps_its_error_code_and_field()

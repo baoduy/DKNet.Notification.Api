@@ -28,6 +28,7 @@ public sealed class SendNotificationServiceTests : IDisposable
             .AddSingleton(new TeamsChannelSettings())
             .AddSingleton(new DeliverySettings())
             .AddSingleton<DeliveryQueue>()
+            .AddSingleton(TimeProvider.System)
             .AddSingleton<NotificationMetrics>()
             .AddSingleton<SendNotificationService>()
             .BuildServiceProvider();
