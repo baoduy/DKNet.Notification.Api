@@ -14,6 +14,10 @@ internal static class ServiceConfigs
             .AddSingleton(TimeProvider.System)
             .AddSingleton<NotificationMetrics>()
             .AddSingleton<SendNotificationService>()
+            // Stopgap until the status wiring: AddServicesFromAssembly now finds DeliveryConsumer, which needs the store.
+            .AddDistributedMemoryCache()
+            .AddSingleton(new NotificationStatusSettings())
+            .AddSingleton<NotificationStatusStore>()
             // In-memory bus as the mediator from endpoint to handler (ADR-0011); not the delivery queue (ADR-0003).
             .AddSlimMessageBus(mbb => mbb
                 .WithProviderMemory(cf =>
