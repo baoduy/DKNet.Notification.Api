@@ -14,6 +14,7 @@ namespace DKNet.Notification.App.Tests.Unit.Delivery;
 /// process. Every expected value is a literal from the spec: the tenant, the mailbox and Microsoft's 2 global
 /// addresses.
 /// </summary>
+[Collection(SerialTestsCollection.Name)]
 public sealed class GraphGlobalCloudTests
 {
     private const string TenantId = "3f2b9c1e-6a4d-4e0b-9d57-1c2f8a7e5b10";

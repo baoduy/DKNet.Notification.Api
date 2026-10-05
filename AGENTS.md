@@ -35,6 +35,7 @@
 - Tests live under `ApiEndpoints/DKNet.Notification.App.Tests/` (Shouldly + xUnit) and `ApiEndpoints/DKNet.Notification.App.BDDTests/` (Reqnroll + NUnit). `ApiEndpoints/DKNet.Notification.App.TestSupport/` holds the shared host (`TestApiFactoryBase`) and the fake sign-in scheme (`TestAuthHandler`).
 - Write business-domain tests for your entities, validators, handlers and routes. Do not add tests for logging, telemetry, Swagger/OpenAPI documents, CORS, HSTS, security headers or rate limiting — that is framework behaviour covered upstream. The non-business tests that belong here are the `Architecture/` layer rules and the `Scaffold/` acceptance tests of the empty service.
 - `DKNet.Notification.App.Tests.csproj` disables analyzers for tests; production projects enforce strict warnings-as-errors from `Directory.Packages.props`.
+- App.Tests classes run in parallel. A class that listens to something process-wide (an Azure SDK event source, a diagnostic or activity listener for every source) or asserts a tight time bound joins `[Collection(SerialTestsCollection.Name)]`, which runs alone after the rest.
 - Coverage filters are defined in `coverage.runsettings`; avoid placing real logic in excluded paths (`bin/`, `obj/`, `*Test*.cs`).
 
 ## BDD Testing (Reqnroll + NUnit)
@@ -42,7 +43,8 @@
 - `Support/TestOnlyRoutes.cs` registers routes that exist only in the test host (an unexpected error and a precondition failure) for the ErrorHandling scenarios.
 - Each scenario clears captured logs in `[BeforeScenario(Order=0)]`; `HttpClient` and `ScenarioState` are injected into step defs via Reqnroll's BoDi `IObjectContainer`.
 - Add new scenarios: create `.feature` under `Features/<Domain>/` and matching `[Binding]` step class under `Features/<Domain>/Steps/`.
+- Features run in parallel (`AssemblyInfo.cs`, 4 workers); the scenarios of one feature run one at a time. `RedisServer` and `MailCatcher` keep one container per feature (`FeatureKey`), so a flush or clear stays inside its feature. Do not add mutable static state shared across features; key it by `FeatureKey.Current` instead.
 
 ## Project-specific gotchas
 - `FeatureOptions` section name is `FeatureManagement`, and its JSON keys match the `FeatureOptions` property names one-for-one. `Get<FeatureOptions>()` ignores unknown keys, so a misspelled key silently falls back to the property default rather than throwing — when adding or renaming a flag, change `DKNet.Notification.Share/Options/FeatureOptions.cs` and every `appsettings*.json` together.
-- `Program.cs` binds `FeatureOptions` before a `WebApplicationFactory` configuration override is merged in, so a test that must flip an early-bound flag (such as `RequireAuthorization`) sets the `FeatureManagement__<Flag>` environment variable instead (see `AuthOnApiFixture`).
+- `Program.cs` binds `FeatureOptions` before a `WebApplicationFactory` configuration override is merged in, so a test that must flip an early-bound flag (such as `RequireAuthorization`) sets the `FeatureManagement__<Flag>` environment variable instead. That variable is process-wide and tests run in parallel, so such a test must join `SerialTestsCollection` (App.Tests) or be `[NonParallelizable]` (BDD).
