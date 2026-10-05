@@ -106,5 +106,17 @@ internal static partial class NotificationLog
         string callerId,
         string traceId);
 
+    /// <remarks>Ids and the status only: the error is not logged, as its text may hold a connection string.</remarks>
+    [LoggerMessage(
+        EventId = 2007,
+        EventName = "NotificationStatusWriteFailed",
+        Level = LogLevel.Warning,
+        Message = "The status {Status} of notification {NotificationId} could not be written. Caller {CallerId}.")]
+    public static partial void NotificationStatusWriteFailed(
+        this ILogger logger,
+        Guid notificationId,
+        NotificationOutcome status,
+        string callerId);
+
     #endregion
 }
