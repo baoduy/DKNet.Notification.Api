@@ -1,3 +1,6 @@
+using SlimMessageBus.Host;
+using SlimMessageBus.Host.Memory;
+
 namespace DKNet.Notification.Api.Configs;
 
 [ExcludeFromCodeCoverage]
@@ -10,7 +13,16 @@ internal static class ServiceConfigs
             .AddSingleton<IHttpContextAccessor, HttpContextAccessor>()
             .AddScoped<IPrincipalProvider, PrincipalProvider>()
             .AddSingleton<NotificationMetrics>()
-            .AddSingleton<SendNotificationService>();
+            .AddSingleton<SendNotificationService>()
+            // In-memory bus as the mediator from endpoint to handler (ADR-0011); not the delivery queue (ADR-0003).
+            .AddSlimMessageBus(mbb => mbb
+                .WithProviderMemory(cf =>
+                {
+                    cf.EnableMessageHeaders = false;
+                    cf.EnableMessageSerialization = false;
+                })
+                .AutoDeclareFrom(typeof(SendNotification).Assembly)
+                .AddServicesFromAssembly(typeof(SendNotification).Assembly));
 
     public static IServiceCollection AddOptions(this IServiceCollection services, IConfiguration configuration)
     {

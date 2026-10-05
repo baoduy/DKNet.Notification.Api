@@ -150,6 +150,29 @@ public sealed class SendNotificationServiceTests : IDisposable
         _measurements.SelectMany(m => m.Tags.Values).ShouldAllBe(tag => !Equals(tag, "jane@example.com"));
     }
 
+    [Fact]
+    public async Task The_handler_answers_an_accepted_notification_with_its_id()
+    {
+        var result = await new SendNotificationHandler(_service).OnHandle(
+            new SendNotification(Request("account-opened", "WhatsApp"), "treasury-ops", "trace-7"),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ToString().ShouldBe(_logs.Entries.ShouldHaveSingleItem().Value("NotificationId"));
+    }
+
+    [Fact]
+    public async Task The_handler_fails_a_rejected_notification_with_its_code_and_field()
+    {
+        var result = await new SendNotificationHandler(_service).OnHandle(
+            new SendNotification(Request("account-closed", "email"), "treasury-ops", "trace-8"),
+            CancellationToken.None);
+
+        var error = result.Errors.ShouldHaveSingleItem();
+        error.Metadata[SendNotification.CodeMetadata].ShouldBe("TEMPLATE_NOT_FOUND");
+        error.Metadata[SendNotification.FieldMetadata].ShouldBe("templateId");
+    }
+
     private sealed class OneTemplate(string templateId) : ITemplateCatalogue
     {
         private readonly NotificationTemplate _template = new(templateId, string.Empty, []);

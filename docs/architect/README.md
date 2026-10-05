@@ -31,6 +31,7 @@ DKNet Notification turns one registered template plus caller parameters into one
   - [ADR-0008](adr/0008-idempotency-caller-scoped-replay.md) — Idempotency keys scoped by caller, repeated calls replayed.
   - [ADR-0009](adr/0009-graph-email-sender-one-per-deployment.md) — Add a Microsoft Graph email sender; one email sender per deployment.
   - [ADR-0010](adr/0010-graph-sign-in-separate-app-workload-identity.md) — Sign in to Graph as a separate app with workload identity; `Mail.Send` scoped to one mailbox.
+  - [ADR-0011](adr/0011-slimmessagebus-in-process-mediator.md) — Use SlimMessageBus's in-memory bus as the in-process mediator; validation stays outside it.
 - [diagrams/](diagrams/) — archify IR (`.json`) and render (`.svg`) for every diagram.
 
 ## Runtime architecture

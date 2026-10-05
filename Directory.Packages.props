@@ -43,6 +43,7 @@
     <PackageVersion Include="DKNet.AspCore.Extensions" Version="13.2.5" />
     <PackageVersion Include="DKNet.AspCore.Idempotency" Version="13.2.5" />
     <PackageVersion Include="DKNet.AspCore.Idempotency.RedisStore" Version="13.2.5" />
+    <PackageVersion Include="DKNet.SlimBus.Extensions" Version="13.2.5" />
     <PackageVersion Include="DKNet.Svc.Transformation" Version="13.2.5" />
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
@@ -69,6 +70,7 @@
     <PackageVersion Include="Scalar.AspNetCore" Version="2.17.13" />
     <PackageVersion Include="SharpGrip.FluentValidation.AutoValidation.Endpoints" Version="2.0.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <PackageVersion Include="SlimMessageBus.Host.Memory" Version="3.5.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.15.0" />
     <PackageVersion Include="NUnit" Version="5.0.0" />
     <PackageVersion Include="NUnit.Analyzers" Version="4.15.0" />

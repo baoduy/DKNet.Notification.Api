@@ -38,6 +38,7 @@
         <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
         <PackageReference Include="Scalar.AspNetCore" />
         <PackageReference Include="SharpGrip.FluentValidation.AutoValidation.Endpoints" />
+        <PackageReference Include="SlimMessageBus.Host.Memory" />
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\DKNet.Notification.AppServices\DKNet.Notification.AppServices.csproj" />

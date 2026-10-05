@@ -2,16 +2,16 @@ using System.Diagnostics;
 using DKNet.AspCore.Idempotency;
 using DKNet.Notification.Api.Configs.Auth;
 using DKNet.Notification.AppServices.Notifications;
-using DKNet.Notification.Domains.Notifications;
 using FluentValidation.Results;
 using SharpGrip.FluentValidation.AutoValidation.Endpoints.Results;
+using SlimMessageBus;
 
 namespace DKNet.Notification.Api.ApiEndpoints.Notifications;
 
 /// <summary>
 ///     <c>POST /v1/notifications</c>. Steps run in order: sign-in and permission (the group scope), the body
 ///     (<see cref="SendNotificationBodyFilter" />), the idempotency key, then the template, the channel, the
-///     recipient, the rendering and the queue (<see cref="SendNotificationService" />).
+///     recipient, the rendering and the queue (<see cref="SendNotification" /> on the in-memory bus).
 /// </summary>
 [EndpointGroupScope(SendPermission.Name)]
 internal sealed class NotificationsV1Endpoint : IEndpointConfig
@@ -50,34 +50,34 @@ internal sealed class NotificationsV1Endpoint : IEndpointConfig
 
     // Runs inside the idempotency filter: a refusal is not a 2xx, so the key stays held for 30 seconds. Every
     // answer carries its status code, so the filter keeps only the 202.
-    private static IResult Send(
+    // The body stays the first argument: SendNotificationBodyFilter reads it at index 0.
+    private static async Task<IResult> Send(
         SendNotificationBody body,
-        [FromServices] SendNotificationService service,
+        [FromServices] IMessageBus bus,
         [FromServices] IFluentValidationAutoValidationResultFactory problems,
         HttpContext context)
     {
         // SendNotificationBodyFilter lets only a valid body through.
-        var notification = service.Send(body.Request!, CallerOf(context), TraceIdOf(context));
-        if (notification.Status != NotificationStatus.Rejected)
+        var result = await bus.Send(new SendNotification(body.Request!, CallerOf(context), TraceIdOf(context)));
+        if (result.IsSuccess)
         {
             // Queued or Skipped: the same answer, so a caller cannot tell them apart.
-            return TypedResults.Accepted((string?)null, new SendNotificationResponse(notification.NotificationId));
+            return TypedResults.Accepted((string?)null, new SendNotificationResponse(result.Value));
         }
 
-        if (string.Equals(notification.ErrorCode, NotificationErrorCodes.QueueFull, StringComparison.Ordinal))
+        // The handler fails with one error, and its code and field every time. Mapped here rather than by
+        // DKNet's result response, which drops the field.
+        var error = result.Errors[0];
+        var code = (string)error.Metadata[SendNotification.CodeMetadata];
+        var field = (string)error.Metadata[SendNotification.FieldMetadata];
+        if (string.Equals(code, NotificationErrorCodes.QueueFull, StringComparison.Ordinal))
         {
             context.Response.Headers.RetryAfter = RetryAfterSeconds;
         }
 
         return problems.CreateResult(
             EndpointFilterInvocationContext.Create(context),
-            new ValidationResult([
-                // The service rejects with a code and a field every time.
-                new ValidationFailure(notification.ErrorField!, ErrorMessage(notification.ErrorCode, notification.ErrorField))
-                {
-                    ErrorCode = notification.ErrorCode
-                }
-            ]));
+            new ValidationResult([new ValidationFailure(field, ErrorMessage(code, field)) { ErrorCode = code }]));
     }
 
     internal static string ErrorMessage(string? code, string? field) =>

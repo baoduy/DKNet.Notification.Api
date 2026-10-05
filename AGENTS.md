@@ -16,6 +16,7 @@
 ## Adding a feature
 - Endpoint contract: implement `IEndpointConfig` (from `DKNet.AspCore.Extensions`) in `DKNet.Notification.Api/ApiEndpoints/**/*V1Endpoint.cs`; `UseEndpointConfigs` discovers it.
 - Domain types live in `DKNet.Notification.Domains`, application services and validators in `DKNet.Notification.AppServices`.
+- An endpoint sends a command (`Fluents.Requests.IWitResponse<T>` from `DKNet.SlimBus.Extensions`) on SlimMessageBus's in-memory bus to an `internal sealed` handler in `AppServices`; `AddServicesFromAssembly` in `ServiceConfigs` registers it (ADR-0011). Keep body validation in an endpoint filter registered before `.RequiredIdempotentKey()`, not in the bus, so a refused body holds no idempotency key.
 - A command failure whose error carries a `PreconditionCodes.Prefix`-prefixed `"Code"` metadata entry answers 409 (`FluentValidationConfig`); every other failure keeps the library's status.
 - Request idempotency comes from `DKNet.AspCore.Idempotency` (Redis store when `ConnectionStrings:Redis` is set, in-memory otherwise).
 

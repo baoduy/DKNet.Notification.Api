@@ -35,3 +35,4 @@ Source: [baoduy/DKNet.Notification.Api](https://github.com/baoduy/DKNet.Notifica
 - [ADR-0008](architect/adr/0008-idempotency-caller-scoped-replay.md) — Idempotency keys scoped by caller, repeated calls replayed.
 - [ADR-0009](architect/adr/0009-graph-email-sender-one-per-deployment.md) — Add a Microsoft Graph email sender; one email sender per deployment.
 - [ADR-0010](architect/adr/0010-graph-sign-in-separate-app-workload-identity.md) — Sign in to Graph as a separate app with workload identity.
+- [ADR-0011](architect/adr/0011-slimmessagebus-in-process-mediator.md) — Use SlimMessageBus's in-memory bus as the in-process mediator.
