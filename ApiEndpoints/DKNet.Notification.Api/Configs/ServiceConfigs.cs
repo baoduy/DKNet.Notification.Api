@@ -1,3 +1,4 @@
+using DKNet.Notification.AppServices.Delivery;
 using SlimMessageBus.Host;
 using SlimMessageBus.Host.Memory;
 
@@ -18,6 +19,8 @@ internal static class ServiceConfigs
             .AddDistributedMemoryCache()
             .AddSingleton(new NotificationStatusSettings())
             .AddSingleton<NotificationStatusStore>()
+            // Task 5 replaces this: the real backlog counts the Redis list.
+            .AddSingleton<IDeliveryBacklog, InProcessDeliveryBacklog>()
             // In-memory bus as the mediator from endpoint to handler (ADR-0011); not the delivery queue (ADR-0003).
             .AddSlimMessageBus(mbb => mbb
                 .WithProviderMemory(cf =>

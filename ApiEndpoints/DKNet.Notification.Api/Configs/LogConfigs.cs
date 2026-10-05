@@ -49,7 +49,7 @@ internal static class LogConfigs
                 tracing
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddSource(DeliveryWorker.ActivitySourceName);
+                    .AddSource(NotificationMetrics.DeliveryActivitySourceName);
                 if (isConsoleExportEnvironment)
                 {
                     tracing.AddConsoleExporter();

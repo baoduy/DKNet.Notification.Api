@@ -1,22 +1,28 @@
+using System.Diagnostics.CodeAnalysis;
 using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Notifications;
 using DKNet.Notification.Domains.Templates;
 using DKNet.Notification.Share.Extensions;
 using Microsoft.Extensions.Logging;
+using SlimMessageBus;
 
 namespace DKNet.Notification.AppServices.Notifications;
 
 /// <summary>
-///     Steps 4 to 9 of a send call, and the log entry and count of every outcome. Caller text reaches a log entry
-///     only through <see cref="SanitizeForLoggingExtensions.SanitizeForLogging" />; a parameter value, the recipient
+///     Steps 4 to 9 of a send call, and the log entry and count of every outcome; step 9 writes the pending status,
+///     then puts the notification in the delivery queue. Caller text reaches a log entry only through
+///     <see cref="SanitizeForLoggingExtensions.SanitizeForLogging" />; a parameter value, the recipient
 ///     and the rendered message never do.
 /// </summary>
 public sealed class SendNotificationService(
     ITemplateCatalogue catalogue,
     EmailChannelSettings email,
     TeamsChannelSettings teams,
-    DeliveryQueue queue,
+    DeliverySettings delivery,
+    IDeliveryBacklog backlog,
+    IMessageBus bus,
+    NotificationStatusStore status,
     NotificationMetrics metrics,
     TimeProvider time,
     ILogger<SendNotificationService> logger)
@@ -33,6 +39,14 @@ public sealed class SendNotificationService(
     private readonly bool _emailConfigured = email.Enabled && email.BadSettings().Count == 0;
     private readonly bool _teamsConfigured = teams.IsConfigured;
 
+    // The service-wide count of the shared queue, read at each scrape.
+    // ponytail: a blocking LLEN per scrape; cache the last count if scrapes become frequent.
+    [SuppressMessage(
+        "Performance",
+        "CA1823:Avoid unused private fields",
+        Justification = "The initializer is the point: a primary constructor has no body to register the gauge in.")]
+    private readonly bool _queueLengthObserved = ObserveQueueLength(metrics, backlog);
+
     #endregion
 
     #region Methods
@@ -44,11 +58,18 @@ public sealed class SendNotificationService(
     /// <param name="request">A body that passed <see cref="SendNotificationValidator" />.</param>
     /// <param name="callerId">The calling application's id.</param>
     /// <param name="traceId">The request's trace id, as its error body carries it.</param>
+    /// <param name="idempotencyKey">The call's <c>Idempotency-Key</c>, kept in its status record; <see langword="null" /> when it has none.</param>
+    /// <param name="cancellationToken">Cancels the status write and the publish.</param>
     /// <returns>
     ///     The notification: <see cref="NotificationStatus.Rejected" /> with its error, <see cref="NotificationStatus.Skipped" />
     ///     or <see cref="NotificationStatus.Queued" />.
     /// </returns>
-    public Domains.Notifications.Notification Send(SendNotificationRequest request, string callerId, string traceId)
+    public async Task<Domains.Notifications.Notification> SendAsync(
+        SendNotificationRequest request,
+        string callerId,
+        string traceId,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -69,10 +90,16 @@ public sealed class SendNotificationService(
         // Step 5 — channel.
         return notification.Channel switch
         {
-            EmailChannel => SendEmail(notification, template, traceId),
-            TeamsWebhookSender.ChannelKey => SendTeams(notification, template, traceId),
-            _ => Skip(notification, SkipReason.ChannelNotSupported, traceId)
+            EmailChannel => await SendEmailAsync(notification, template, traceId, idempotencyKey, cancellationToken),
+            TeamsWebhookSender.ChannelKey => await SendTeamsAsync(notification, template, traceId, idempotencyKey, cancellationToken),
+            _ => await SkipAsync(notification, SkipReason.ChannelNotSupported, traceId, idempotencyKey, cancellationToken)
         };
+    }
+
+    private static bool ObserveQueueLength(NotificationMetrics metrics, IDeliveryBacklog backlog)
+    {
+        metrics.ObserveQueueLength(() => (int)backlog.LengthAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult());
+        return true;
     }
 
     /// <summary>Logs and counts a call refused with <see cref="NotificationErrorCodes.InvalidRequest" />.</summary>
@@ -92,21 +119,23 @@ public sealed class SendNotificationService(
     }
 
     /// <summary>Steps 5 to 9 of an <c>email</c> call to a registered template.</summary>
-    private Domains.Notifications.Notification SendEmail(
+    private async Task<Domains.Notifications.Notification> SendEmailAsync(
         Domains.Notifications.Notification notification,
         NotificationTemplate template,
-        string traceId)
+        string traceId,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
     {
         // Step 5, for email — the sender is set up, then the template has an email version.
         if (!_emailConfigured)
         {
-            return Skip(notification, SkipReason.ChannelNotConfigured, traceId);
+            return await SkipAsync(notification, SkipReason.ChannelNotConfigured, traceId, idempotencyKey, cancellationToken);
         }
 
         var version = template.Versions.FirstOrDefault(v => string.Equals(v.Channel, EmailChannel, StringComparison.Ordinal));
         if (version is null)
         {
-            return Skip(notification, SkipReason.NoTemplateVersion, traceId);
+            return await SkipAsync(notification, SkipReason.NoTemplateVersion, traceId, idempotencyKey, cancellationToken);
         }
 
         // Step 6 — recipient, never trimmed.
@@ -132,26 +161,28 @@ public sealed class SendNotificationService(
         }
 
         // Step 9 — queue.
-        return Queued(notification, queue.TryEnqueue(notification, recipient, rendering.Message, traceId), traceId);
+        return await QueueAsync(notification, recipient, teams: null, rendering.Message, traceId, idempotencyKey, cancellationToken);
     }
 
     /// <summary>Steps 5 to 9 of a <c>teams</c> call to a registered template.</summary>
-    private Domains.Notifications.Notification SendTeams(
+    private async Task<Domains.Notifications.Notification> SendTeamsAsync(
         Domains.Notifications.Notification notification,
         NotificationTemplate template,
-        string traceId)
+        string traceId,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
     {
         // Step 5, for Teams — Teams is set up, then the template has a Teams version.
         if (!_teamsConfigured)
         {
-            return Skip(notification, SkipReason.ChannelNotConfigured, traceId);
+            return await SkipAsync(notification, SkipReason.ChannelNotConfigured, traceId, idempotencyKey, cancellationToken);
         }
 
         var version = template.Versions.FirstOrDefault(v =>
             string.Equals(v.Channel, TeamsWebhookSender.ChannelKey, StringComparison.Ordinal));
         if (version is null)
         {
-            return Skip(notification, SkipReason.NoTemplateVersion, traceId);
+            return await SkipAsync(notification, SkipReason.NoTemplateVersion, traceId, idempotencyKey, cancellationToken);
         }
 
         // Step 6 — destination, never trimmed or lower-cased, then set in this deployment. Never logged.
@@ -167,7 +198,7 @@ public sealed class SendNotificationService(
 
         if (teams.WebhookFor(recipient.Name) is null)
         {
-            return Skip(notification, SkipReason.TeamsDestinationNotConfigured, traceId);
+            return await SkipAsync(notification, SkipReason.TeamsDestinationNotConfigured, traceId, idempotencyKey, cancellationToken);
         }
 
         // Step 8 — rendering, exactly once, before the call is queued; the size is that of the bytes posted.
@@ -186,24 +217,66 @@ public sealed class SendNotificationService(
             return Reject(notification, NotificationErrorCodes.MessageTooLarge, string.Empty, traceId);
         }
 
-        // Step 9 — queue: the same places as email.
-        return Queued(notification, queue.TryEnqueue(notification, recipient, rendering.Message, traceId), traceId);
+        // Step 9 — queue: the same queue as email.
+        return await QueueAsync(notification, email: null, recipient, rendering.Message, traceId, idempotencyKey, cancellationToken);
     }
 
-    /// <summary>Logs and counts a call the queue took, or refuses it with <see cref="NotificationErrorCodes.QueueFull" />.</summary>
-    private Domains.Notifications.Notification Queued(
+    /// <summary>
+    ///     Refuses the call with <see cref="NotificationErrorCodes.QueueFull" /> when the queue holds
+    ///     <see cref="DeliverySettings.QueueCapacity" /> notifications; otherwise writes its pending status, then publishes it.
+    ///     A publish that throws is not caught: the call answers 500.
+    /// </summary>
+    private async Task<Domains.Notifications.Notification> QueueAsync(
         Domains.Notifications.Notification notification,
-        bool queued,
-        string traceId)
+        EmailRecipient? email,
+        TeamsRecipient? teams,
+        RenderedMessage rendered,
+        string traceId,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
     {
-        if (!queued)
+        var length = await backlog.LengthAsync(cancellationToken);
+        if (length >= delivery.QueueCapacity)
         {
             return Reject(notification, NotificationErrorCodes.QueueFull, string.Empty, traceId);
         }
 
+        if (email is not null)
+        {
+            notification.Queue(email, rendered);
+        }
+        else
+        {
+            notification.Queue(teams!, rendered);
+        }
+
+        // Before the publish: the consumer may finish before this call returns, and its final status must win.
+        await status.WriteAsync(
+            notification.CallerId,
+            new NotificationStatusRecord(notification.NotificationId, idempotencyKey, NotificationOutcome.Pending),
+            cancellationToken);
+        await bus.Publish(
+            new DeliverNotification(
+                DeliverNotification.CurrentSchemaVersion,
+                notification.NotificationId,
+                notification.TemplateId,
+                notification.Channel,
+                notification.CallerId,
+                idempotencyKey,
+                notification.AcceptedAt,
+                traceId,
+                email?.Address,
+                teams?.Name,
+                rendered.Subject,
+                rendered.Body,
+                rendered.Format,
+                AttemptsMade: 0,
+                NotBefore: time.GetUtcNow()),
+            cancellationToken: cancellationToken);
+
         logger.NotificationQueued(
             notification.NotificationId,
-            queue.Length,
+            (int)(length + 1),
             notification.TemplateId.SanitizeForLogging(),
             notification.Channel,
             notification.CallerId.SanitizeForLogging(),
@@ -230,12 +303,19 @@ public sealed class SendNotificationService(
         return notification;
     }
 
-    private Domains.Notifications.Notification Skip(
+    // A skipped call is final at once, so its status is failed (spec §6).
+    private async Task<Domains.Notifications.Notification> SkipAsync(
         Domains.Notifications.Notification notification,
         SkipReason reason,
-        string traceId)
+        string traceId,
+        string? idempotencyKey,
+        CancellationToken cancellationToken)
     {
         notification.Skip(reason);
+        await status.WriteAsync(
+            notification.CallerId,
+            new NotificationStatusRecord(notification.NotificationId, idempotencyKey, NotificationOutcome.Failed),
+            cancellationToken);
         logger.NotificationSkipped(
             notification.NotificationId,
             reason,

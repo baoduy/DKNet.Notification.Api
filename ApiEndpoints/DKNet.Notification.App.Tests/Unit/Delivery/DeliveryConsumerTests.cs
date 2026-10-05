@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using DKNet.Notification.App.TestSupport;
 using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Notifications;
@@ -9,7 +8,6 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
-using SlimMessageBus;
 
 namespace DKNet.Notification.App.Tests.Unit.Delivery;
 
@@ -212,25 +210,5 @@ public sealed class DeliveryConsumerTests : IDisposable
     private sealed class ScriptedSender(Func<DomainNotification, CancellationToken, Task<DeliveryFailure?>> send) : IDeliverySender
     {
         public Task<DeliveryFailure?> SendAsync(DomainNotification notification, CancellationToken stoppingToken) => send(notification, stoppingToken);
-    }
-
-    private sealed class RecordingBus : IMessageBus
-    {
-        private readonly ConcurrentQueue<DeliverNotification> _published = new();
-        public IReadOnlyCollection<DeliverNotification> Published => _published.ToArray();
-
-        public bool ThrowOnPublish { get; set; }
-
-        public Task Publish<TMessage>(TMessage message, string? path = null, IDictionary<string, object>? headers = null, CancellationToken cancellationToken = default)
-        {
-            if (ThrowOnPublish) throw new InvalidOperationException("redis://secret@host");
-            _published.Enqueue((DeliverNotification)(object)message!);
-            return Task.CompletedTask;
-        }
-
-        // The rest of IMessageBus is not used by the consumer.
-        public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, string? path = null, IDictionary<string, object>? headers = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task Send(IRequest request, string? path = null, IDictionary<string, object>? headers = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<TResponse> Send<TResponse, TRequest>(TRequest request, string? path = null, IDictionary<string, object>? headers = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

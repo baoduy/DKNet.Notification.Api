@@ -37,7 +37,7 @@ internal sealed class DeliveryConsumer(
     #region Fields
 
     /// <summary>The activity source of the delivery attempts; the OpenTelemetry set-up exports it.</summary>
-    public const string ActivitySourceName = "DKNet.Notification";
+    public const string ActivitySourceName = NotificationMetrics.DeliveryActivitySourceName;
 
     /// <summary>The longest a not-yet-due message holds the consumer before it takes the next one.</summary>
     public static readonly TimeSpan NotDuePause = TimeSpan.FromSeconds(1);

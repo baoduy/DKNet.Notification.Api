@@ -8,9 +8,8 @@ internal static partial class EmailConfig
     #region Methods
 
     /// <summary>
-    ///     Reads the email, SMTP, Graph and delivery settings once, here, and adds the delivery queue, the chosen
-    ///     sender and the replica's one delivery worker. Bound with <c>Get&lt;T&gt;()</c> on purpose: a later settings change
-    ///     has no effect until the next start. A bad delivery setting stops the start-up; bad email settings only leave email
+    ///     Reads the email, SMTP, Graph and delivery settings once, here, and adds the chosen sender. Bound with
+    ///     <c>Get&lt;T&gt;()</c> on purpose: a later settings change has no effect until the next start. A bad delivery setting stops the start-up; bad email settings only leave email
     ///     not configured.
     /// </summary>
     public static IServiceCollection AddEmailConfig(this IServiceCollection services, IConfiguration configuration)
@@ -21,10 +20,7 @@ internal static partial class EmailConfig
 
         services
             .AddSingleton(delivery)
-            .AddSingleton(email)
-            .AddSingleton<DeliveryQueue>()
-            .AddSingleton<DeliveryWorker>()
-            .AddHostedService<DeliveryWorkerHost>();
+            .AddSingleton(email);
 
         // Only the chosen sender is added (R3). The Graph sign-in is built only from good Graph settings, so a bad
         // value never throws; with bad settings every email call is skipped, whichever sender is added.

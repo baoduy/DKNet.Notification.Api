@@ -14,6 +14,9 @@ public sealed class NotificationMetrics
     /// <summary>The meter the counters are on; the OpenTelemetry set-up exports it.</summary>
     public const string MeterName = "DKNet.Notification";
 
+    /// <summary>The activity source of the delivery attempts, named like the meter; the OpenTelemetry set-up exports it.</summary>
+    public const string DeliveryActivitySourceName = "DKNet.Notification";
+
     private readonly Meter _meter;
     private readonly Counter<long> _accepted;
     private readonly Counter<long> _rejected;
