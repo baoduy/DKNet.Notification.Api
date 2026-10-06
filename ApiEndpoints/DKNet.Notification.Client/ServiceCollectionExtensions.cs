@@ -54,11 +54,7 @@ public static class ServiceCollectionExtensions
     }
 
     private static RefitSettings Settings() =>
-        new(new SystemTextJsonContentSerializer(new JsonSerializerOptions(JsonSerializerDefaults.Web)
-        {
-            // A 200 body without one of the contract's fields is not a success.
-            RespectRequiredConstructorParameters = true
-        }))
+        new(new SystemTextJsonContentSerializer(new JsonSerializerOptions(JsonSerializerDefaults.Web)))
         {
             ExceptionFactory = async response => response.IsSuccessStatusCode
                 ? null

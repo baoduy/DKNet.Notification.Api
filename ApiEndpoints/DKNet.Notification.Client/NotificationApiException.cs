@@ -9,7 +9,7 @@ public sealed record NotificationApiError
     /// <summary>The stable error code, such as <c>TEMPLATE_NOT_FOUND</c>.</summary>
     public string? Code { get; init; }
 
-    /// <summary>The part of the request at fault; empty when no part is.</summary>
+    /// <summary>The part of the request at fault, as sent: empty when the service names no part, null when the entry has none.</summary>
     public string? Field { get; init; }
 
     /// <summary>The service's message for the error.</summary>
@@ -39,7 +39,8 @@ public sealed class NotificationApiException : Exception
     /// </summary>
     internal static async Task<NotificationApiException> FromResponseAsync(HttpResponseMessage response)
     {
-        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        // Read as bytes: JSON is UTF-8 whatever charset the answer names.
+        var body = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
         var errors = ReadErrors(body);
         var codes = string.Join(", ", errors.Select(e => e.Code).OfType<string>());
         var message = $"The notification service answered {(int)response.StatusCode} ({response.StatusCode})"
@@ -47,7 +48,7 @@ public sealed class NotificationApiException : Exception
         return new NotificationApiException(response.StatusCode, errors, message);
     }
 
-    private static IReadOnlyList<NotificationApiError> ReadErrors(string body)
+    private static IReadOnlyList<NotificationApiError> ReadErrors(byte[] body)
     {
         // An empty or blank body is not JSON either.
         try

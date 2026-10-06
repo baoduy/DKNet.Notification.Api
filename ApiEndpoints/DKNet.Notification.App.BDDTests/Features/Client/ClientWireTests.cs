@@ -81,17 +81,16 @@ public sealed class ClientWireTests
         status.ShouldBe(new NotificationStatusResponse(Guid.Parse(NotificationId), "onboard-0012345678", expected));
     }
 
-    [Test]
-    public async Task A_status_without_a_key_reads_as_a_null_key()
+    // The service leaves a null key out of the body; an explicit null reads the same.
+    [TestCase($$"""{"notificationId":"{{NotificationId}}","status":"pending"}""", TestName = "A status without its key reads as a null key")]
+    [TestCase($$"""{"notificationId":"{{NotificationId}}","idempotencyKey":null,"status":"pending"}""", TestName = "A status with a null key reads as a null key")]
+    public async Task A_status_without_a_key_reads_as_a_null_key(string body)
     {
-        var client = Client(_ => Json(
-            HttpStatusCode.OK,
-            $$"""{"notificationId":"{{NotificationId}}","idempotencyKey":null,"status":"pending"}"""));
+        var client = Client(_ => Json(HttpStatusCode.OK, body));
 
         var status = await client.GetStatusAsync(Guid.Parse(NotificationId));
 
-        status.IdempotencyKey.ShouldBeNull();
-        status.Status.ShouldBe(NotificationStatus.Pending);
+        status.ShouldBe(new NotificationStatusResponse(Guid.Parse(NotificationId), null, NotificationStatus.Pending));
     }
 
     [TestCase("\"queued\"", "Unknown notification status 'queued'.")]
@@ -112,9 +111,19 @@ public sealed class ClientWireTests
         refusal.Message.ShouldBe($"The notification service answered 200 (OK) with a body the client cannot read: {reason}");
     }
 
-    [TestCase("""{"notificationId":"8c7e0f3a-2b61-4d0e-9a3f-5d8b1c6e2f47","idempotencyKey":"k"}""", TestName = "A status body without its status is refused")]
-    [TestCase("this is not JSON", TestName = "A status body that is not JSON is refused")]
-    public async Task A_malformed_status_body_is_refused(string body)
+    [TestCase(
+        """{"notificationId":"8c7e0f3a-2b61-4d0e-9a3f-5d8b1c6e2f47","idempotencyKey":"k"}""",
+        "JSON deserialization for type 'DKNet.Notification.Client.NotificationStatusResponse' was missing required properties including: 'status'.",
+        TestName = "A status body without its status is refused")]
+    [TestCase(
+        """{"idempotencyKey":"k","status":"pending"}""",
+        "JSON deserialization for type 'DKNet.Notification.Client.NotificationStatusResponse' was missing required properties including: 'notificationId'.",
+        TestName = "A status body without its id is refused")]
+    [TestCase(
+        "this is not JSON",
+        "'this is not JSON' is an invalid JSON literal. Expected the literal 'true'. Path: $ | LineNumber: 0 | BytePositionInLine: 1.",
+        TestName = "A status body that is not JSON is refused")]
+    public async Task A_malformed_status_body_is_refused(string body, string reason)
     {
         var client = Client(_ => Json(HttpStatusCode.OK, body));
 
@@ -123,7 +132,7 @@ public sealed class ClientWireTests
 
         refusal.StatusCode.ShouldBe(HttpStatusCode.OK);
         refusal.Errors.ShouldBeEmpty();
-        refusal.Message.ShouldStartWith("The notification service answered 200 (OK) with a body the client cannot read: ");
+        refusal.Message.ShouldBe($"The notification service answered 200 (OK) with a body the client cannot read: {reason}");
     }
 
     [Test]
@@ -135,6 +144,7 @@ public sealed class ClientWireTests
 
         refusal.StatusCode.ShouldBe(HttpStatusCode.OK);
         refusal.Errors.ShouldBeEmpty();
+        refusal.Message.ShouldBe("The notification service answered 200 (OK) with a body the client cannot read: JSON deserialization for type 'DKNet.Notification.Client.SendNotificationResponse' was missing required properties including: 'notificationId'.");
     }
 
     [TestCase(NotificationStatus.Pending, "\"pending\"")]
@@ -170,6 +180,25 @@ public sealed class ClientWireTests
             new NotificationApiError { Code = null, Field = "to", Message = "" }
         ]);
         refusal.Message.ShouldBe("The notification service answered 400 (BadRequest): TEMPLATE_NOT_FOUND, INVALID_REQUEST.");
+    }
+
+    [Test]
+    public async Task A_refusal_naming_an_unknown_charset_is_still_read()
+    {
+        var client = Client(_ =>
+        {
+            var content = new ByteArrayContent(Encoding.UTF8.GetBytes(
+                """{"errors":[{"code":"QUEUE_FULL","field":"","message":"The delivery queue is full. Try again later."}]}"""));
+            content.Headers.TryAddWithoutValidation("Content-Type", "application/problem+json; charset=no-such-charset").ShouldBeTrue();
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { Content = content };
+        });
+
+        var refusal = await Should.ThrowAsync<NotificationApiException>(() => client.SendAsync(Request, "k"));
+
+        refusal.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        refusal.Errors.ShouldBe([
+            new NotificationApiError { Code = "QUEUE_FULL", Field = "", Message = "The delivery queue is full. Try again later." }
+        ]);
     }
 
     [TestCase(HttpStatusCode.Unauthorized, "", "text/plain", TestName = "An empty 401 has no errors")]

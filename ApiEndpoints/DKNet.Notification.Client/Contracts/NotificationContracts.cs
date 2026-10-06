@@ -9,13 +9,13 @@ public sealed record SendNotificationRequest(
     IReadOnlyDictionary<string, string> Parameters);
 
 /// <summary>The id the service gave the notification.</summary>
-public sealed record SendNotificationResponse(Guid NotificationId);
+public sealed record SendNotificationResponse([property: JsonRequired] Guid NotificationId);
 
 /// <summary>Where one notification stands, with the idempotency key it was sent with.</summary>
 public sealed record NotificationStatusResponse(
-    Guid NotificationId,
+    [property: JsonRequired] Guid NotificationId,
     string? IdempotencyKey,
-    NotificationStatus Status);
+    [property: JsonRequired] NotificationStatus Status);
 
 /// <summary>The public status of a notification; lower case on the wire.</summary>
 [JsonConverter(typeof(NotificationStatusConverter))]
