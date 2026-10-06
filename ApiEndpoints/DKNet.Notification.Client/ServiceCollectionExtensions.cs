@@ -46,7 +46,6 @@ public static class ServiceCollectionExtensions
 
     private static IHttpClientBuilder AddClient(IServiceCollection services, Uri baseAddress)
     {
-        ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(baseAddress);
         return services.AddRefitGeneratedClient<INotificationClient>(Settings())
             .ConfigureHttpClient(client => client.BaseAddress = baseAddress)
@@ -57,9 +56,8 @@ public static class ServiceCollectionExtensions
     private static RefitSettings Settings() =>
         new(new SystemTextJsonContentSerializer(new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            // A 200 body without a field, or with null where the contract has none, is not a success.
-            RespectRequiredConstructorParameters = true,
-            RespectNullableAnnotations = true
+            // A 200 body without one of the contract's fields is not a success.
+            RespectRequiredConstructorParameters = true
         }))
         {
             ExceptionFactory = async response => response.IsSuccessStatusCode

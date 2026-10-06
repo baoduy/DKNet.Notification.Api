@@ -28,7 +28,6 @@ internal sealed class NotificationStatusConverter : JsonConverter<NotificationSt
 
     public override void Write(Utf8JsonWriter writer, NotificationStatus value, JsonSerializerOptions options)
     {
-        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteStringValue(value switch
         {
             NotificationStatus.Pending => "pending",

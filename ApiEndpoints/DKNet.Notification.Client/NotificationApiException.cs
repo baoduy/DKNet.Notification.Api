@@ -49,11 +49,7 @@ public sealed class NotificationApiException : Exception
 
     private static IReadOnlyList<NotificationApiError> ReadErrors(string body)
     {
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            return [];
-        }
-
+        // An empty or blank body is not JSON either.
         try
         {
             using var json = JsonDocument.Parse(body);
