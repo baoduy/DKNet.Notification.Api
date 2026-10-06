@@ -16,6 +16,7 @@ permissions:
 
 env:
   Project_Path: 'ApiEndpoints/DKNet.Notification.Api/DKNet.Notification.Api.csproj'
+  Client_Project_Path: 'ApiEndpoints/DKNet.Notification.Client/DKNet.Notification.Client.csproj'
   Image_Repository: 'baoduy/dknet.notification-api'
   Dotnet_Version: 10.x
 
@@ -70,6 +71,20 @@ jobs:
             -p:ContainerRepository=${{ env.Image_Repository }} \
             -p:ContainerImageTags='"${{ env.NEXT_VERSION }};latest"'
 
+      - name: Pack NuGet package
+        run: |
+          dotnet pack ${{ env.Client_Project_Path }} \
+            --configuration Release \
+            -p:PackageVersion=${{ env.NEXT_VERSION }} \
+            -o ./nupkgs
+
+      - name: Push NuGet package to GitHub Packages
+        run: |
+          dotnet nuget push "./nupkgs/*.nupkg" \
+            --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json \
+            --api-key ${{ secrets.GITHUB_TOKEN }} \
+            --skip-duplicate
+
       - name: Release
         uses: softprops/action-gh-release@v3.0.1
         continue-on-error: true
@@ -83,3 +98,4 @@ jobs:
       - name: Summary
         run: |
           echo "Pushed ghcr.io/${{ env.Image_Repository }}:${{ env.NEXT_VERSION }} and :latest" >> $GITHUB_STEP_SUMMARY
+          echo "Pushed DKNet.Notification.Client ${{ env.NEXT_VERSION }} to GitHub Packages" >> $GITHUB_STEP_SUMMARY
