@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- Typed Refit client for the notification service, published as its own package (ADR-0014, ADR-0015).
+         It carries its own contracts and references no project of the solution. -->
+    <PropertyGroup>
+        <IsPackable>true</IsPackable>
+        <PackageId>DKNet.Notification.Client</PackageId>
+        <Description>Typed .NET client for the DKNet Notification service: send a notification and read its status.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Refit"/>
+        <PackageReference Include="Refit.HttpClientFactory"/>
+    </ItemGroup>
+
+</Project>
