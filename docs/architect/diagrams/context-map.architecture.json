@@ -11,7 +11,7 @@
       "id": "callers",
       "type": "external",
       "label": "Backend callers",
-      "sublabel": "Accounts.Api likely first",
+      "sublabel": "Accounts.Api first (DRK-2135)",
       "pos": [
         20,
         288
@@ -23,7 +23,7 @@
     },
     {
       "id": "client",
-      "type": "frontend",
+      "type": "cloud",
       "label": "Notification.Client",
       "sublabel": "NuGet package, Refit",
       "pos": [
@@ -246,7 +246,7 @@
       "title": "Upstream",
       "items": [
         "Backend callers decide when and whom to notify",
-        "No caller is committed yet; DKNet.Accounts.Api is likely first",
+        "DRK-2135 plans DKNet.Accounts.Api as the first caller",
         "The service never subscribes to callers' events",
         ".NET callers may reference DKNet.Notification.Client; others call HTTPS directly",
         "The client attaches no credential: the caller's own DelegatingHandler adds the token"

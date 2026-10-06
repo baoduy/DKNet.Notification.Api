@@ -4,7 +4,7 @@
 
 | Neighbour | Direction | How they talk |
 |---|---|---|
-| Backend callers (DKNet.Accounts.Api is a likely first) | Caller → this service | HTTPS REST, Entra ID bearer token |
+| Backend callers (DRK-2135 plans DKNet.Accounts.Api as the first caller) | Caller → this service | HTTPS REST, Entra ID bearer token |
 | .NET callers that take DKNet.Notification.Client | Caller → client package → this service | NuGet package reference at build time; the client then calls this service over HTTPS REST with the caller's own bearer token (ADR-0014) |
 | Microsoft Entra ID | This service → Entra ID | OpenID Connect metadata and signing keys, read to validate tokens. With the Graph sender, also a client credentials token request for Graph |
 | Redis | This service → Redis | Redis protocol, for idempotency records, the delivery queue and notification status records |
@@ -18,7 +18,7 @@ This service calls no other DKNet service at runtime. It depends on no DKNet ser
 
 This repo ships one library, `DKNet.Notification.Client` (ADR-0014):
 
-- A .NET caller may reference it. The direction is caller → client package. DRK-2135 makes DKNet.Accounts.Api the first such caller.
+- A .NET caller may reference it. The direction is caller → client package. DRK-2135 plans DKNet.Accounts.Api as the first caller.
 - The client package references no project of this solution. It carries its own request and response types.
 - The API, application, domain and shared projects never reference the client package.
 - Only this repo's test projects reference both the API and the client, for the route parity test (05-quality).
@@ -266,7 +266,7 @@ No library retries inside an attempt. The `Azure.Identity` credential is built w
 | MailKit | NuGet library (third party) | service → library | New to the DKNet repos. ADR-0005 |
 | Azure.Identity | NuGet library (third party) | service → library | Graph token, both credential modes. DKNet.Accounts.Api pins it too. ADR-0010 |
 | DKNet.Templates | Solution template | one-time scaffold | Not referenced after slice 1 |
-| Refit, Refit.HttpClientFactory | NuGet library (third party) | client package → library | The client package only; no API project takes it. New to the DKNet repos. ADR-0015 |
+| Refit, Refit.HttpClientFactory | NuGet library (third party) | client package → library | The client package only; no API project takes it. The `dknet-minimal` template's `Minimal.Client` uses the same packages. ADR-0015 |
 | Microsoft Entra ID | External service | service → Entra ID | Token validation; with the Graph sender, also the mail-sender app's token request |
 | Redis | External store | service → Redis | ADR-0002, ADR-0012, ADR-0013 |
 | SMTP provider | External service | service → provider | ADR-0005 |
