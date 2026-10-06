@@ -3,6 +3,7 @@ namespace DKNet.Notification.Api.Configs.RateLimits;
 /// <summary>
 ///     Configuration options for rate limiting
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal sealed class RateLimitOptions
 {
     #region Properties

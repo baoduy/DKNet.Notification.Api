@@ -1,5 +1,6 @@
 namespace DKNet.Notification.Api.Configs.Antiforgery;
 
+[ExcludeFromCodeCoverage]
 internal class AntiforgeryCookieMiddleware(
     RequestDelegate next,
     IAntiforgery antiforgery,

@@ -37,10 +37,15 @@
 
 ## Testing and quality constraints
 - Tests live under `ApiEndpoints/DKNet.Notification.App.Tests/` (Shouldly + xUnit) and `ApiEndpoints/DKNet.Notification.App.BDDTests/` (Reqnroll + NUnit). `ApiEndpoints/DKNet.Notification.App.TestSupport/` holds the shared host (`TestApiFactoryBase`) and the fake sign-in scheme (`TestAuthHandler`).
-- Write business-domain tests for your entities, validators, handlers and routes. Do not add tests for logging, telemetry, Swagger/OpenAPI documents, CORS, HSTS, security headers or rate limiting — that is framework behaviour covered upstream. The non-business tests that belong here are the `Architecture/` layer rules. The AppHost is for local runs only: it is excluded from coverage and has no tests.
+- Write business-domain tests for your entities, validators, handlers and routes. Do not add tests for logging, telemetry, Swagger/OpenAPI documents, CORS, HSTS, security headers or rate limiting — that is framework behaviour covered upstream. The non-business tests that belong here are the `Architecture/` layer rules. What is measured and what is not is under "Code coverage".
 - `DKNet.Notification.App.Tests.csproj` disables analyzers for tests; production projects enforce strict warnings-as-errors from `Directory.Packages.props`.
 - App.Tests classes run in parallel. A class that listens to something process-wide (an Azure SDK event source, a diagnostic or activity listener for every source) or asserts a tight time bound joins `[Collection(SerialTestsCollection.Name)]`, which runs alone after the rest.
-- Coverage filters are defined in `coverage.runsettings`; avoid placing real logic in excluded paths (`bin/`, `obj/`, `*Test*.cs`).
+
+## Code coverage
+- Coverage and unit tests are for the application only: the `DKNet.Notification.*` projects that serve the API and hold the business rules (today `Api`, `AppServices`, `Domains`, `Share`). `coverage.runsettings` includes `[DKNet.Notification.*]*`, so a new application project is measured without a change.
+- Not measured, and no tests written for them: the test projects, `App.TestSupport`, the Aspire `AppHost` (local runs only), EF Core migrations (`**/Migrations/**`, model snapshot included) and generated code. A new local-run-only project (a second host, a migration runner, a seeding tool) gets an assembly entry in the `<Exclude>` list of `coverage.runsettings` in the same change that adds it.
+- Framework wiring in `Api/Configs/` carries `[ExcludeFromCodeCoverage]` on the class: every `*Config` class (enforced by `Architecture/ApiTests`) and the plumbing types beside them (rate limiting, antiforgery, security headers, Swagger, options binding). Never put the attribute on a type that decides business behaviour — an endpoint, filter, handler, validator, domain type or the caller-permission check (`Configs/Auth`) — test it instead. Keep business decisions out of `*Config` classes; the one that has one (`FluentValidationConfig`'s error-to-status mapping) is covered by the BDD error scenarios.
+- Never place real logic in an excluded path (`bin/`, `obj/`, `*Test*.cs`, `Migrations/`) or an excluded project.
 
 ## BDD Testing (Reqnroll + NUnit)
 - `Support/BddApiFactory.cs` boots `WebApplicationFactory<Program>` once per test run using Reqnroll `[BeforeTestRun]` in `ApiHooks.cs`, with `RequireAuthorization` off — no external services required.
