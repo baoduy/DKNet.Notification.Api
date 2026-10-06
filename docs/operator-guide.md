@@ -1,6 +1,8 @@
 # Operator guide
 
-Audience: operators deploying and configuring DKNet.Notification.Api on Kubernetes. You know AKS, Helm, Azure Key Vault and Entra ID; you do not read the code. This guide is the only thing you need to install the service and turn on email (SMTP or Microsoft Graph) and Microsoft Teams delivery.
+Audience: operators configuring DKNet.Notification.Api on Kubernetes. This guide is the configuration reference and channel setup for SMTP, Microsoft Graph and Microsoft Teams. For installation, rollout checks and rollback, use the [deployment guide](deployment.md).
+
+Configuration below describes repository code at commit `362962797612943392d6ecb73686eed9c742a574`.
 
 ## 1. Prerequisites
 
@@ -92,7 +94,7 @@ Exactly one sender is active per deployment, chosen by `Notifications:Email:Send
 | `Notifications:Delivery:*` / `Notifications:Status:*` | Stops the service from starting |
 | `Notifications:Templates` (the catalogue) | Stops the service from starting |
 | `Notifications:Email:*` / `Notifications:Email:Smtp:*` / `Notifications:Email:Graph:*` | The service starts; email is left "not configured" and every email call is skipped (logged once at start-up as a warning, naming the bad settings — never their values) |
-| `Notifications:Teams:*` | The service starts; Teams is left "not configured" and every Teams call is skipped with reason `ChannelNotConfigured` — **no log entry is written at start-up for this one**, unlike email (see §5 for the per-call skip reason to look for) |
+| `Notifications:Teams:*` | The service starts; Teams is left "not configured" and every Teams call is skipped with reason `ChannelNotConfigured` — **no log entry is written at start-up for this one**, unlike email (see the [deployment checks](deployment.md#-verify) for the per-call skip reason to look for) |
 
 ### Redis
 
@@ -137,15 +139,9 @@ Skip this section if you use the SMTP sender.
 5. **Check the limit**: `Test-ServicePrincipalAuthorization -Identity <app> -Resource <mailbox>`. `InScope` must show `true` for the sending mailbox and `false` for any other mailbox.
 6. Allow 30 minutes to 2 hours before the first send — Exchange caches app permissions for that long, so an early `403` is expected.
 
-## 4. Deploy with the Helm chart
+## 4. Chart configuration and channel setup
 
-The chart is `helm/dknet-notification/` in this repo. CI lints and unit-tests it but publishes it nowhere, so install straight from the checked-out folder:
-
-```bash
-cd helm/dknet-notification
-helm dependency build
-helm upgrade --install notification-api . -n <namespace> --create-namespace
-```
+The chart lives at `helm/dknet-notification/`. Follow the [deployment guide](deployment.md#-deploy) to install it after configuring the values below.
 
 ### What you edit
 
@@ -203,62 +199,15 @@ Both subjects depend on the namespace you install into — set it before creatin
 - **Graph**: set `Notifications__Email__Enabled: "true"`, `Notifications__Email__Sender: "Graph"`, and the `Notifications__Email__Graph__*` plain settings; with `Credential: "ClientSecret"` also add the Graph client secret above (with `WorkloadIdentity`, no secret is needed beyond §3's federated credential).
 - **Teams**: set `Notifications__Teams__Enabled: "true"` and add each destination's secret as shown above — never its webhook URL in `api.configMap`.
 
+The shipped `account-opened` template has only an email version. A Teams call against it is accepted and skipped with `NoTemplateVersion`; a Teams smoke test needs a released template with a Teams Markdown version.
+
+`ChannelNotConfigured` means Teams is off or its channel settings are invalid. `TeamsDestinationNotConfigured` means Teams is configured but the named destination is absent or invalid. The current `account-opened` template skips before checking its destination, so inspect destination settings directly until a Teams template version ships.
+
 ### Exposing the API
 
 The API is `ClusterIP`-only by default. Turn on `api.httpRoute.enabled: true` (e.g. `--set api.httpRoute.enabled=true`) to attach it to the existing gateway named by `operator.gatewayName`/`operator.gatewayNamespace` at `operator.apiHostname`. This chart creates no Gateway resource itself.
 
-## 5. Checks after deploy
-
-1. **Pod readiness**: the Deployment's liveness and readiness probes both hit `GET /healthz`, which reports process liveness only — no check of Redis, SMTP, Graph, the Entra ID token endpoint or Teams. A pod reporting ready does not by itself prove any channel can send.
-2. **With the Graph sender on `Credential: WorkloadIdentity`**, confirm the token actually reached the pod — this is the only proof available before a real tenant is involved, since no cluster has run this chart yet:
-   - the pod carries the label `azure.workload.identity/use: "true"`;
-   - the pod's environment holds `AZURE_FEDERATED_TOKEN_FILE` (injected by the workload identity webhook, not set by this chart);
-   - that file exists inside the container. The chart disables the Kubernetes-default service account token automount (`automountServiceAccountToken: false`), so this projected file is the pod's only source of a token — if it is missing, the Graph sender cannot sign in.
-3. **Run `Test-ServicePrincipalAuthorization`** for the mail-sender app and sending mailbox (§3, step 5) — confirm again after any mailbox or scope change.
-4. **Send one test notification per channel you turned on**, as a caller holding the `notifications.send` scope or role, against `POST /v1/notifications`. Every call needs all three headers — `Authorization`, `Content-Type` and `Idempotency-Key` — the last is required on this route, not optional:
-
-   ```http
-   POST /v1/notifications HTTP/1.1
-   Authorization: Bearer <token with the notifications.send scope or role>
-   Content-Type: application/json
-   Idempotency-Key: <a new GUID — see note below>
-
-   {"channel": "email", "templateId": "account-opened", "parameters": {"to": "test@example.com", "customerName": "Test", "accountNumber": "0000"}}
-   ```
-
-   ```http
-   POST /v1/notifications HTTP/1.1
-   Authorization: Bearer <token with the notifications.send scope or role>
-   Content-Type: application/json
-   Idempotency-Key: <a new GUID — see note below>
-
-   {"channel": "teams", "templateId": "account-opened", "parameters": {"teamsDestination": "<your-destination-name>", "customerName": "Test", "accountNumber": "0000"}}
-   ```
-
-   - **A missing or bad `Idempotency-Key`** (blank, over 255 characters, or outside `^[a-zA-Z0-9\-_]+$`) answers `400 Bad Request` — the handler never runs, so this is not a notification outcome at all.
-   - **Use a new key for every test call.** A key you already used for this same route and caller, within the last 4 hours, replays the first call's answer verbatim **without running the handler again** — so a second call with a reused key writes **no new log entry**, even if you changed the request body.
-   - **A `200 OK` means only "queued or skipped"** — never "rejected". A rejected call (bad recipient, unknown template, full queue, and so on) answers a `4xx` with an error body instead. A `200` with a correctly new key still does not by itself prove delivery — read its status next, then check the logs.
-
-   Read the status of the notification with the id the call returned, as the same caller:
-
-   ```http
-   GET /v1/notifications/<notificationId> HTTP/1.1
-   Authorization: Bearer <token with the notifications.send scope or role>
-   ```
-
-   It answers `{ "notificationId": …, "idempotencyKey": …, "status": … }` with `pending` (queued, being delivered or waiting for a retry), `success` or `failed`. A skipped call reads `failed` at once, and the status never says why. Another caller's id, an unknown id and an expired id all answer `404`.
-
-   Check the structured logs for the real outcome: `NotificationQueued` then `NotificationDelivered` or `NotificationFailed` for a real send, or `NotificationSkipped` (with its `Reason`) when a channel is not configured or the template has no version for that channel.
-
-   The shipped `account-opened` template has only an `email` version in this release — a `teams` test call against it answers `200` and then logs `NotificationSkipped` with reason `NoTemplateVersion`, not a delivery. A real Teams delivery test needs a template release that registers a Teams (Markdown) version of a template; this guide cannot make that call for you.
-
-   Two different skip reasons cover Teams, and they are not interchangeable:
-   - `ChannelNotConfigured` — Teams itself is off or badly set up (§2's "What a bad value does"); every Teams call is skipped this way, regardless of destination or template.
-   - `TeamsDestinationNotConfigured` — Teams is configured, but the named destination is unset or its webhook URL is bad.
-
-   Neither writes a start-up log entry, unlike email. In this release, a `teams` test call always hits `NoTemplateVersion` before the destination is even checked (no Teams template version ships yet), so a destination mistake does not surface as `TeamsDestinationNotConfigured` until a template with a Teams version ships — check the destination configuration by inspection (§2), not by this test call, until then.
-
-## 6. Upgrade notes
+## 5. Upgrade notes
 
 For the release that adds notification status and Redis delivery (ADR-0012, ADR-0013):
 

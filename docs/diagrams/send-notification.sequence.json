@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Send notification",
+    "output": ".archify/send-notification.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/baoduy/DKNet.Notification.Api.git",
+      "revision": "362962797612943392d6ecb73686eed9c742a574"
+    }
+  },
+  "participants": [
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "Caller",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/ApiEndpoints/Notifications/NotificationsV1Endpoint.cs",
+          "line": 58
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Endpoint",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/ApiEndpoints/Notifications/NotificationsV1Endpoint.cs",
+          "line": 33
+        }
+      ]
+    },
+    {
+      "id": "service",
+      "type": "backend",
+      "label": "Send service",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Notifications/SendNotificationService.cs",
+          "line": 58
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "type": "database",
+      "label": "Status key",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Notifications/NotificationStatusStore.cs",
+          "line": 40
+        }
+      ]
+    },
+    {
+      "id": "list",
+      "type": "messagebus",
+      "label": "Redis list",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Delivery/DeliverNotification.cs",
+          "line": 44
+        }
+      ]
+    },
+    {
+      "id": "consumer",
+      "type": "backend",
+      "label": "Consumer",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Delivery/DeliveryConsumer.cs",
+          "line": 45
+        }
+      ]
+    },
+    {
+      "id": "provider",
+      "type": "cloud",
+      "label": "Provider",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Delivery/DeliveryConsumer.cs",
+          "line": 81
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "id": "m0",
+      "from": "caller",
+      "to": "api",
+      "y": 160,
+      "label": "POST /v1/notifications",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m1",
+      "from": "api",
+      "to": "service",
+      "y": 194,
+      "label": "validated SendNotification",
+      "variant": "default"
+    },
+    {
+      "id": "m2",
+      "from": "service",
+      "to": "list",
+      "y": 228,
+      "label": "LLEN: refuse if full",
+      "variant": "security"
+    },
+    {
+      "id": "m3",
+      "from": "service",
+      "to": "status",
+      "y": 262,
+      "label": "write pending",
+      "variant": "default"
+    },
+    {
+      "id": "m4",
+      "from": "service",
+      "to": "list",
+      "y": 296,
+      "label": "publish DeliverNotification",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m5",
+      "from": "api",
+      "to": "caller",
+      "y": 330,
+      "label": "200 id; skipped also 200",
+      "variant": "return"
+    },
+    {
+      "id": "m6",
+      "from": "list",
+      "to": "consumer",
+      "y": 364,
+      "label": "pop message",
+      "variant": "default"
+    },
+    {
+      "id": "m7",
+      "from": "consumer",
+      "to": "provider",
+      "y": 398,
+      "label": "send once",
+      "variant": "default"
+    },
+    {
+      "id": "m8",
+      "from": "provider",
+      "to": "consumer",
+      "y": 432,
+      "label": "accepted or failed",
+      "variant": "return"
+    },
+    {
+      "id": "m9",
+      "from": "consumer",
+      "to": "status",
+      "y": 466,
+      "label": "write success or failed",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Refusal",
+      "items": [
+        "Invalid body or missing key is refused before the service.",
+        "Unknown template and full queue return errors without publishing."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Delivery",
+      "items": [
+        "Retry republishes to the same list with NotBefore.",
+        "A skipped call writes failed status without queueing."
+      ]
+    }
+  ]
+}
