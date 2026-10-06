@@ -1,3 +1,4 @@
+using System.Text;
 using DKNet.Notification.App.TestSupport;
 using DKNet.Notification.AppServices.Notifications;
 using Microsoft.Extensions.Caching.Distributed;
@@ -39,6 +40,23 @@ public sealed class NotificationStatusStoreTests
         await store.WriteAsync("c", new NotificationStatusRecord(id, null, NotificationOutcome.Success), CancellationToken.None);
 
         (await store.ReadAsync("c", id, CancellationToken.None))!.Status.ShouldBe(NotificationOutcome.Success);
+    }
+
+    [Fact]
+    public async Task A_status_is_stored_by_name_and_a_record_stored_with_a_number_still_reads()
+    {
+        var cache = Cache();
+        var store = Store(cache);
+        var id = Guid.CreateVersion7();
+
+        await store.WriteAsync("c", new NotificationStatusRecord(id, null, NotificationOutcome.Success), CancellationToken.None);
+
+        Encoding.UTF8.GetString((await cache.GetAsync(NotificationStatusStore.KeyOf("c", id)))!).ShouldContain("\"Status\":\"Success\"");
+        var older = Guid.CreateVersion7();
+        await cache.SetAsync(
+            NotificationStatusStore.KeyOf("c", older),
+            Encoding.UTF8.GetBytes($$"""{"NotificationId":"{{older}}","IdempotencyKey":null,"Status":{{(int)NotificationOutcome.Failed}}}"""));
+        (await store.ReadAsync("c", older, CancellationToken.None)).ShouldBe(new NotificationStatusRecord(older, null, NotificationOutcome.Failed));
     }
 
     [Fact]

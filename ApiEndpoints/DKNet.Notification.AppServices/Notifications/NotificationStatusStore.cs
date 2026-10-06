@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DKNet.Notification.Share.Extensions;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
@@ -14,6 +15,13 @@ public sealed class NotificationStatusStore(
     NotificationStatusSettings settings,
     ILogger<NotificationStatusStore> logger)
 {
+    #region Fields
+
+    // The status is stored by name (spec §7); a record written with a number still reads.
+    private static readonly JsonSerializerOptions Json = new() { Converters = { new JsonStringEnumConverter() } };
+
+    #endregion
+
     #region Methods
 
     /// <summary>The cache key of a caller's notification.</summary>
@@ -37,7 +45,7 @@ public sealed class NotificationStatusStore(
         {
             await cache.SetAsync(
                 KeyOf(callerId, record.NotificationId),
-                JsonSerializer.SerializeToUtf8Bytes(record),
+                JsonSerializer.SerializeToUtf8Bytes(record, Json),
                 new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(settings.RetentionHours) },
                 cancellationToken);
         }
@@ -58,7 +66,7 @@ public sealed class NotificationStatusStore(
     {
         ArgumentNullException.ThrowIfNull(callerId);
         var bytes = await cache.GetAsync(KeyOf(callerId, notificationId), cancellationToken);
-        return bytes is null ? null : JsonSerializer.Deserialize<NotificationStatusRecord>(bytes);
+        return bytes is null ? null : JsonSerializer.Deserialize<NotificationStatusRecord>(bytes, Json);
     }
 
     #endregion
