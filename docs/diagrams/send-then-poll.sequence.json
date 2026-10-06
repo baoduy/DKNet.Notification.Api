@@ -1,0 +1,190 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Send then poll",
+    "output": ".archify/send-then-poll.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/baoduy/DKNet.Notification.Api.git",
+      "revision": "362962797612943392d6ecb73686eed9c742a574"
+    },
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "Caller",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/ApiEndpoints/Notifications/NotificationsV1Endpoint.cs",
+          "line": 58
+        }
+      ]
+    },
+    {
+      "id": "send",
+      "type": "backend",
+      "label": "Send route",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/ApiEndpoints/Notifications/NotificationsV1Endpoint.cs",
+          "line": 58
+        }
+      ]
+    },
+    {
+      "id": "list",
+      "type": "messagebus",
+      "label": "Delivery list",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Delivery/DeliverNotification.cs",
+          "line": 44
+        }
+      ]
+    },
+    {
+      "id": "consumer",
+      "type": "backend",
+      "label": "Consumer",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Delivery/DeliveryConsumer.cs",
+          "line": 45
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "type": "database",
+      "label": "Status key",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Notifications/NotificationStatusStore.cs",
+          "line": 31
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "type": "backend",
+      "label": "Status route",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/ApiEndpoints/Notifications/NotificationsV1Endpoint.cs",
+          "line": 90
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "id": "m0",
+      "from": "caller",
+      "to": "send",
+      "y": 160,
+      "label": "POST with key",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m1",
+      "from": "send",
+      "to": "status",
+      "y": 194,
+      "label": "write pending or failed",
+      "variant": "default"
+    },
+    {
+      "id": "m2",
+      "from": "send",
+      "to": "list",
+      "y": 228,
+      "label": "publish if queued",
+      "variant": "default"
+    },
+    {
+      "id": "m3",
+      "from": "send",
+      "to": "caller",
+      "y": 262,
+      "label": "200 notificationId",
+      "variant": "return"
+    },
+    {
+      "id": "m4",
+      "from": "caller",
+      "to": "read",
+      "y": 296,
+      "label": "GET id as same caller",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m5",
+      "from": "read",
+      "to": "status",
+      "y": 330,
+      "label": "read caller key",
+      "variant": "default"
+    },
+    {
+      "id": "m6",
+      "from": "status",
+      "to": "read",
+      "y": 364,
+      "label": "pending or final",
+      "variant": "return"
+    },
+    {
+      "id": "m7",
+      "from": "read",
+      "to": "caller",
+      "y": 398,
+      "label": "200 status or 404",
+      "variant": "return"
+    },
+    {
+      "id": "m8",
+      "from": "list",
+      "to": "consumer",
+      "y": 432,
+      "label": "attempt delivery",
+      "variant": "default"
+    },
+    {
+      "id": "m9",
+      "from": "consumer",
+      "to": "status",
+      "y": 466,
+      "label": "write final outcome",
+      "variant": "default"
+    },
+    {
+      "id": "m10",
+      "from": "caller",
+      "to": "read",
+      "y": 500,
+      "label": "poll same id again",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m11",
+      "from": "read",
+      "to": "caller",
+      "y": 534,
+      "label": "success or failed",
+      "variant": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "slate",
+      "title": "Timing",
+      "items": [
+        "A fast consumer may finish before the first poll.",
+        "A skipped call never enters the delivery list."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "schema_version": 2,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Public notification status",
+    "output": ".archify/notification-status.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/baoduy/DKNet.Notification.Api.git",
+      "revision": "362962797612943392d6ecb73686eed9c742a574"
+    }
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "Queued delivery"
+    },
+    {
+      "id": "skip",
+      "label": "Skipped call"
+    },
+    {
+      "id": "terminal",
+      "label": "Final outcomes"
+    }
+  ],
+  "states": [
+    {
+      "id": "queued",
+      "type": "start",
+      "label": "Queued",
+      "lane": "main",
+      "col": 0,
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Notifications/SendNotificationService.cs",
+          "line": 236
+        }
+      ]
+    },
+    {
+      "id": "pending",
+      "type": "waiting",
+      "label": "Pending",
+      "lane": "main",
+      "col": 1,
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Notifications/SendNotificationService.cs",
+          "line": 239
+        }
+      ]
+    },
+    {
+      "id": "skipped",
+      "type": "start",
+      "label": "Skipped",
+      "lane": "skip",
+      "col": 3,
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Notifications/SendNotificationService.cs",
+          "line": 292
+        }
+      ]
+    },
+    {
+      "id": "success",
+      "type": "success",
+      "label": "Success",
+      "lane": "terminal",
+      "col": 2,
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Delivery/DeliveryConsumer.cs",
+          "line": 204
+        }
+      ]
+    },
+    {
+      "id": "failed",
+      "type": "failure",
+      "label": "Failed",
+      "lane": "terminal",
+      "col": 3,
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Delivery/DeliveryConsumer.cs",
+          "line": 204
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "queued",
+      "to": "pending",
+      "label": "write pending"
+    },
+    {
+      "from": "pending",
+      "to": "success",
+      "label": "provider accepts"
+    },
+    {
+      "from": "pending",
+      "to": "failed",
+      "label": "terminal failure"
+    },
+    {
+      "from": "skipped",
+      "to": "failed",
+      "label": "write failed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Stored values",
+      "items": [
+        "Retries leave the value pending.",
+        "Rejected calls write no status record."
+      ]
+    }
+  ]
+}
