@@ -47,4 +47,15 @@ public sealed record DeliverNotification(
     public const string QueueName = "notification-delivery";
 
     #endregion
+
+    #region Methods
+
+    /// <summary>
+    ///     The message in text, as a bus error or a log entry would carry it: the ids and the attempt count only, never
+    ///     the recipient, the subject or the body.
+    /// </summary>
+    /// <returns>The notification id, the attempts made and the trace id.</returns>
+    public override string ToString() => $"{nameof(DeliverNotification)} {{ NotificationId = {NotificationId}, AttemptsMade = {AttemptsMade}, TraceId = {TraceId} }}";
+
+    #endregion
 }

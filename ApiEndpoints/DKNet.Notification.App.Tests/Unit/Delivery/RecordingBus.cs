@@ -19,7 +19,8 @@ internal sealed class RecordingBus : IMessageBus
 
     public Task Publish<TMessage>(TMessage message, string? path = null, IDictionary<string, object>? headers = null, CancellationToken cancellationToken = default)
     {
-        if (ThrowOnPublish) throw new InvalidOperationException("redis://secret@host");
+        // The text the real bus puts in its error: it prints the message.
+        if (ThrowOnPublish) throw new InvalidOperationException($"Producing message {message} of type {typeof(TMessage).Name} failed: redis://secret@host");
         var delivery = (DeliverNotification)(object)message!;
         OnPublish?.Invoke(delivery);
         _published.Enqueue(delivery);

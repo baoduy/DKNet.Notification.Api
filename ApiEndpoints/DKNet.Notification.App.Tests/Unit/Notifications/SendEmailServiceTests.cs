@@ -188,6 +188,21 @@ public sealed class SendEmailServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_publish_that_fails_reaches_the_caller_with_no_recipient_or_body_in_its_text()
+    {
+        var service = Service(SetUp());
+        _host.Bus.ThrowOnPublish = true;
+
+        var error = await Should.ThrowAsync<InvalidOperationException>(
+            () => service.SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-1", "order-42", CancellationToken.None));
+
+        error.Message.ShouldContain("trace-1");
+        error.Message.ShouldNotContain("jane@example.com");
+        error.Message.ShouldNotContain("Your account is open");
+        error.Message.ShouldNotContain("Jane Tan");
+    }
+
+    [Fact]
     public async Task A_skipped_call_is_failed_at_once_and_publishes_nothing()
     {
         var service = Service(SetUp(enabled: false));
