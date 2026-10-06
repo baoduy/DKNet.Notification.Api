@@ -67,7 +67,7 @@
       "id": "redis",
       "type": "database",
       "label": "Redis",
-      "sublabel": "idempotency records",
+      "sublabel": "idempotency, delivery queue, status",
       "pos": [
         300,
         520

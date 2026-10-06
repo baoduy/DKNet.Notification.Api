@@ -11,7 +11,7 @@
   "participants": [
     { "id": "caller", "type": "external", "label": "Backend caller", "sublabel": "notifications.send" },
     { "id": "api", "type": "backend", "label": "Notification API", "sublabel": "POST /v1/notifications" },
-    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "idempotency records" },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "idempotency, status" },
     { "id": "catalogue", "type": "database", "label": "Template catalogue", "sublabel": "in image" },
     { "id": "settings", "type": "security", "label": "Channel settings", "sublabel": "this deployment" },
     { "id": "logs", "type": "messagebus", "label": "Log pipeline", "sublabel": "OpenTelemetry" }

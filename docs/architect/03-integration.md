@@ -15,7 +15,7 @@
 
 This service calls no other DKNet service. No DKNet service is called by it. No library depends on it.
 
-![DKNet Notification sits between backend callers and its delivery targets — the SMTP provider or Microsoft Graph for email, one per deployment, and Teams Workflows webhooks — and depends on Entra ID for tokens, Redis for idempotency records, and DKNet packages at build time.](diagrams/context-map.svg)
+![DKNet Notification sits between backend callers and its delivery targets — the SMTP provider or Microsoft Graph for email, one per deployment, and Teams Workflows webhooks — and depends on Entra ID for tokens, Redis for idempotency records, the delivery queue and status records, and DKNet packages at build time.](diagrams/context-map.svg)
 
 ## Exposed API
 
