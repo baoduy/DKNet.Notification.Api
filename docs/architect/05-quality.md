@@ -171,11 +171,11 @@ Delivery is best effort, but a notification that waits survives a restart (ADR-0
 
 - **Container image:** multi-arch (`linux-x64`, `linux-arm64`), built with the .NET SDK container publish on an `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` base, non-root. Published to `ghcr.io/baoduy/dknet.notification-api`, like DKNet.Accounts.Api's `ghcr.io/baoduy/dknet.accounts-api`.
 - **Version:** computed by the publish pipeline from tags. Never hand-edited.
-- **CI:** build and test on every push and pull request to `dev`; image publish on push to `main`. The same two workflows DKNet.Accounts.Api runs.
+- **CI:** build and test on every push and pull request to `dev`. On push to `main`, the release workflow publishes the image and packs and pushes `DKNet.Notification.Client` (delivery slice 8). The same two workflows DKNet.Accounts.Api runs.
 - **Helm chart:** one chart for the API, like DKNet.Accounts.Api's `helm/dknet-accounts` (slice 6). It sets the channel settings, the email sender, the destinations and the secret references.
 - **Workload identity:** for `Credential` = `WorkloadIdentity`, the chart's service account carries the `azure.workload.identity/client-id` annotation with the mail-sender app's client id. DKNet.Accounts.Api's chart sets the same annotation for its own identity. The pod template also carries the label `azure.workload.identity/use: "true"`; without it the workload identity webhook injects no token. DKNet.Accounts.Api's chart sets no such label.
 - **Local run:** the Aspire AppHost starts Redis, a Mailpit SMTP catcher and the API, with `Sender` = `Smtp`. Graph has no local stand-in in the AppHost.
-- **No NuGet package:** callers use plain HTTP. A typed client package is out of scope for version 1.
+- **NuGet package:** `DKNet.Notification.Client`, the typed .NET client (ADR-0014, ADR-0015). Its version is the service's release version, the one the pipeline computes from tags for the image. It is published to GitHub Packages at `https://nuget.pkg.github.com/baoduy/index.json`, the feed of DKNet.Accounts.Client. Restoring it needs a GitHub token with `read:packages`. The package carries its README. It is the repo's only packable project. Callers that use plain HTTP need no package.
 
 ## Testing approach
 
@@ -203,6 +203,8 @@ Delivery is best effort, but a notification that waits survives a restart (ADR-0
 | Status store: caller-scoped key, expiry from settings, a failed write does not throw | Unit | — | `IDistributedCache` |
 | Status route: `POST` answers 200; `GET` answers 200 for the caller's own id and 404 for an unknown, another caller's or non-GUID id | Integration, through HTTP | — (in-memory store) | Entra ID |
 | Template catalogue start-up checks | Unit | — | File system: a temporary `Templates` folder |
+| Client route parity: every live route under `/v1/notifications` has exactly one client method, and every client method has a live route. Verb and path are compared after the version segment and route constraints are resolved. The test fails both ways | Integration, in process | — (the API's live route table) | Nothing: the test reads the routes the API maps and the client's Refit route declarations |
+| Client package: the packed package carries its README and references no project of this solution | Integration, on the packed output | — | Nothing |
 | No personal data or secret in logs | Integration | Redis, Mailpit, Graph stub | Log sink captures entries; the test searches them for the recipient, each value, the Graph token and the client secret |
 
 - No test reaches a live Microsoft 365 tenant, and none runs in CI.
@@ -211,6 +213,6 @@ Delivery is best effort, but a notification that waits survives a restart (ADR-0
 
 ## Runtime architecture
 
-![A backend caller gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container and is shared by all replicas, renders, writes the pending status, publishes the message to the delivery list in Redis and answers 200, and answers the caller's status lookup from Redis; the delivery consumer takes messages from that list, puts a message back to wait for a retry, writes the final status, and hands email to the one active sender — the SMTP sender to the SMTP provider, or the Graph sender, which gets an Entra ID token as the mail-sender app and posts to Microsoft Graph — and Teams messages to a Teams Workflows webhook.](diagrams/runtime.svg)
+![A backend caller, through plain HTTPS or the DKNet.Notification.Client package, gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container and is shared by all replicas, renders, writes the pending status, publishes the message to the delivery list in Redis and answers 200, and answers the caller's status lookup from Redis; the delivery consumer takes messages from that list, puts a message back to wait for a retry, writes the final status, and hands email to the one active sender — the SMTP sender to the SMTP provider, or the Graph sender, which gets an Entra ID token as the mail-sender app and posts to Microsoft Graph — and Teams messages to a Teams Workflows webhook.](diagrams/runtime.svg)
 
 The first docs ticket after the scaffold draws the code-derived diagram at `docs/diagrams/`. It reports any difference from this one as a design question.

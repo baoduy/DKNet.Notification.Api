@@ -133,6 +133,10 @@ api:
     # known — an empty value here fails IPAddress.Parse at API startup.
     # Security__TrustedProxies__0: *trustedProxy
 
+    # Notifications waiting in the Redis delivery list, for the whole service (1–100,000).
+    # A full list answers 503 QUEUE_FULL.
+    Notifications__Delivery__QueueCapacity: "1000"
+
     Notifications__Email__Enabled: "false"
     Notifications__Email__Sender: "Smtp"
     Notifications__Email__TimeoutSeconds: "30"

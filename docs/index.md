@@ -6,9 +6,14 @@ DKNet Notification turns one registered template plus caller parameters into one
 
 Source: [baoduy/DKNet.Notification.Api](https://github.com/baoduy/DKNet.Notification.Api)
 
+As-built pages describe commit `362962797612943392d6ecb73686eed9c742a574`.
+
 ## Run it
 
-- [Operator guide](operator-guide.md) — deploy on Kubernetes with the Helm chart and turn on email (SMTP or Microsoft Graph) and Teams delivery.
+- [Send a notification](features/send-notification.md) — submit a templated message for email or Teams delivery.
+- [Read notification status](features/notification-status.md) — poll the caller's own delivery outcome.
+- [Deployment guide](deployment.md) — release path, install, verification and rollback.
+- [Operator guide](operator-guide.md) — configuration and SMTP, Graph and Teams channel setup.
 
 ## How it is built
 

@@ -1,0 +1,30 @@
+# ADR-0014: Ship a typed .NET client package, DKNet.Notification.Client
+
+- **Status:** Accepted
+- **Context:**
+  - Version 1 shipped with plain HTTP only. A typed client was out of scope (05-quality, revision 2).
+  - DKNet.Accounts.Api already ships a typed client, DKNet.Accounts.Client, for its downstream callers. It is published to GitHub Packages on each release.
+  - The requester wants the same for this service, so .NET callers stop hand-writing the routes, the JSON and the error parsing (DRK-2136, DRK-2137).
+  - The API has two live routes for callers: `POST /v1/notifications` and `GET /v1/notifications/{notificationId}`. `GET /healthz` is for the platform, not for callers.
+- **Decision:**
+  - This repo ships one NuGet package, `DKNet.Notification.Client`, next to the API.
+  - It covers the two live caller routes and nothing else. It has nothing for `/healthz`.
+  - It mirrors DKNet.Accounts.Client:
+    - The calling app registers it with a base address. A second registration also chains the app's own `DelegatingHandler`.
+    - The client attaches no credential of its own. The app's handler adds the bearer token.
+    - Every refusal surfaces as one exception type, carrying the status code and the `errors[]` entries.
+    - A route parity test keeps the client in step with the API's live routes (05-quality, Testing approach).
+    - A README ships inside the package.
+  - The package version is the service's release version, computed from tags by the release pipeline. It is published to the same GitHub Packages feed as DKNet.Accounts.Client.
+  - The client carries its own request and response types. It references no project of this solution.
+  - The API does not change. Callers that use plain HTTP keep working.
+  - The client's method shapes and error detail belong to its spec (DRK-2136), not to this design.
+- **Alternatives:**
+  - *Plain HTTP only, as in revision 2.* Rejected: every .NET caller would keep its own copy of the routes, the body shape and the `errors[]` parsing. A route change would break callers silently. DKNet.Accounts.Api already solved this with a client package.
+  - *A client in a separate repo.* Rejected: it would release apart from the API, so a route change and its client change could not ship together. The parity test needs the API's live routes in the same build.
+  - *Generate a client from the OpenAPI document.* Rejected: the document is served only with `EnableSwagger` on, and generated code would not follow the DKNet.Accounts.Client shape the requester asked for.
+- **Consequences:**
+  - Easier: a .NET caller adds one package reference, registers it, and calls typed methods. A refusal is data, not JSON to parse.
+  - Easier: the parity test fails the build when a route and the client drift apart.
+  - Harder: the repo now has a public .NET surface. A breaking change to the client is a breaking release of the service.
+  - Harder: the release workflow must pack and push the package as well as the image (README, delivery slice 8). Restoring it needs a GitHub token with `read:packages`.

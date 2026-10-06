@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Release path",
+    "output": ".archify/release-path.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/baoduy/DKNet.Notification.Api.git",
+      "revision": "362962797612943392d6ecb73686eed9c742a574"
+    }
+  },
+  "participants": [
+    {
+      "id": "dev",
+      "type": "external",
+      "label": "dev commit",
+      "sources": [
+        {
+          "path": ".github/workflows/build.yml",
+          "line": 4
+        }
+      ]
+    },
+    {
+      "id": "build",
+      "type": "backend",
+      "label": "Build & Test",
+      "sources": [
+        {
+          "path": ".github/workflows/build.yml",
+          "line": 20
+        }
+      ]
+    },
+    {
+      "id": "main",
+      "type": "external",
+      "label": "main commit",
+      "sources": [
+        {
+          "path": ".github/workflows/docker-publish.yml",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "id": "publish",
+      "type": "backend",
+      "label": "Image publish",
+      "sources": [
+        {
+          "path": ".github/workflows/docker-publish.yml",
+          "line": 28
+        }
+      ]
+    },
+    {
+      "id": "registry",
+      "type": "cloud",
+      "label": "GHCR",
+      "sources": [
+        {
+          "path": ".github/workflows/docker-publish.yml",
+          "line": 50
+        }
+      ]
+    },
+    {
+      "id": "operator",
+      "type": "external",
+      "label": "Operator",
+      "sources": [
+        {
+          "path": "helm/dknet-notification/values.yaml",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "id": "cluster",
+      "type": "cloud",
+      "label": "Cluster",
+      "sources": [
+        {
+          "path": "helm/dknet-notification/values.yaml",
+          "line": 101
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "id": "m0",
+      "from": "dev",
+      "to": "build",
+      "y": 160,
+      "label": "push or PR to dev",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m2",
+      "from": "operator",
+      "to": "main",
+      "y": 228,
+      "label": "manual promotion to main",
+      "variant": "security"
+    },
+    {
+      "id": "m3",
+      "from": "main",
+      "to": "publish",
+      "y": 262,
+      "label": "push to main",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m5",
+      "from": "publish",
+      "to": "registry",
+      "y": 330,
+      "label": "push version and latest images",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m6",
+      "from": "registry",
+      "to": "operator",
+      "y": 364,
+      "label": "select pinned image tag",
+      "variant": "return"
+    },
+    {
+      "id": "m7",
+      "from": "operator",
+      "to": "cluster",
+      "y": 398,
+      "label": "manual Helm upgrade/install",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Not automated here",
+      "items": [
+        "The workflows do not deploy to a cluster.",
+        "The Helm chart is checked in and not published by these workflows."
+      ]
+    }
+  ]
+}

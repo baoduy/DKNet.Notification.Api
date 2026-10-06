@@ -1,0 +1,25 @@
+# ADR-0015: The client package uses Refit for its HTTP calls
+
+- **Status:** Accepted
+- **Context:**
+  - DKNet.Accounts.Client is written by hand on a typed `HttpClient`. It builds each request and reads each response itself.
+  - The requester chose Refit for this client, and chose to mirror DKNet.Accounts.Client in everything else (DRK-2137, answer "1. A").
+  - Refit turns an annotated .NET interface into an HTTP client at build time. Its `Refit.HttpClientFactory` package registers that interface on `IHttpClientFactory`, so a caller's `DelegatingHandler` chains on the same way.
+  - Refit is third party, and not new to the DKNet repos. The `dknet-minimal` template in DKNet.Templates already scaffolds a packable Refit client, `Minimal.Client`, with `Refit` and `Refit.HttpClientFactory`. This repo's scaffold (DRK-1994) generated that Refit client. Slice 1 removed it, because revisions 1 and 2 had no typed client.
+  - DKNet.Accounts.Client does not use Refit.
+- **Decision:**
+  - `DKNet.Notification.Client` declares its routes on a Refit interface and registers it through `Refit.HttpClientFactory`.
+  - Refit is a dependency of the client package only. The API, application, domain and shared projects never reference it.
+  - Refit's own exception types never reach the caller. The client turns every refusal into its one public exception type (ADR-0014).
+  - The route parity test reads the verb and path from each Refit route declaration (05-quality, Testing approach).
+  - DKNet.Accounts.Client stays on its hand-written `HttpClient`. Moving it is out of scope.
+  - Everything except Refit mirrors DKNet.Accounts.Client (ADR-0014). `Minimal.Client` is the precedent for Refit only.
+- **Alternatives:**
+  - *A hand-written typed `HttpClient`, exactly as DKNet.Accounts.Client.* Rejected by the requester: Refit removes the hand-written request and response code for each route.
+  - *Generate the client from the OpenAPI document (for example with NSwag or Kiota).* Rejected: see ADR-0014.
+- **Consequences:**
+  - Easier: each route is one annotated method. A new route is one line plus its types.
+  - Easier: the route parity test reads the routes straight from the Refit declarations, with no second route list.
+  - Easier: the client takes the same Refit packages the `dknet-minimal` template already scaffolds.
+  - Harder: every app that takes the client also takes Refit, as a transitive dependency. A caller that pins another Refit version must match it.
+  - Harder: the DKNet service clients are built two ways. This client and the template's `Minimal.Client` use Refit; DKNet.Accounts.Client is hand-written. A fix in one way does not carry over to the other.

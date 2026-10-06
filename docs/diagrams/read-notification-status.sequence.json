@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Read notification status",
+    "output": ".archify/read-notification-status.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/baoduy/DKNet.Notification.Api.git",
+      "revision": "362962797612943392d6ecb73686eed9c742a574"
+    },
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "Caller",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/ApiEndpoints/Notifications/NotificationsV1Endpoint.cs",
+          "line": 90
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Endpoint",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/ApiEndpoints/Notifications/NotificationsV1Endpoint.cs",
+          "line": 90
+        }
+      ]
+    },
+    {
+      "id": "handler",
+      "type": "backend",
+      "label": "Handler",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Notifications/GetNotificationStatus.cs",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "Status key",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Notifications/NotificationStatusStore.cs",
+          "line": 65
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "id": "m0",
+      "from": "caller",
+      "to": "api",
+      "y": 160,
+      "label": "GET /v1/notifications/{id}",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m1",
+      "from": "api",
+      "to": "handler",
+      "y": 194,
+      "label": "GetNotificationStatus + caller id",
+      "variant": "default"
+    },
+    {
+      "id": "m2",
+      "from": "handler",
+      "to": "store",
+      "y": 228,
+      "label": "read status:{caller}:{id}",
+      "variant": "default"
+    },
+    {
+      "id": "m3",
+      "from": "store",
+      "to": "handler",
+      "y": 262,
+      "label": "record or missing",
+      "variant": "return"
+    },
+    {
+      "id": "m4",
+      "from": "handler",
+      "to": "api",
+      "y": 296,
+      "label": "record or NOT_FOUND",
+      "variant": "return"
+    },
+    {
+      "id": "m5",
+      "from": "api",
+      "to": "caller",
+      "y": 330,
+      "label": "200 status or 404; no-store",
+      "variant": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Caller scope",
+      "items": [
+        "A different caller uses a different key.",
+        "Unknown, expired and another caller's id all answer 404."
+      ]
+    }
+  ]
+}

@@ -12,7 +12,7 @@
 
 | Who | Kind | What they do |
 |---|---|---|
-| Backend services | Calling system | Call `POST /v1/notifications` with an Entra ID machine token, then read the status of each notification with `GET /v1/notifications/{notificationId}`. DKNet.Accounts.Api is a likely first caller; no caller is committed yet. |
+| Backend services | Calling system | Call `POST /v1/notifications` with an Entra ID machine token, then read the status of each notification with `GET /v1/notifications/{notificationId}`. DRK-2135 plans DKNet.Accounts.Api as the first caller. |
 | Template authors | Human (developer) | Add or change a template file and its registration, then release a new version of the service. |
 | Operators | Human | Deploy the service, set channel settings and Teams destinations per deployment, and read logs and metrics. |
 | Recipients | Human | Receive the email or read the Teams message. They never call the service. |
