@@ -7,7 +7,9 @@ The service owns:
 - The template catalogue: registrations and template files. They ship inside the release.
 - The channel settings and Teams destinations of its deployment.
 - Idempotency records for its own endpoint.
-- In-memory notifications, from acceptance to their end state.
+- The delivery queue: one message in a Redis list for each notification that waits for an attempt (ADR-0013).
+- The status record of each accepted notification, for the caller that sent it (ADR-0012).
+- In-memory notifications, while a delivery attempt runs.
 
 The service never writes:
 
@@ -25,22 +27,24 @@ The service never writes:
 | Template catalogue | `appsettings.json` registrations plus files in the API project's `Templates` folder, copied into the image | The requester's rule: templates change only by release (ADR-0004) |
 | Channel settings, email sender settings and Teams destinations | Configuration: `appsettings.json` for non-secret values; environment variables or Azure App Configuration for secrets | One set per deployment. Same configuration order as DKNet.Accounts.Api |
 | Idempotency records | Redis | Shared by all replicas; expires on its own (ADR-0002) |
-| Notifications | Process memory only | No status tracking in version 1 (ADR-0002, ADR-0003) |
+| Notifications waiting for delivery | Redis list `notification-delivery` (process memory in local runs and tests) | Waiting notifications and retry waits survive a restart or a deploy (ADR-0013) |
+| Notification status | Redis key `DKNet.Notification.Apistatus:{callerId}:{notificationId}` (the cache instance name, then `status:{callerId}:{notificationId}`) through `IDistributedCache` (process memory in local runs and tests) | A caller reads the status of its own notification from any replica (ADR-0012) |
+| Notification during an attempt | Process memory | Rebuilt from the queued message for each attempt |
 
 There is no relational database. The scaffold's PostgreSQL resource, EF Core context and database health check are removed in slice 1 (ADR-0002).
 
-The in-memory idempotency store is allowed only for local runs and tests. The package itself warns that it is not for production.
+The in-memory idempotency store, the memory delivery bus and the in-memory status store are allowed only for local runs and tests. The package itself warns that the idempotency store is not for production. Outside Development and Testing the service refuses to start without `ConnectionStrings:Redis`.
 
 ## Entities
 
-### Notification (in memory, not stored)
+### Notification (in memory during an attempt; rebuilt from the queued message)
 
 | Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
 |---|---|---|---|---|---|---|
 | NotificationId | GUID | — | Yes | Unique | New GUID on acceptance | Returned to the caller; in every log entry |
 | TemplateId | string | 1–100 | Yes | — | — | Reference to NotificationTemplate |
 | Channel | string | 1–50 | Yes | — | — | Lower-cased caller value |
-| Parameters | map of string to string | ≤ 50 keys; key 1–64; value ≤ 4,000 | Yes | — | — | **Personal data.** Never logged |
+| Parameters | map of string to string | ≤ 50 keys; key 1–64; value ≤ 4,000 | Yes | — | — | **Personal data.** Never logged. Empty on a resumed notification: the queued message holds the rendered message, not the parameters |
 | Recipient | EmailRecipient or TeamsRecipient | address ≤ 254; destination 1–64 | Yes, when queued | — | — | **Personal data** for email. Never logged |
 | RenderedSubject | string | ≤ 998 | Email only | — | — | Filled subject; CR and LF replaced by spaces |
 | RenderedTitle | string | ≤ 500 | No | — | Empty | Teams card title, when the version has one |
@@ -50,6 +54,42 @@ The in-memory idempotency store is allowed only for local runs and tests. The pa
 | Status | enum | — | Yes | — | `Received` | `Received`, `Rejected`, `Skipped`, `Queued`, `Delivering`, `RetryWaiting`, `Delivered`, `Failed` |
 | AttemptCount | integer | 0–3 | Yes | — | 0 | Delivery attempts made |
 | AcceptedAt | timestamp (UTC) | milliseconds | Yes | — | Now | For log timing |
+
+### DeliverNotification (Redis list `notification-delivery`, one message per waiting notification)
+
+The message is JSON, written by the System.Text.Json serializer. Local runs and tests keep it in memory as an object (ADR-0013).
+
+| Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
+|---|---|---|---|---|---|---|
+| SchemaVersion | integer | — | Yes | — | 1 | Fields are only ever added, as optional; `DeliverNotification` is never moved or renamed, and `BodyFormat` only gains values at the end (ADR-0013) |
+| NotificationId | GUID | — | Yes | — | — | The id returned to the caller; in every log entry |
+| TemplateId | string | 1–100 | Yes | — | — | |
+| Channel | string | 1–50 | Yes | — | — | Lower-cased caller value |
+| CallerId | string | ≤ 256 | Yes | — | — | Scopes the status record |
+| IdempotencyKey | string | 1–255 | No | — | — | The `Idempotency-Key` header of the accepting call. Copied into the status record |
+| AcceptedAt | timestamp (UTC) | milliseconds | Yes | — | — | For the delivery duration |
+| TraceId | string | — | Yes | — | — | The accepting call's trace id. Delivery links to it |
+| EmailAddress | string | ≤ 254 | Email only | — | — | **Personal data.** Never logged |
+| TeamsDestination | string | 1–64 | Teams only | — | — | The destination name, never the webhook URL |
+| Subject | string | ≤ 998 | Yes | — | Empty | Email subject, or the Teams card title |
+| Body | string | Teams card ≤ 28 KB | Yes | — | — | **Personal data.** Never logged |
+| Format | enum | — | Yes | — | — | `Html` (email), `Markdown` (Teams) |
+| AttemptsMade | integer | 0–2 | Yes | — | 0 | Delivery attempts already made |
+| NotBefore | timestamp (UTC) | milliseconds | Yes | — | Now | The next attempt starts no sooner |
+
+A message holds the rendered message and the one recipient, not the caller's parameters. It is not encrypted. Redis access control and TLS protect it, as they protect idempotency records. The message stays in Redis until a consumer takes it, so the personal data in it stays there until the notification is delivered or fails.
+
+### NotificationStatusRecord (Redis key, through `IDistributedCache`)
+
+| Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
+|---|---|---|---|---|---|---|
+| Key | string | — | Yes | Unique | — | `status:{callerId}:{notificationId}`; in Redis the cache instance name `DKNet.Notification.Api` comes first, so the key reads `DKNet.Notification.Apistatus:{callerId}:{notificationId}`. One record per caller and notification |
+| NotificationId | GUID | — | Yes | — | — | |
+| IdempotencyKey | string | 1–255 | No | — | — | The `Idempotency-Key` of the accepting call |
+| Status | enum | — | Yes | — | `Pending` | `Pending`, `Success` or `Failed`. The API shows them as `pending`, `success`, `failed`; Skipped is `Failed` |
+| ExpiresAt | timestamp (UTC) | — | Yes | — | +24 hours | Set on each write, so it counts from the last write. `Notifications:Status:RetentionHours`, 1–168. Redis expiry follows it |
+
+The record holds no personal data.
 
 ### NotificationTemplate (configuration, read-only)
 
@@ -120,17 +160,23 @@ Email is configured when `Enabled` is `true`, `Sender` is `Smtp` or `Graph`, and
 
 | Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
 |---|---|---|---|---|---|---|
-| QueueCapacity | integer | 1–100,000 | Yes | — | 1,000 | Full queue answers 503 |
+| QueueCapacity | integer | 1–100,000 | Yes | — | 1,000 | For the whole service, not one replica. The API counts the Redis list before it publishes; a full list answers 503. The memory fallback has no limit |
 | MaxAttempts | integer | 1–3 | Yes | — | 3 | |
 | RetryDelaysSeconds | list of integer | 2 items, each 1–300 | Yes | — | `[5, 30]` | Wait before attempt 2 and attempt 3 |
+
+### NotificationStatusSettings (configuration)
+
+| Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
+|---|---|---|---|---|---|---|
+| RetentionHours | integer | 1–168 | Yes | — | 24 | `Notifications:Status:RetentionHours`. Hours a status record is kept after its last write. A bad value stops the start-up |
 
 ### IdempotencyRecord (Redis, shape owned by DKNet.AspCore.Idempotency)
 
 | Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
 |---|---|---|---|---|---|---|
 | Key | string | — | Yes | Unique | — | Caller id (from the `KeyScopeResolver` setting, ADR-0008) + route + method + `Idempotency-Key` |
-| StatusCode | integer | — | Yes | — | 102 while in flight | 202 once kept |
-| Body | string | — | No | — | — | The 202 body: `notificationId` only |
+| StatusCode | integer | — | Yes | — | 102 while in flight | 200 once kept. A record kept before the release of ADR-0012 holds 202 and replays it until it expires |
+| Body | string | — | No | — | — | The 200 body: `notificationId` only |
 | ContentType | string | — | Yes | — | — | `application/json` |
 | CreatedAt | timestamp (UTC) | — | Yes | — | Now | |
 | ExpiresAt | timestamp (UTC) | — | Yes | — | +30 seconds in flight; +4 hours kept | Redis expiry follows it |
@@ -139,7 +185,9 @@ Email is configured when `Enabled` is `true`, `Sender` is `Smtp` or `Graph`, and
 
 | Record | Lives for | Deleted by |
 |---|---|---|
-| Notification | Until its end state; lost on process stop | The process |
+| Notification in memory | While one delivery attempt runs | The process |
+| Queued message | Until a consumer takes it for an attempt. A retry publishes a new message. Survives a restart or a deploy; lost with Redis data | The delivery consumer |
+| Status record | `Notifications:Status:RetentionHours` after its last write: 24 hours by default | Redis expiry |
 | Idempotency record in flight | 30 seconds | Redis expiry |
 | Idempotency record kept | 4 hours | Redis expiry |
 | Template catalogue and settings | Until the next release or configuration change | The release or the operator |

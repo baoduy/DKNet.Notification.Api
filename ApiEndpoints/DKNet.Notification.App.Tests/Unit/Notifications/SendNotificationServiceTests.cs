@@ -1,11 +1,13 @@
 using System.Diagnostics.Metrics;
 using DKNet.Notification.App.TestSupport;
+using DKNet.Notification.App.Tests.Unit.Delivery;
 using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Notifications;
 using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Notifications;
 using DKNet.Notification.Domains.Templates;
 using Microsoft.Extensions.Logging;
+using SlimMessageBus;
 
 namespace DKNet.Notification.App.Tests.Unit.Notifications;
 
@@ -27,7 +29,11 @@ public sealed class SendNotificationServiceTests : IDisposable
             .AddSingleton(new EmailChannelSettings())
             .AddSingleton(new TeamsChannelSettings())
             .AddSingleton(new DeliverySettings())
-            .AddSingleton<DeliveryQueue>()
+            .AddSingleton<IDeliveryBacklog>(new InProcessDeliveryBacklog())
+            .AddSingleton<IMessageBus>(new RecordingBus())
+            .AddDistributedMemoryCache()
+            .AddSingleton(new NotificationStatusSettings())
+            .AddSingleton<NotificationStatusStore>()
             .AddSingleton(TimeProvider.System)
             .AddSingleton<NotificationMetrics>()
             .AddSingleton<SendNotificationService>()
@@ -53,9 +59,9 @@ public sealed class SendNotificationServiceTests : IDisposable
     }
 
     [Fact]
-    public void A_missing_request_or_meter_factory_is_refused()
+    public async Task A_missing_request_or_meter_factory_is_refused()
     {
-        Should.Throw<ArgumentNullException>(() => _service.Send(null!, "treasury-ops", "trace-0")).ParamName.ShouldBe("request");
+        (await Should.ThrowAsync<ArgumentNullException>(() => _service.SendAsync(null!, "treasury-ops", "trace-0", idempotencyKey: null, CancellationToken.None))).ParamName.ShouldBe("request");
         Should.Throw<ArgumentNullException>(() => new NotificationMetrics(null!)).ParamName.ShouldBe("meterFactory");
     }
 
@@ -63,9 +69,9 @@ public sealed class SendNotificationServiceTests : IDisposable
         new(channel, templateId, new Dictionary<string, string> { ["to"] = "jane@example.com" });
 
     [Fact]
-    public void A_registered_template_is_skipped_logged_and_counted()
+    public async Task A_registered_template_is_skipped_logged_and_counted()
     {
-        var notification = _service.Send(Request("account-opened", "WhatsApp"), "treasury-ops", "trace-1");
+        var notification = await _service.SendAsync(Request("account-opened", "WhatsApp"), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None);
 
         notification.Status.ShouldBe(NotificationStatus.Skipped);
         notification.SkipReason.ShouldBe(SkipReason.ChannelNotSupported);
@@ -89,9 +95,9 @@ public sealed class SendNotificationServiceTests : IDisposable
     [Theory]
     [InlineData("account-closed")]
     [InlineData("Account-Opened")]
-    public void An_unknown_template_is_rejected_logged_and_counted(string templateId)
+    public async Task An_unknown_template_is_rejected_logged_and_counted(string templateId)
     {
-        var notification = _service.Send(Request(templateId, "email"), "treasury-ops", "trace-2");
+        var notification = await _service.SendAsync(Request(templateId, "email"), "treasury-ops", "trace-2", idempotencyKey: null, CancellationToken.None);
 
         notification.Status.ShouldBe(NotificationStatus.Rejected);
         var entry = _logs.Entries.ShouldHaveSingleItem();
@@ -129,9 +135,9 @@ public sealed class SendNotificationServiceTests : IDisposable
     }
 
     [Fact]
-    public void Caller_text_is_sanitized_before_it_is_logged()
+    public async Task Caller_text_is_sanitized_before_it_is_logged()
     {
-        _service.Send(Request("account-opened\r\nforged", "email\n"), "treasury-ops\r\n", "trace-4");
+        await _service.SendAsync(Request("account-opened\r\nforged", "email\n"), "treasury-ops\r\n", "trace-4", idempotencyKey: null, CancellationToken.None);
 
         var entry = _logs.Entries.ShouldHaveSingleItem();
         entry.Value("TemplateId").ShouldBe("account-openedforged");
@@ -140,10 +146,10 @@ public sealed class SendNotificationServiceTests : IDisposable
     }
 
     [Fact]
-    public void No_entry_or_tag_holds_a_parameter_value()
+    public async Task No_entry_or_tag_holds_a_parameter_value()
     {
-        _service.Send(Request("account-opened", "email"), "treasury-ops", "trace-5");
-        _service.Send(Request("account-closed", "email"), "treasury-ops", "trace-6");
+        await _service.SendAsync(Request("account-opened", "email"), "treasury-ops", "trace-5", idempotencyKey: null, CancellationToken.None);
+        await _service.SendAsync(Request("account-closed", "email"), "treasury-ops", "trace-6", idempotencyKey: null, CancellationToken.None);
 
         _logs.Entries.Count.ShouldBe(2);
         _logs.Entries.SelectMany(e => e.State.Select(p => Convert.ToString(p.Value)).Append(e.Message))

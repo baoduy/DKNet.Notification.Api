@@ -11,7 +11,7 @@
   "participants": [
     { "id": "caller", "type": "external", "label": "Backend caller", "sublabel": "notifications.send" },
     { "id": "api", "type": "backend", "label": "Notification API", "sublabel": "POST /v1/notifications" },
-    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "idempotency records" },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "idempotency, status" },
     { "id": "catalogue", "type": "database", "label": "Template catalogue", "sublabel": "in image" },
     { "id": "settings", "type": "security", "label": "Channel settings", "sublabel": "this deployment" },
     { "id": "logs", "type": "messagebus", "label": "Log pipeline", "sublabel": "OpenTelemetry" }
@@ -30,8 +30,8 @@
     { "id": "resolve", "from": "api", "to": "settings", "y": 340, "label": "channel supported + configured?", "variant": "default" },
     { "id": "unavailable", "from": "settings", "to": "api", "y": 368, "label": "no", "variant": "return" },
     { "id": "log", "from": "api", "to": "logs", "y": 420, "label": "NotificationSkipped, warning", "variant": "dashed", "note": "id, template, channel, reason; no parameters, no recipient" },
-    { "id": "keep", "from": "api", "to": "redis", "y": 500, "label": "keep 202, 4 h", "variant": "dashed" },
-    { "id": "accepted", "from": "api", "to": "caller", "y": 540, "label": "202 notificationId", "variant": "return" }
+    { "id": "keep", "from": "api", "to": "redis", "y": 500, "label": "keep 200, 4 h", "variant": "dashed" },
+    { "id": "accepted", "from": "api", "to": "caller", "y": 540, "label": "200 notificationId", "variant": "return" }
   ],
   "activations": [
     { "participant": "api", "from": 180, "to": 546, "type": "backend" },
@@ -41,6 +41,6 @@
   ],
   "cards": [
     { "dot": "cyan", "title": "Skip reasons", "items": ["ChannelNotSupported: no sender in this release", "ChannelNotConfigured: sender exists but is disabled here", "NoTemplateVersion: template has no version for the channel", "TeamsDestinationNotConfigured: name not set in this deployment"] },
-    { "dot": "amber", "title": "The requester's rule", "items": ["The caller gets 202, the same answer as a queued call", "Nothing is queued and nothing is sent"] }
+    { "dot": "amber", "title": "The requester's rule", "items": ["The caller gets 200, the same answer as a queued call; its status reads failed, never why", "Nothing is queued and nothing is sent"] }
   ]
 }

@@ -12,6 +12,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications.Steps;
 /// delivery, retries, repeated calls, the connection to the mail server, the health check and the local run. The
 /// mail servers are real Mailpit containers (<see cref="MailCatcher" />); only the reply text that holds an address
 /// comes from <see cref="ScriptedSmtpServer" />. Every expected value is a literal from the spec.
+/// <c>NotificationStatus.feature</c> reuses these steps too.
 /// </summary>
 /// <remarks>
 /// The entries are matched on the event names of the spec's log table, with the structured-state names this file
@@ -25,6 +26,7 @@ namespace DKNet.Notification.App.BDDTests.Features.Notifications.Steps;
 /// </remarks>
 [Binding]
 [Scope(Feature = EmailChannelSteps.FeatureTitle)]
+[Scope(Feature = NotificationStatusSteps.FeatureTitle)]
 public sealed class EmailDeliverySteps(SendScenario scenario)
 {
     public const string QueuedEvent = "NotificationQueued";
@@ -438,13 +440,6 @@ public sealed class EmailDeliverySteps(SendScenario scenario)
         (await Catcher.HeadersAsync(mail.ID)).Keys.ShouldNotContain("Bcc");
     }
 
-    [Then(@"^the mail catcher receives no mail to ""([^""]*)""$")]
-    public async Task ThenTheMailCatcherReceivesNoMailTo(string to)
-    {
-        await Task.Delay(PastAttempt2);
-        (await Catcher.MailsAsync()).Where(m => m.To.Any(r => r.Address == to)).ShouldBeEmpty();
-    }
-
     [Then(@"^the mail server receives no mail$")]
     public async Task ThenTheMailServerReceivesNoMail()
     {
@@ -673,7 +668,7 @@ public sealed class EmailDeliverySteps(SendScenario scenario)
     public void ThenTheSecondAnswerCarriesTheSameNotificationIdAsTheFirst()
     {
         scenario.Answers.Count.ShouldBe(2);
-        scenario.Answers.ShouldAllBe(a => a.Status == HttpStatusCode.Accepted);
+        scenario.Answers.ShouldAllBe(a => a.Status == HttpStatusCode.OK);
         NotificationIdOf(scenario.Answers[1]).ShouldBe(NotificationIdOf(scenario.Answers[0]));
     }
 

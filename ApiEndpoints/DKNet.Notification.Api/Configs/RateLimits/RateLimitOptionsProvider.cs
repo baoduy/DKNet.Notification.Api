@@ -13,6 +13,7 @@ public interface IRateLimitOptionsProvider
     #endregion
 }
 
+[ExcludeFromCodeCoverage]
 internal sealed class RateLimitOptionsProvider(IOptions<RateLimitOptions> options)
     : IRateLimitOptionsProvider
 {

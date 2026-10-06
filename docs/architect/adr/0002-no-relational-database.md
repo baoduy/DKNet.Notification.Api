@@ -1,6 +1,6 @@
 # ADR-0002: No relational database; Redis only for idempotency records
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by ADR-0012 and ADR-0013
 - **Context:**
   - Version 1 has no delivery status tracking and no history. The requester said it is not needed now.
   - Templates are files shipped in the release, not rows.
@@ -20,3 +20,4 @@
   - Harder: slice 1 departs from the scaffold and must remove its database parts cleanly.
   - Harder: a Redis outage fails every call with 500, because the package does not catch store errors.
   - A later revision that adds status tracking needs a new ADR and a store.
+- **Amendment:** Redis now holds more than idempotency records. It also holds the delivery queue, a Redis list (ADR-0013), and the status record of each notification (ADR-0012). Both survive a restart, so "keep notifications in memory only" no longer holds, and the status tracking this ADR left for a later revision now exists. There is still no relational database, schema or migration.

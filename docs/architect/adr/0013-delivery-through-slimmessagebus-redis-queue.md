@@ -1,0 +1,45 @@
+# ADR-0013: Deliver through the SlimMessageBus Redis queue
+
+- **Status:** Accepted. Supersedes ADR-0003.
+- **Context:**
+  - ADR-0003 delivered from an in-process queue. A replica that stopped lost every notification that was queued or waiting for a retry. Every deploy stops every replica, so every deploy lost them.
+  - The service already runs SlimMessageBus as its in-process mediator (ADR-0011), and already needs Redis (ADR-0002).
+  - SlimMessageBus 3.5.0 has a Redis provider. Its queue is a Redis list: the producer does `RPUSH`, and one consumer loop per bus does `LPOP`, so a message is taken at most once. When the list has been empty for 3 seconds, the loop polls once a second.
+  - A handler exception is logged by the provider and the message is dropped. So the consumer must catch every error itself.
+  - `Instances(n)` lets a consumer hold up to n messages in the process. With `Instances(1)` a replica holds at most one.
+  - On stop, the bus waits for each consumer to finish before it is disposed. A handler whose cancellation token fires can still publish until then.
+  - A message that cannot be deserialized is dropped by the provider before our code runs.
+- **Decision:**
+  - A second child bus, `Delivery`, carries `DeliverNotification` on the queue `notification-delivery`. The first child bus stays the in-memory mediator (ADR-0011).
+    - With `ConnectionStrings:Redis` set, it uses the Redis provider and the System.Text.Json serializer.
+    - Without it, in Development and Testing only, it uses the memory provider with non-blocking publish. Every other environment refuses to start, as it does for idempotency.
+  - The queued message holds the rendered notification: the recipient, subject, body and format, the template id, channel and caller id, the trace id, the idempotency key, `AttemptsMade` and `NotBefore`. It holds a `SchemaVersion`, now 1. A Teams message holds the destination name, never the webhook URL.
+  - Accepting a call:
+    - The API counts the list with `LLEN`. When it holds `Delivery:QueueCapacity` notifications, the call answers 503 `QUEUE_FULL` with `Retry-After: 30`, and nothing is written.
+    - Otherwise it writes the status `pending` (ADR-0012), then publishes the message with `AttemptsMade` 0 and `NotBefore` now.
+    - The count is approximate: replicas publish at the same time. The memory fallback has no limit.
+    - `QueueCapacity` now covers the whole service, not one replica.
+  - One `DeliveryConsumer` per replica, with `Instances(1)`, makes one delivery attempt per message. Any replica may take any message.
+  - A message whose `NotBefore` has not come is published back to the tail of the list at once. The consumer then pauses for the time left or 1 second, whichever is less. It never holds a message for its whole wait.
+  - A transient failure with attempts left publishes the message again with `AttemptsMade` plus 1 and `NotBefore` set to now plus the `Retry-After` wait, or else the configured delay (5 seconds, then 30 seconds). A retry wait is never held in memory.
+  - A permanent failure, or a transient failure on attempt 3, ends the notification Failed.
+  - When the host stops during an attempt, the message is published again with `AttemptsMade` unchanged. A cut-off attempt is not counted, so a run of deploys cannot use up the 3 attempts.
+  - Any other exception ends the notification Failed. So does a failed publish back to the queue. No exception leaves the consumer.
+  - The consumer rebuilds the notification with `Notification.Resume`, so the 3-attempt limit stays in the domain.
+  - Time is read from the injected `TimeProvider`. The sender time limits and the `Retry-After` date stay on the real clock, because they are about a real provider.
+  - Queued messages hold the recipient and the rendered body as they are. They are not encrypted. Redis access control and TLS protect them, as they protect idempotency records.
+  - Compatibility rule: a field of `DeliverNotification` is only ever added, and as optional. Removing or renaming a field takes two releases, so a message queued by one release is still read by the next. The rule covers the type too: SlimMessageBus routes a message by a header holding the type's namespace and assembly-qualified name, and drops a message whose type it cannot find. So never move or rename `DeliverNotification`, and only ever append values to `BodyFormat`, which is stored as a number.
+- **Alternatives:**
+  - *Keep the in-process queue (ADR-0003).* Rejected: it loses every waiting notification on each deploy.
+  - *SlimMessageBus's in-process `Retry()` for the retry waits.* Rejected: it waits in memory, so a stop still loses the retry.
+  - *Azure Service Bus.* Deferred: it adds new infrastructure and a dead-letter process. It stays the upgrade path if at-least-once delivery is ever needed.
+  - *Redis Streams built by hand.* Rejected: it would be our own queue to maintain. The Redis list is a documented SlimMessageBus feature.
+- **Consequences:**
+  - Easier: waiting notifications and retry waits survive a restart or a deploy. Replicas share one backlog, and one limit covers the service.
+  - Harder: delivery is at most once per pop. A hard crash can lose the one message a replica holds, and a stop can lose at most the one message the replica was taking from the list at that instant. Either way its status stays `pending` until the record expires. Redis data loss loses the queue.
+  - Harder: a duplicate is possible after an ambiguous timeout, or when a stop cuts an attempt after the provider already took the message.
+  - Harder: personal data (the recipient and the rendered body) sits in Redis until the notification is delivered or fails. Operators who read the Redis data can read it.
+  - Harder: a message that cannot be deserialized is lost, and its status stays `pending` until the record expires. The compatibility rule is what prevents this across releases.
+  - Harder: `QueueCapacity` changes meaning from per replica to the whole service. A value sized per replica now covers all replicas, and the queue-length gauge reads the service-wide count (05-quality). A dashboard built on the per-replica value needs a new reading.
+  - Harder: a Redis outage stops delivery and answers every call with 500. During one, SlimMessageBus can log a `TaskCanceledException` at stop time.
+  - Easier: the in-process queue, the delivery worker loop and its in-memory retry timers are gone.

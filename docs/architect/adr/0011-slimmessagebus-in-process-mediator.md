@@ -11,7 +11,7 @@
   - The endpoint reads the caller id and the trace id from the HTTP request and puts them on the command, so the handler does not depend on the HTTP request.
   - Body validation stays in the endpoint filter that runs before the idempotency filter. It does not move into a bus validation interceptor, which would run inside the idempotency filter and hold the key of every refused body (ADR-0008).
   - The endpoint maps a failure to the HTTP answer itself: 400 with the field, or 503 with `Retry-After: 30` for a full queue. DKNet's FluentResults response drops the field and cannot set the header.
-  - The bus is only a mediator. Delivery keeps the bounded queue and worker of ADR-0003.
+  - The in-memory bus is only a mediator. It carries `SendNotification` and `GetNotificationStatus`. A second child bus now carries delivery, on a Redis queue (ADR-0013).
 - **Alternatives:**
   - *Call the send service directly from the endpoint.* This was revision 1 of the service. Rejected: it does not match the command and handler shape of the other DKNet services, and each new endpoint would wire its own service.
   - *DKNet.AspCore.Extensions' `MapPost<TCommand, TResponse>`.* Rejected for this route: it answers 200 or 201, binds the body itself, and cannot answer 202, 413 or 503 with `Retry-After`. Later routes without those needs can use it.

@@ -11,7 +11,8 @@ namespace DKNet.Notification.AppServices.Notifications;
 /// <param name="Request">The validated body.</param>
 /// <param name="CallerId">The caller that passed step 1.</param>
 /// <param name="TraceId">The trace id an error body and every log entry name.</param>
-public sealed record SendNotification(SendNotificationRequest Request, string CallerId, string TraceId)
+/// <param name="IdempotencyKey">The <c>Idempotency-Key</c> header of the call, kept in its status record.</param>
+public sealed record SendNotification(SendNotificationRequest Request, string CallerId, string TraceId, string? IdempotencyKey = null)
     : Fluents.Requests.IWitResponse<Guid>
 {
     #region Fields
@@ -26,7 +27,7 @@ public sealed record SendNotification(SendNotificationRequest Request, string Ca
 }
 
 /// <summary>
-///     Runs <see cref="SendNotificationService.Send" />. A queued or skipped notification answers its id, so a
+///     Runs <see cref="SendNotificationService.SendAsync" />. A queued or skipped notification answers its id, so a
 ///     caller cannot tell them apart; a rejected one fails with its code and field as error metadata.
 /// </summary>
 internal sealed class SendNotificationHandler(SendNotificationService service)
@@ -34,17 +35,16 @@ internal sealed class SendNotificationHandler(SendNotificationService service)
 {
     #region Methods
 
-    public Task<IResult<Guid>> OnHandle(SendNotification request, CancellationToken cancellationToken)
+    public async Task<IResult<Guid>> OnHandle(SendNotification request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var notification = service.Send(request.Request, request.CallerId, request.TraceId);
-        IResult<Guid> result = notification.Status == NotificationStatus.Rejected
+        var notification = await service.SendAsync(request.Request, request.CallerId, request.TraceId, request.IdempotencyKey, cancellationToken);
+        return notification.Status == NotificationStatus.Rejected
             ? Result.Fail<Guid>(new Error(notification.ErrorCode)
                 .WithMetadata(SendNotification.CodeMetadata, notification.ErrorCode ?? string.Empty)
                 .WithMetadata(SendNotification.FieldMetadata, notification.ErrorField ?? string.Empty))
             : Result.Ok(notification.NotificationId);
-        return Task.FromResult(result);
     }
 
     #endregion

@@ -52,7 +52,7 @@ public sealed class SendRuleTests
         var notificationId = _scenario.ShouldBeAccepted(answer);
 
         var records = await RedisServer.DumpAsync();
-        // The kept 202 is in the store, so the search below runs over a real record.
+        // The kept 200 is in the store, so the search below runs over a real record.
         records.Values.ShouldContain(value => value.Contains(notificationId, StringComparison.OrdinalIgnoreCase));
         _scenario.Metrics.Measurements.ShouldNotBeEmpty();
         var tags = _scenario.Metrics.Measurements.SelectMany(m => m.Tags.Values).OfType<string>().ToArray();

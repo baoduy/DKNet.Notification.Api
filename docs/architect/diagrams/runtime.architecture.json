@@ -39,7 +39,7 @@
       "id": "api",
       "type": "backend",
       "label": "Notification API",
-      "sublabel": "POST /v1/notifications",
+      "sublabel": "POST + GET /v1/notifications",
       "pos": [
         240,
         292
@@ -54,7 +54,7 @@
       "id": "redis",
       "type": "database",
       "label": "Redis",
-      "sublabel": "shared by replicas",
+      "sublabel": "idempotency, status",
       "pos": [
         305,
         620
@@ -67,11 +67,11 @@
     {
       "id": "queue",
       "type": "messagebus",
-      "label": "Delivery queue",
-      "sublabel": "in memory, 1,000",
+      "label": "Delivery list",
+      "sublabel": "Redis list, 1,000 in all",
       "pos": [
-        600,
-        297
+        480,
+        620
       ],
       "size": [
         130,
@@ -81,8 +81,8 @@
     {
       "id": "worker",
       "type": "backend",
-      "label": "Delivery worker",
-      "sublabel": "3 attempts",
+      "label": "Delivery consumer",
+      "sublabel": "3 attempts, 1 at a time",
       "pos": [
         800,
         297
@@ -183,7 +183,6 @@
       "label": "DKNet.Notification container (per replica)",
       "wraps": [
         "api",
-        "queue",
         "worker",
         "graphsender",
         "smtpsender",
@@ -201,7 +200,8 @@
       "kind": "security-group",
       "label": "Data store: password + TLS",
       "wraps": [
-        "redis"
+        "redis",
+        "queue"
       ]
     },
     {
@@ -234,7 +234,7 @@
       "id": "caller-post",
       "from": "caller",
       "to": "api",
-      "label": "HTTPS POST",
+      "label": "HTTPS POST / GET",
       "variant": "emphasis"
     },
     {
@@ -250,7 +250,7 @@
       "id": "api-redis",
       "from": "api",
       "to": "redis",
-      "label": "key",
+      "label": "key, status",
       "fromSide": "bottom",
       "toSide": "top"
     },
@@ -258,15 +258,28 @@
       "id": "api-queue",
       "from": "api",
       "to": "queue",
-      "label": "enqueue",
-      "variant": "emphasis"
+      "label": "pending + publish",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
     },
     {
       "id": "queue-worker",
       "from": "queue",
       "to": "worker",
-      "label": "take",
-      "variant": "emphasis"
+      "label": "take / put back",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "worker-redis",
+      "from": "worker",
+      "to": "redis",
+      "label": "final status",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "bottom"
     },
     {
       "id": "worker-graph",
@@ -344,18 +357,19 @@
       "dot": "cyan",
       "title": "Accept, then deliver",
       "items": [
-        "The API validates and renders from the in-image template catalogue, then answers 202",
-        "Unsupported or unconfigured channel: 202, warning log, nothing sent",
-        "Full queue: 503 with Retry-After 30"
+        "The API validates and renders from the in-image template catalogue, writes the status pending, publishes to the Redis delivery list, then answers 200",
+        "Unsupported or unconfigured channel: 200, warning log, status failed, nothing sent",
+        "Full list: 503 with Retry-After 30; the limit is for the whole service",
+        "GET /v1/notifications/{id} reads pending, success or failed, for the caller's own notifications only"
       ]
     },
     {
       "dot": "amber",
-      "title": "Best effort",
+      "title": "Best effort, survives a restart",
       "items": [
-        "Retries: 5 s then 30 s, at most 3 attempts; a 429 waits for Retry-After, at most 60 s",
+        "Retries: 5 s then 30 s, at most 3 attempts; a 429 waits for Retry-After, at most 60 s. A retry goes back to the Redis list with a not-before time, never held in memory",
         "The Graph token request is part of the attempt",
-        "A process stop loses queued notifications; no database"
+        "A deploy or restart loses no waiting notification; a hard crash can lose the 1 message a replica holds; no database"
       ]
     },
     {

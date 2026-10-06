@@ -10,15 +10,20 @@
         <DataCollectors>
             <DataCollector friendlyName="XPlat Code Coverage">
                 <Configuration>
+                    <!-- Measured: every DKNet.Notification.* application project (today Api, AppServices,
+                         Domains, Share). Not measured: test projects, the shared test host
+                         (App.TestSupport), the local-run Aspire host (AppHost), EF Core migrations and
+                         generated code. The rule for agents is in AGENTS.md, "Code coverage". -->
                     <Include>
-                        [DKNet*]*,
-                        [DKNet.Notification*]*
+                        [DKNet.Notification.*]*
                     </Include>
                     <Exclude>
                         [*.Tests]*,
                         [*Tests]*,
                         [*.TestObjects]*,
-                        [*TestDataLayer]*
+                        [*TestDataLayer]*,
+                        [DKNet.Notification.App.TestSupport]*,
+                        [DKNet.Notification.AppHost]*
                     </Exclude>
                     <ExcludeByFile>
                         **/bin/**,
@@ -27,6 +32,7 @@
                         **/*Test.cs,
                         **/TestObjects/**,
                         **/GlobalUsings.cs,
+                        **/Migrations/**,
                         **/*.g.cs
                     </ExcludeByFile>
                     <ExcludeByAttribute>GeneratedCodeAttribute</ExcludeByAttribute>

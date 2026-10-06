@@ -1,0 +1,34 @@
+# ADR-0012: Let a caller read the status of its own notification
+
+- **Status:** Accepted
+- **Context:**
+  - A caller got a `notificationId` back and could not look it up. ADR-0002 and ADR-0003 left status tracking out of version 1 because the requester did not need it then. The requester now does.
+  - The requester's skip rule still holds (ADR-0003): an unavailable channel is accepted, logged and ignored, and the caller never learns why.
+  - Any replica can take the call, another replica can deliver, and a third can answer the lookup. So a status cannot live in one replica's memory.
+  - The service already has Redis for idempotency records (ADR-0002), and the API already has an `IDistributedCache` over it.
+  - Reading a notification needs the same trust as sending one. ADR-0007 already names the permission, `notifications.send`.
+- **Decision:**
+  - Add `GET /v1/notifications/{notificationId}`. It answers `{ notificationId, idempotencyKey, status }` with `Cache-Control: no-store`. `idempotencyKey` is the `Idempotency-Key` header of the accepting call.
+  - The public `status` has 3 values:
+    - `pending`: Queued, Delivering or Retry Waiting. Not final.
+    - `success`: Delivered. Final.
+    - `failed`: Failed or Skipped. Final. The skip reason is never shown.
+  - The route needs `notifications.send`, the same permission as `POST`.
+  - A status record is scoped to the caller. Its key is `status:{callerId}:{notificationId}`, and in Redis the cache instance name `DKNet.Notification.Api` comes first: `DKNet.Notification.Apistatus:{callerId}:{notificationId}`. An unknown id, an expired id and another caller's id all answer 404 `NOTIFICATION_NOT_FOUND`.
+  - The record lives in `IDistributedCache`: Redis, or process memory in local runs and tests. It holds no personal data.
+  - A record expires `Notifications:Status:RetentionHours` after its last write. The default is 24 hours; the allowed range is 1 to 168.
+  - `pending` is written before the notification is published to the delivery queue, so a final value can never be overwritten by an older `pending`. Only final values are written after it, so a status never goes backwards.
+  - A Skipped notification is written as `failed` at once. A Rejected call writes nothing, because no id is ever returned for it.
+  - Status writes are best effort. A failed write logs `NotificationStatusWriteFailed` (ids only) and never fails the call or the delivery.
+  - `POST /v1/notifications` answers `200 OK { "notificationId" }` for Queued and Skipped, with no `Location` header. The 200 is the same for both. The status tells delivered from not delivered, and never says why.
+- **Alternatives:**
+  - *Answer 404 until the notification has ended.* Rejected: a polling caller could not tell "not yet" from "wrong id".
+  - *Show Skipped as its own value.* Rejected: it would show how the channels are set up in this deployment, which is the requester's rule to keep hidden.
+  - *Answer 403 for another caller's id.* Rejected: it would confirm that the id exists. A 404 is the same answer as for an unknown id.
+- **Consequences:**
+  - Easier: a caller can learn the outcome of its notification with one call and a short poll, without logs.
+  - Harder: a Redis outage fails the `GET` with 500, as it fails `POST`.
+  - Harder: a failed write can leave a status behind. A failed `pending` write answers 404 until the final value is written. A failed final write leaves `pending` until the record expires.
+  - Harder: callers that treat 202 as the only success answer need a change. Idempotency records kept before the release still replay 202 for up to 4 hours (03-integration).
+  - Limit: no listing and no history. A caller reads one status per id, for 24 hours by default.
+  - Amends ADR-0002: Redis now also holds status records.

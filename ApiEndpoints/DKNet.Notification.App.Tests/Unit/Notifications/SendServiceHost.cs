@@ -1,10 +1,14 @@
 using System.Diagnostics.Metrics;
 using DKNet.Notification.App.TestSupport;
+using DKNet.Notification.App.Tests.Unit.Delivery;
 using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Notifications;
 using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Templates;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
+using SlimMessageBus;
 
 namespace DKNet.Notification.App.Tests.Unit.Notifications;
 
@@ -12,12 +16,24 @@ namespace DKNet.Notification.App.Tests.Unit.Notifications;
 ///     The send service of one test, composed from its settings the way the API composes it, with its log entries and
 ///     counter measurements captured.
 /// </summary>
-public sealed class SendServiceHost : IDisposable
+internal sealed class SendServiceHost : IDisposable
 {
     private readonly MeterListener _listener = new();
     private ServiceProvider? _services;
 
     public TestLogCapture Logs { get; } = new();
+
+    /// <summary>The service's clock: fixed, so a test knows the exact acceptance time.</summary>
+    public FakeTimeProvider Time { get; } = new(new DateTimeOffset(2026, 10, 5, 8, 0, 0, TimeSpan.Zero));
+
+    /// <summary>The delivery bus: records what the service publishes.</summary>
+    public RecordingBus Bus { get; } = new();
+
+    /// <summary>The queue length the service reads; a test sets it to fill the queue.</summary>
+    public FixedBacklog Backlog { get; } = new();
+
+    /// <summary>The caller-scoped status of the notifications, in memory.</summary>
+    public NotificationStatusStore Status => Services.GetRequiredService<NotificationStatusStore>();
 
     public List<(string Instrument, long Value, Dictionary<string, object?> Tags)> Measurements { get; } = [];
 
@@ -33,7 +49,7 @@ public sealed class SendServiceHost : IDisposable
         ITemplateCatalogue catalogue,
         EmailChannelSettings email,
         TeamsChannelSettings teams,
-        int queueCapacity = 10)
+        DeliverySettings? delivery = null)
     {
         _services = new ServiceCollection()
             .AddMetrics()
@@ -41,9 +57,13 @@ public sealed class SendServiceHost : IDisposable
             .AddSingleton(catalogue)
             .AddSingleton(email)
             .AddSingleton(teams)
-            .AddSingleton(new DeliverySettings(queueCapacity))
-            .AddSingleton<DeliveryQueue>()
-            .AddSingleton(TimeProvider.System)
+            .AddSingleton(delivery ?? new DeliverySettings(queueCapacity: 10))
+            .AddSingleton<IDeliveryBacklog>(Backlog)
+            .AddSingleton<IMessageBus>(Bus)
+            .AddDistributedMemoryCache()
+            .AddSingleton(new NotificationStatusSettings())
+            .AddSingleton<NotificationStatusStore>()
+            .AddSingleton<TimeProvider>(Time)
             .AddSingleton<NotificationMetrics>()
             .AddSingleton<SendNotificationService>()
             .BuildServiceProvider();
@@ -59,6 +79,14 @@ public sealed class SendServiceHost : IDisposable
             Measurements.Add((instrument.Name, value, tags.ToArray().ToDictionary(t => t.Key, t => t.Value))));
         _listener.Start();
         return _services.GetRequiredService<SendNotificationService>();
+    }
+
+    /// <summary>A backlog whose length a test sets.</summary>
+    public sealed class FixedBacklog : IDeliveryBacklog
+    {
+        public long Length { get; set; }
+
+        public ValueTask<long> LengthAsync(CancellationToken cancellationToken) => ValueTask.FromResult(Length);
     }
 
     /// <summary>A catalogue holding exactly <paramref name="templates" />, found by id with case.</summary>

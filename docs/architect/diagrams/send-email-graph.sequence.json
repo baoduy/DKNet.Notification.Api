@@ -27,13 +27,13 @@
     {
       "id": "queue",
       "type": "messagebus",
-      "label": "Delivery queue",
-      "sublabel": "in process, 1,000"
+      "label": "Delivery list",
+      "sublabel": "Redis list, 1,000 in all"
     },
     {
       "id": "worker",
       "type": "backend",
-      "label": "Delivery worker",
+      "label": "Delivery consumer",
       "sublabel": "Sender = Graph"
     },
     {
@@ -81,7 +81,7 @@
       "from": "api",
       "to": "queue",
       "y": 210,
-      "label": "rendered message",
+      "label": "status pending, then publish",
       "variant": "emphasis"
     },
     {
@@ -89,7 +89,7 @@
       "from": "api",
       "to": "caller",
       "y": 246,
-      "label": "202 notificationId",
+      "label": "200 notificationId",
       "variant": "return"
     },
     {
@@ -97,7 +97,7 @@
       "from": "queue",
       "to": "worker",
       "y": 288,
-      "label": "next notification",
+      "label": "take message (any replica)",
       "variant": "default"
     },
     {
@@ -130,7 +130,7 @@
       "from": "graph",
       "to": "worker",
       "y": 424,
-      "label": "429 Retry-After: wait, at most 60 s",
+      "label": "429 Retry-After: put back, wait at most 60 s",
       "variant": "return"
     },
     {
@@ -146,7 +146,7 @@
       "from": "graph",
       "to": "worker",
       "y": 488,
-      "label": "202 Accepted: Delivered",
+      "label": "202 Accepted: Delivered, status success",
       "variant": "return"
     }
   ],
@@ -181,16 +181,16 @@
       "dot": "cyan",
       "title": "Same acceptance as SMTP",
       "items": [
-        "Callers send the same request and get the same 202",
+        "Callers send the same request and get the same 200",
         "Graph selected with a setting missing: start-up warning, email ends Skipped",
-        "202 means accepted, never delivered"
+        "200 means accepted, never delivered"
       ]
     },
     {
       "dot": "rose",
       "title": "Sign-in and scope",
       "items": [
-        "The worker signs in as the mail-sender app: workload identity, or a client secret off Kubernetes",
+        "The consumer signs in as the mail-sender app: workload identity, or a client secret off Kubernetes",
         "Mail.Send is scoped to the one sending mailbox",
         "A 403 means the mailbox is out of scope: Failed at once"
       ]
@@ -200,7 +200,7 @@
       "title": "Retry rule",
       "items": [
         "Transient, for the token request and sendMail: 408, 429, 5xx, timeouts; at most 3 attempts",
-        "A 429 waits for Retry-After, at most 60 s",
+        "A 429 waits for Retry-After, at most 60 s; a retry goes back to the Redis list with a not-before time",
         "Permanent: any other 4xx, such as a token invalid_client or a 403",
         "No library retries inside an attempt: Azure.Identity retry is off"
       ]

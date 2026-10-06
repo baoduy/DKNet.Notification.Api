@@ -26,5 +26,8 @@ public static class NotificationErrorCodes
     /// <summary>The posted Teams message would be larger than 28,672 bytes.</summary>
     public const string MessageTooLarge = "MESSAGE_TOO_LARGE";
 
+    /// <summary>No status record for this caller and id: unknown, another caller's, or expired.</summary>
+    public const string NotificationNotFound = "NOTIFICATION_NOT_FOUND";
+
     #endregion
 }

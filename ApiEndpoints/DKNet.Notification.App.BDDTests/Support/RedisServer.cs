@@ -46,6 +46,13 @@ public static class RedisServer
         return dump;
     }
 
+    /// <summary>The length of the list <paramref name="key" />: 0 when there is none.</summary>
+    public static async Task<long> ListLengthAsync(string key)
+    {
+        await using var connection = await ConnectionMultiplexer.ConnectAsync(await ConnectionStringAsync());
+        return await connection.GetDatabase().ListLengthAsync(key);
+    }
+
     internal static async Task StopAsync()
     {
         foreach (var container in Containers.Values.Where(c => c.IsValueCreated))

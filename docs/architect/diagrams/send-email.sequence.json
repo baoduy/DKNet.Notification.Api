@@ -34,18 +34,18 @@
       "id": "redis",
       "type": "database",
       "label": "Redis",
-      "sublabel": "idempotency records"
+      "sublabel": "idempotency, status"
     },
     {
       "id": "queue",
       "type": "messagebus",
-      "label": "Delivery queue",
-      "sublabel": "in process, 1,000"
+      "label": "Delivery list",
+      "sublabel": "Redis list, 1,000 in all"
     },
     {
       "id": "worker",
       "type": "backend",
-      "label": "Delivery worker",
+      "label": "Delivery consumer",
       "sublabel": "one at a time"
     },
     {
@@ -113,22 +113,23 @@
       "y": 290,
       "label": "new key",
       "variant": "return",
-      "note": "kept key: replay 202; in flight: 409"
+      "note": "kept key: replay 200; in flight: 409"
     },
     {
       "id": "enqueue",
       "from": "api",
       "to": "queue",
       "y": 330,
-      "label": "rendered message (checks passed)",
-      "variant": "emphasis"
+      "label": "status pending, then publish message",
+      "variant": "emphasis",
+      "note": "full list: 503 QUEUE_FULL, nothing written"
     },
     {
       "id": "keep",
       "from": "api",
       "to": "redis",
       "y": 362,
-      "label": "keep 202, 4 h",
+      "label": "keep 200, 4 h",
       "variant": "dashed"
     },
     {
@@ -136,7 +137,7 @@
       "from": "api",
       "to": "caller",
       "y": 392,
-      "label": "202 notificationId",
+      "label": "200 notificationId",
       "variant": "return"
     },
     {
@@ -144,7 +145,7 @@
       "from": "queue",
       "to": "worker",
       "y": 428,
-      "label": "next notification",
+      "label": "take message (any replica)",
       "variant": "default"
     },
     {
@@ -160,8 +161,9 @@
       "from": "smtp",
       "to": "worker",
       "y": 488,
-      "label": "4xx or timeout: wait 5 s",
-      "variant": "return"
+      "label": "4xx or timeout: put back, wait 5 s",
+      "variant": "return",
+      "note": "message returns to the list with a not-before time"
     },
     {
       "id": "retry",
@@ -177,7 +179,8 @@
       "to": "worker",
       "y": 552,
       "label": "250 accepted: Delivered",
-      "variant": "return"
+      "variant": "return",
+      "note": "final status success written"
     }
   ],
   "activations": [
@@ -219,24 +222,24 @@
       "items": [
         "Before queueing: template, recipient `to` and tokens are checked (400)",
         "Values are HTML-encoded before they fill the body",
-        "A full queue answers 503; a skipped channel answers 202 and logs a warning",
-        "202 means accepted, never delivered"
+        "A full list answers 503; a skipped channel answers 200, logs a warning and reads failed",
+        "200 means accepted, never delivered; the status reads pending"
       ]
     },
     {
       "dot": "amber",
       "title": "Deliver after the call",
       "items": [
-        "The worker retries only transient failures, at most 3 attempts",
+        "The consumer retries only transient failures, at most 3 attempts; a retry goes back to the Redis list",
         "An SMTP 5xx reply ends Failed at once",
-        "Delivered and Failed are log entries; the caller cannot query them"
+        "Delivered and Failed are log entries, and the caller reads success or failed with GET /v1/notifications/{id}"
       ]
     },
     {
       "dot": "rose",
       "title": "Best effort",
       "items": [
-        "A process stop loses queued notifications",
+        "A deploy or restart loses no waiting notification; a hard crash can lose the 1 message a replica holds",
         "A timeout after the provider took the message can send it twice"
       ]
     }

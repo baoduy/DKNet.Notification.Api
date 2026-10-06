@@ -14,6 +14,9 @@ public sealed class NotificationMetrics
     /// <summary>The meter the counters are on; the OpenTelemetry set-up exports it.</summary>
     public const string MeterName = "DKNet.Notification";
 
+    /// <summary>The activity source of the delivery attempts, named like the meter; the OpenTelemetry set-up exports it.</summary>
+    public const string DeliveryActivitySourceName = "DKNet.Notification";
+
     private readonly Meter _meter;
     private readonly Counter<long> _accepted;
     private readonly Counter<long> _rejected;
@@ -67,8 +70,8 @@ public sealed class NotificationMetrics
     /// <param name="channel">The lower-case channel.</param>
     public void Failed(string channel) => _failed.Add(1, new KeyValuePair<string, object?>("channel", channel));
 
-    /// <summary>Shows the replica's queue length as the gauge <c>notifications.queue.length</c>.</summary>
-    /// <param name="length">Reads how many notifications in the replica have not ended.</param>
+    /// <summary>Shows the service-wide delivery backlog as the gauge <c>notifications.queue.length</c>.</summary>
+    /// <param name="length">Reads how many notifications wait in the delivery queue.</param>
     public void ObserveQueueLength(Func<int> length) => _meter.CreateObservableGauge("notifications.queue.length", length);
 
     #endregion

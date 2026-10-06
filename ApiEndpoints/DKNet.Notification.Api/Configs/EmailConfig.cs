@@ -1,4 +1,5 @@
 using DKNet.Notification.AppServices.Delivery;
+using DKNet.Notification.AppServices.Notifications;
 
 namespace DKNet.Notification.Api.Configs;
 
@@ -8,23 +9,25 @@ internal static partial class EmailConfig
     #region Methods
 
     /// <summary>
-    ///     Reads the email, SMTP, Graph and delivery settings once, here, and adds the delivery queue, the chosen
-    ///     sender and the replica's one delivery worker. Bound with <c>Get&lt;T&gt;()</c> on purpose: a later settings change
-    ///     has no effect until the next start. A bad delivery setting stops the start-up; bad email settings only leave email
-    ///     not configured.
+    ///     Reads the email, SMTP, Graph, delivery and status settings once, here, and adds the chosen sender and the
+    ///     status store. Bound with <c>Get&lt;T&gt;()</c> on purpose: a later settings change has no effect until the next
+    ///     start. A bad delivery or status setting stops the start-up; bad email settings only leave email not configured.
     /// </summary>
     public static IServiceCollection AddEmailConfig(this IServiceCollection services, IConfiguration configuration)
     {
-        var delivery = BindDelivery(configuration.GetSection(DeliverySettings.SectionName));
+        var delivery = BindStrict(configuration.GetSection(DeliverySettings.SectionName), () => new DeliverySettings());
         delivery.Validate();
+        var status = BindStrict(
+            configuration.GetSection(NotificationStatusSettings.SectionName),
+            () => new NotificationStatusSettings());
+        status.Validate();
         var email = BindEmail(configuration.GetSection(EmailChannelSettings.SectionName));
 
         services
             .AddSingleton(delivery)
-            .AddSingleton(email)
-            .AddSingleton<DeliveryQueue>()
-            .AddSingleton<DeliveryWorker>()
-            .AddHostedService<DeliveryWorkerHost>();
+            .AddSingleton(status)
+            .AddSingleton<NotificationStatusStore>()
+            .AddSingleton(email);
 
         // Only the chosen sender is added (R3). The Graph sign-in is built only from good Graph settings, so a bad
         // value never throws; with bad settings every email call is skipped, whichever sender is added.
@@ -58,15 +61,15 @@ internal static partial class EmailConfig
     }
 
     // The binder's own error holds the value, so it never leaves here: the refusal names the setting only.
-    private static DeliverySettings BindDelivery(IConfigurationSection section)
+    private static T BindStrict<T>(IConfigurationSection section, Func<T> defaults)
     {
         try
         {
-            return section.Get<DeliverySettings>() ?? new DeliverySettings();
+            return section.Get<T>() ?? defaults();
         }
         catch (InvalidOperationException)
         {
-            var key = UnconvertibleSettings<DeliverySettings>(section).FirstOrDefault() ?? section.Path;
+            var key = UnconvertibleSettings<T>(section).FirstOrDefault() ?? section.Path;
             throw new InvalidOperationException($"The {key} setting must be a whole number.");
         }
     }

@@ -17,7 +17,7 @@ public sealed class SendNotificationThenSteps(SendScenario scenario)
     public void ThenTheSecondAnswerCarriesTheSameNotificationIdAsTheFirst()
     {
         scenario.Answers.Count.ShouldBe(2);
-        scenario.Answers.ShouldAllBe(answer => answer.Status == HttpStatusCode.Accepted);
+        scenario.Answers.ShouldAllBe(answer => answer.Status == HttpStatusCode.OK);
         NotificationIdOf(scenario.Answers[1]).ShouldBe(NotificationIdOf(scenario.Answers[0]));
     }
 

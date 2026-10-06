@@ -32,8 +32,8 @@ public sealed class SendEmailServiceTests : IDisposable
         Smtp = new SmtpSenderSettings { Host = "smtp.example.com", FromAddress = "notifications@example.com" }
     };
 
-    private SendNotificationService Service(EmailChannelSettings email, int queueCapacity = 10) =>
-        _host.Service(Catalogue, email, new TeamsChannelSettings(), queueCapacity);
+    private SendNotificationService Service(EmailChannelSettings email, DeliverySettings? delivery = null) =>
+        _host.Service(Catalogue, email, new TeamsChannelSettings(), delivery);
 
     private static SendNotificationRequest Email(string templateId, Dictionary<string, string> parameters) =>
         new("Email", templateId, parameters);
@@ -84,9 +84,9 @@ public sealed class SendEmailServiceTests : IDisposable
     }
 
     [Fact]
-    public void A_valid_email_call_is_rendered_queued_logged_and_counted()
+    public async Task A_valid_email_call_is_rendered_queued_logged_and_counted()
     {
-        var notification = Service(SetUp()).Send(Email(AccountOpened, Jane()), "treasury-ops", "trace-1");
+        var notification = await Service(SetUp()).SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None);
 
         notification.Status.ShouldBe(NotificationStatus.Queued);
         notification.Recipient.ShouldNotBeNull().Address.ShouldBe("jane@example.com");
@@ -110,24 +110,24 @@ public sealed class SendEmailServiceTests : IDisposable
     }
 
     [Fact]
-    public void An_email_call_with_email_off_is_skipped_before_its_recipient_is_checked() =>
+    public async Task An_email_call_with_email_off_is_skipped_before_its_recipient_is_checked() =>
         ShouldBeSkipped(
-            Service(SetUp(enabled: false)).Send(Email(AccountOpened, Jane(to: null)), "treasury-ops", "trace-1"),
+            await Service(SetUp(enabled: false)).SendAsync(Email(AccountOpened, Jane(to: null)), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None),
             SkipReason.ChannelNotConfigured);
 
     [Fact]
-    public void An_email_call_with_email_on_but_not_set_up_is_skipped()
+    public async Task An_email_call_with_email_on_but_not_set_up_is_skipped()
     {
         var email = SetUp();
         email.Sender = "Graph";
 
-        ShouldBeSkipped(Service(email).Send(Email(AccountOpened, Jane()), "treasury-ops", "trace-1"), SkipReason.ChannelNotConfigured);
+        ShouldBeSkipped(await Service(email).SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None), SkipReason.ChannelNotConfigured);
     }
 
     [Fact]
-    public void An_email_call_to_a_template_with_no_email_version_is_skipped() =>
+    public async Task An_email_call_to_a_template_with_no_email_version_is_skipped() =>
         ShouldBeSkipped(
-            Service(SetUp()).Send(Email(TeamDigest, Jane(to: null)), "treasury-ops", "trace-1"),
+            await Service(SetUp()).SendAsync(Email(TeamDigest, Jane(to: null)), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None),
             SkipReason.NoTemplateVersion);
 
     [Theory]
@@ -135,34 +135,34 @@ public sealed class SendEmailServiceTests : IDisposable
     [InlineData("", "RECIPIENT_MISSING")]
     [InlineData(" jane@example.com", "RECIPIENT_INVALID")]
     [InlineData("Jane <jane@example.com>", "RECIPIENT_INVALID")]
-    public void A_missing_or_bad_recipient_is_rejected_on_the_field_to(string? to, string code) =>
-        ShouldBeRejected(Service(SetUp()).Send(Email(AccountOpened, Jane(to)), "treasury-ops", "trace-1"), code, "to");
+    public async Task A_missing_or_bad_recipient_is_rejected_on_the_field_to(string? to, string code) =>
+        ShouldBeRejected(await Service(SetUp()).SendAsync(Email(AccountOpened, Jane(to)), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None), code, "to");
 
     [Fact]
-    public void An_address_a_mail_header_cannot_hold_is_rejected_on_the_field_to_and_never_queued()
+    public async Task An_address_a_mail_header_cannot_hold_is_rejected_on_the_field_to_and_never_queued()
     {
         var service = Service(SetUp());
 
-        ShouldBeRejected(service.Send(Email(AccountOpened, Jane("jane.@example.com")), "treasury-ops", "trace-1"), "RECIPIENT_INVALID", "to");
-        _host.Services.GetRequiredService<DeliveryQueue>().Length.ShouldBe(0);
+        ShouldBeRejected(await service.SendAsync(Email(AccountOpened, Jane("jane.@example.com")), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None), "RECIPIENT_INVALID", "to");
+        _host.Bus.Published.ShouldBeEmpty();
     }
 
     [Fact]
-    public void A_missing_parameter_is_rejected_on_its_parameter_field()
+    public async Task A_missing_parameter_is_rejected_on_its_parameter_field()
     {
         var parameters = Jane();
         parameters.Remove("accountNumber");
 
         ShouldBeRejected(
-            Service(SetUp()).Send(Email(AccountOpened, parameters), "treasury-ops", "trace-1"),
+            await Service(SetUp()).SendAsync(Email(AccountOpened, parameters), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None),
             "PARAMETER_MISSING",
             "parameters.accountNumber");
     }
 
     [Fact]
-    public void An_unknown_template_is_rejected_on_the_field_templateId()
+    public async Task An_unknown_template_is_rejected_on_the_field_templateId()
     {
-        var notification = Service(SetUp()).Send(Email("account-closed", Jane()), "treasury-ops", "trace-1");
+        var notification = await Service(SetUp()).SendAsync(Email("account-closed", Jane()), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None);
 
         notification.Status.ShouldBe(NotificationStatus.Rejected);
         notification.ErrorCode.ShouldBe("TEMPLATE_NOT_FOUND");
@@ -170,23 +170,96 @@ public sealed class SendEmailServiceTests : IDisposable
     }
 
     [Fact]
-    public void A_call_to_a_full_queue_is_rejected()
+    public async Task A_queued_call_writes_pending_before_it_publishes_and_carries_the_idempotency_key()
     {
-        var service = Service(SetUp(), queueCapacity: 1);
-        service.Send(Email(AccountOpened, Jane()), "treasury-ops", "trace-0").Status.ShouldBe(NotificationStatus.Queued);
-        _host.Logs.Clear();
-        _host.Measurements.Clear();
+        var service = Service(SetUp());
+        NotificationStatusRecord? seenAtPublish = null;
+        _host.Bus.OnPublish = m => seenAtPublish = _host.Status.ReadAsync("treasury-ops", m.NotificationId, CancellationToken.None).GetAwaiter().GetResult();
 
-        ShouldBeRejected(service.Send(Email(AccountOpened, Jane()), "treasury-ops", "trace-1"), "QUEUE_FULL", string.Empty);
+        var notification = await service.SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-1", "order-42", CancellationToken.None);
+
+        notification.Status.ShouldBe(NotificationStatus.Queued);
+        seenAtPublish.ShouldBe(new NotificationStatusRecord(notification.NotificationId, "order-42", NotificationOutcome.Pending));
+        var rendered = notification.RenderedMessage.ShouldNotBeNull();
+        _host.Bus.Published.ShouldHaveSingleItem().ShouldBe(new DeliverNotification(
+            DeliverNotification.CurrentSchemaVersion, notification.NotificationId, AccountOpened, "email", "treasury-ops", "order-42",
+            _host.Time.GetUtcNow(), "trace-1", "jane@example.com", null, rendered.Subject, rendered.Body, rendered.Format, 0, _host.Time.GetUtcNow()));
+        rendered.ShouldBe(new RenderedMessage("Your account is open", "Dear Jane Tan, your account 0012345678 is open.", BodyFormat.Html));
     }
 
     [Fact]
-    public void No_entry_or_tag_holds_the_recipient_a_value_or_the_rendered_message()
+    public async Task A_publish_that_fails_reaches_the_caller_with_no_recipient_or_body_in_its_text()
     {
-        var service = Service(SetUp(), queueCapacity: 1);
-        service.Send(Email(AccountOpened, Jane()), "treasury-ops", "trace-1");
-        service.Send(Email(AccountOpened, Jane()), "treasury-ops", "trace-2");
-        service.Send(Email(AccountOpened, Jane("jane.example.com")), "treasury-ops", "trace-3");
+        var service = Service(SetUp());
+        _host.Bus.ThrowOnPublish = true;
+
+        var error = await Should.ThrowAsync<InvalidOperationException>(
+            () => service.SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-1", "order-42", CancellationToken.None));
+
+        error.Message.ShouldContain("trace-1");
+        error.Message.ShouldNotContain("jane@example.com");
+        error.Message.ShouldNotContain("Your account is open");
+        error.Message.ShouldNotContain("Jane Tan");
+    }
+
+    [Fact]
+    public async Task A_skipped_call_is_failed_at_once_and_publishes_nothing()
+    {
+        var service = Service(SetUp(enabled: false));
+
+        var notification = await service.SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-1", "order-42", CancellationToken.None);
+
+        notification.Status.ShouldBe(NotificationStatus.Skipped);
+        (await _host.Status.ReadAsync("treasury-ops", notification.NotificationId, CancellationToken.None))
+            .ShouldBe(new NotificationStatusRecord(notification.NotificationId, "order-42", NotificationOutcome.Failed));
+        _host.Bus.Published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_rejected_call_writes_no_status()
+    {
+        var service = Service(SetUp());
+
+        var notification = await service.SendAsync(Email(AccountOpened, Jane("not an address")), "treasury-ops", "trace-1", "order-42", CancellationToken.None);
+
+        notification.Status.ShouldBe(NotificationStatus.Rejected);
+        (await _host.Status.ReadAsync("treasury-ops", notification.NotificationId, CancellationToken.None)).ShouldBeNull();
+        _host.Bus.Published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_full_backlog_refuses_the_call_and_writes_nothing()
+    {
+        var service = Service(SetUp(), new DeliverySettings(queueCapacity: 2));
+        _host.Backlog.Length = 2;
+
+        var notification = await service.SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-1", "order-42", CancellationToken.None);
+
+        notification.ErrorCode.ShouldBe(NotificationErrorCodes.QueueFull);
+        (await _host.Status.ReadAsync("treasury-ops", notification.NotificationId, CancellationToken.None)).ShouldBeNull();
+        _host.Bus.Published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_call_to_a_full_queue_is_rejected()
+    {
+        var service = Service(SetUp(), new DeliverySettings(queueCapacity: 1));
+        (await service.SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-0", idempotencyKey: null, CancellationToken.None)).Status.ShouldBe(NotificationStatus.Queued);
+        _host.Backlog.Length = 1;
+        _host.Logs.Clear();
+        _host.Measurements.Clear();
+
+        ShouldBeRejected(await service.SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None), "QUEUE_FULL", string.Empty);
+    }
+
+    [Fact]
+    public async Task No_entry_or_tag_holds_the_recipient_a_value_or_the_rendered_message()
+    {
+        var service = Service(SetUp(), new DeliverySettings(queueCapacity: 1));
+        await service.SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None);
+        _host.Backlog.Length = 1;
+        await service.SendAsync(Email(AccountOpened, Jane()), "treasury-ops", "trace-2", idempotencyKey: null, CancellationToken.None);
+        await service.SendAsync(Email(AccountOpened, Jane("jane.example.com")), "treasury-ops", "trace-3", idempotencyKey: null, CancellationToken.None);
 
         _host.Logs.Entries.Count.ShouldBe(3);
         string[] secrets = ["jane@example.com", "jane.example.com", "Jane Tan", "0012345678", "Your account is open"];

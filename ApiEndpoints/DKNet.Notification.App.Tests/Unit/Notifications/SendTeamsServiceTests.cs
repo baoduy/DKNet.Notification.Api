@@ -49,7 +49,7 @@ public sealed class SendTeamsServiceTests : IDisposable
         return teams;
     }
 
-    private SendNotificationService Service(TeamsChannelSettings teams, int queueCapacity = 10) =>
+    private SendNotificationService Service(TeamsChannelSettings teams, DeliverySettings? delivery = null) =>
         _host.Service(
             Catalogue,
             new EmailChannelSettings
@@ -58,7 +58,7 @@ public sealed class SendTeamsServiceTests : IDisposable
                 Smtp = new SmtpSenderSettings { Host = "smtp.example.com", FromAddress = "notifications@example.com" }
             },
             teams,
-            queueCapacity);
+            delivery);
 
     private static SendNotificationRequest Teams(
         string? destination,
@@ -114,13 +114,13 @@ public sealed class SendTeamsServiceTests : IDisposable
         entry.Value("Code").ShouldBe(code);
         entry.Value("Channel").ShouldBe("teams");
         _host.Measurements.ShouldHaveSingleItem().Tags.ShouldBe(new Dictionary<string, object?> { ["code"] = code });
-        _host.Services.GetRequiredService<DeliveryQueue>().Length.ShouldBe(0);
+        _host.Bus.Published.ShouldBeEmpty();
     }
 
     [Fact]
-    public void A_valid_teams_call_is_rendered_queued_logged_and_counted()
+    public async Task A_valid_teams_call_is_rendered_queued_logged_and_counted()
     {
-        var notification = Service(TeamsOn("ops-alerts")).Send(Teams("ops-alerts", channel: "Teams"), "treasury-ops", "trace-1");
+        var notification = await Service(TeamsOn("ops-alerts")).SendAsync(Teams("ops-alerts", channel: "Teams"), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None);
 
         notification.Status.ShouldBe(NotificationStatus.Queued);
         notification.Channel.ShouldBe("teams");
@@ -130,7 +130,10 @@ public sealed class SendTeamsServiceTests : IDisposable
             "Account 0012345678 opened",
             "**Jane Tan** opened account 0012345678.",
             BodyFormat.Markdown));
-        _host.Services.GetRequiredService<DeliveryQueue>().Length.ShouldBe(1);
+        _host.Bus.Published.ShouldHaveSingleItem().ShouldBe(new DeliverNotification(
+            DeliverNotification.CurrentSchemaVersion, notification.NotificationId, StaffAccountOpened, "teams", "treasury-ops", null,
+            _host.Time.GetUtcNow(), "trace-1", null, "ops-alerts", "Account 0012345678 opened", "**Jane Tan** opened account 0012345678.",
+            BodyFormat.Markdown, 0, _host.Time.GetUtcNow()));
         var entry = _host.Logs.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Information);
         entry.EventId.Name.ShouldBe("NotificationQueued");
@@ -146,34 +149,34 @@ public sealed class SendTeamsServiceTests : IDisposable
     }
 
     [Fact]
-    public void A_teams_call_with_Teams_off_is_skipped_before_its_template_version_is_checked() =>
+    public async Task A_teams_call_with_Teams_off_is_skipped_before_its_template_version_is_checked() =>
         ShouldBeSkipped(
-            Service(new TeamsChannelSettings()).Send(Teams(null, AccountOpened), "treasury-ops", "trace-1"),
+            await Service(new TeamsChannelSettings()).SendAsync(Teams(null, AccountOpened), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None),
             SkipReason.ChannelNotConfigured);
 
     [Fact]
-    public void A_teams_call_with_a_bad_Teams_setting_is_skipped_as_not_configured()
+    public async Task A_teams_call_with_a_bad_Teams_setting_is_skipped_as_not_configured()
     {
         var teams = TeamsOn("ops-alerts");
         teams.TimeoutSeconds = 0;
 
-        ShouldBeSkipped(Service(teams).Send(Teams("ops-alerts"), "treasury-ops", "trace-1"), SkipReason.ChannelNotConfigured);
+        ShouldBeSkipped(await Service(teams).SendAsync(Teams("ops-alerts"), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None), SkipReason.ChannelNotConfigured);
     }
 
     [Fact]
-    public void Whether_Teams_is_configured_is_read_once_when_the_service_starts()
+    public async Task Whether_Teams_is_configured_is_read_once_when_the_service_starts()
     {
         var teams = TeamsOn("ops-alerts");
         var service = Service(teams);
         teams.Enabled = false;
 
-        service.Send(Teams("ops-alerts"), "treasury-ops", "trace-1").Status.ShouldBe(NotificationStatus.Queued);
+        (await service.SendAsync(Teams("ops-alerts"), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None)).Status.ShouldBe(NotificationStatus.Queued);
     }
 
     [Fact]
-    public void A_teams_call_to_a_template_with_no_teams_version_is_skipped_before_its_destination_is_checked() =>
+    public async Task A_teams_call_to_a_template_with_no_teams_version_is_skipped_before_its_destination_is_checked() =>
         ShouldBeSkipped(
-            Service(TeamsOn("ops-alerts")).Send(Teams(null, AccountOpened), "treasury-ops", "trace-1"),
+            await Service(TeamsOn("ops-alerts")).SendAsync(Teams(null, AccountOpened), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None),
             SkipReason.NoTemplateVersion);
 
     [Theory]
@@ -182,83 +185,85 @@ public sealed class SendTeamsServiceTests : IDisposable
     [InlineData("Ops-Alerts", "RECIPIENT_INVALID")]
     [InlineData(" ops-alerts", "RECIPIENT_INVALID")]
     [InlineData("ops_alerts", "RECIPIENT_INVALID")]
-    public void A_missing_or_bad_destination_is_rejected_on_the_field_teamsDestination(string? destination, string code) =>
+    public async Task A_missing_or_bad_destination_is_rejected_on_the_field_teamsDestination(string? destination, string code) =>
         ShouldBeRejected(
-            Service(TeamsOn("ops-alerts")).Send(Teams(destination), "treasury-ops", "trace-1"),
+            await Service(TeamsOn("ops-alerts")).SendAsync(Teams(destination), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None),
             code,
             "teamsDestination");
 
     [Fact]
-    public void A_destination_that_is_not_set_is_skipped_before_its_tokens_are_checked_and_never_logged()
+    public async Task A_destination_that_is_not_set_is_skipped_before_its_tokens_are_checked_and_never_logged()
     {
-        var notification = Service(TeamsOn("ops-alerts")).Send(Teams("finance", withAccount: false), "treasury-ops", "trace-1");
+        var notification = await Service(TeamsOn("ops-alerts")).SendAsync(Teams("finance", withAccount: false), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None);
 
         ShouldBeSkipped(notification, SkipReason.TeamsDestinationNotConfigured);
         ShouldHoldNone("finance", "Jane Tan", Webhook);
     }
 
     [Fact]
-    public void Teams_on_with_no_destination_skips_every_destination() =>
+    public async Task Teams_on_with_no_destination_skips_every_destination() =>
         ShouldBeSkipped(
-            Service(TeamsOn()).Send(Teams("ops-alerts"), "treasury-ops", "trace-1"),
+            await Service(TeamsOn()).SendAsync(Teams("ops-alerts"), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None),
             SkipReason.TeamsDestinationNotConfigured);
 
     [Fact]
-    public void A_missing_parameter_is_rejected_on_its_parameter_field() =>
+    public async Task A_missing_parameter_is_rejected_on_its_parameter_field() =>
         ShouldBeRejected(
-            Service(TeamsOn("ops-alerts")).Send(Teams("ops-alerts", withAccount: false), "treasury-ops", "trace-1"),
+            await Service(TeamsOn("ops-alerts")).SendAsync(Teams("ops-alerts", withAccount: false), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None),
             "PARAMETER_MISSING",
             "parameters.accountNumber");
 
     [Fact]
-    public void A_posted_message_of_28672_bytes_is_queued() =>
-        Service(TeamsOn("ops-alerts")).Send(Digest(28_672), "treasury-ops", "trace-1").Status.ShouldBe(NotificationStatus.Queued);
+    public async Task A_posted_message_of_28672_bytes_is_queued() =>
+        (await Service(TeamsOn("ops-alerts")).SendAsync(Digest(28_672), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None)).Status.ShouldBe(NotificationStatus.Queued);
 
     [Fact]
-    public void A_posted_message_of_28673_bytes_is_rejected_naming_no_field() =>
+    public async Task A_posted_message_of_28673_bytes_is_rejected_naming_no_field() =>
         ShouldBeRejected(
-            Service(TeamsOn("ops-alerts")).Send(Digest(28_673), "treasury-ops", "trace-1"),
+            await Service(TeamsOn("ops-alerts")).SendAsync(Digest(28_673), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None),
             "MESSAGE_TOO_LARGE",
             string.Empty);
 
     [Fact]
-    public void Email_and_Teams_share_the_places_of_the_queue()
+    public async Task Email_and_Teams_share_the_places_of_the_queue()
     {
-        var service = Service(TeamsOn("ops-alerts"), queueCapacity: 1);
+        var service = Service(TeamsOn("ops-alerts"), new DeliverySettings(queueCapacity: 1));
         var email = new SendNotificationRequest("email", AccountOpened, new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["to"] = "jane@example.com",
             ["customerName"] = "Jane Tan"
         });
-        service.Send(email, "treasury-ops", "trace-0").Status.ShouldBe(NotificationStatus.Queued);
+        (await service.SendAsync(email, "treasury-ops", "trace-0", idempotencyKey: null, CancellationToken.None)).Status.ShouldBe(NotificationStatus.Queued);
+        _host.Backlog.Length = 1;
         _host.Logs.Clear();
         _host.Measurements.Clear();
 
-        var notification = service.Send(Teams("ops-alerts"), "treasury-ops", "trace-1");
+        var notification = await service.SendAsync(Teams("ops-alerts"), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None);
 
         notification.Status.ShouldBe(NotificationStatus.Rejected);
         notification.ErrorCode.ShouldBe("QUEUE_FULL");
         notification.ErrorField.ShouldBe(string.Empty);
         notification.TeamsRecipient.ShouldBeNull();
         _host.Logs.Entries.ShouldHaveSingleItem().Value("Code").ShouldBe("QUEUE_FULL");
-        _host.Services.GetRequiredService<DeliveryQueue>().Length.ShouldBe(1);
+        _host.Bus.Published.ShouldHaveSingleItem();
     }
 
     [Fact]
-    public void Every_other_unknown_channel_is_still_not_supported() =>
+    public async Task Every_other_unknown_channel_is_still_not_supported() =>
         ShouldBeSkipped(
-            Service(TeamsOn("ops-alerts")).Send(Teams("ops-alerts", channel: "whatsapp"), "treasury-ops", "trace-1"),
+            await Service(TeamsOn("ops-alerts")).SendAsync(Teams("ops-alerts", channel: "whatsapp"), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None),
             SkipReason.ChannelNotSupported,
             "whatsapp");
 
     [Fact]
-    public void No_entry_or_tag_holds_the_destination_a_value_the_title_or_the_url()
+    public async Task No_entry_or_tag_holds_the_destination_a_value_the_title_or_the_url()
     {
-        var service = Service(TeamsOn("ops-alerts"), queueCapacity: 1);
-        service.Send(Teams("ops-alerts"), "treasury-ops", "trace-1");
-        service.Send(Teams("ops-alerts"), "treasury-ops", "trace-2");
-        service.Send(Teams("finance"), "treasury-ops", "trace-3");
-        service.Send(Teams("Ops-Alerts"), "treasury-ops", "trace-4");
+        var service = Service(TeamsOn("ops-alerts"), new DeliverySettings(queueCapacity: 1));
+        await service.SendAsync(Teams("ops-alerts"), "treasury-ops", "trace-1", idempotencyKey: null, CancellationToken.None);
+        _host.Backlog.Length = 1;
+        await service.SendAsync(Teams("ops-alerts"), "treasury-ops", "trace-2", idempotencyKey: null, CancellationToken.None);
+        await service.SendAsync(Teams("finance"), "treasury-ops", "trace-3", idempotencyKey: null, CancellationToken.None);
+        await service.SendAsync(Teams("Ops-Alerts"), "treasury-ops", "trace-4", idempotencyKey: null, CancellationToken.None);
 
         _host.Logs.Entries.Count.ShouldBe(4);
         ShouldHoldNone("ops-alerts", "Ops-Alerts", "finance", "Jane Tan", "0012345678", "Account 0012345678 opened", Webhook, "Wb-s1gn-7731");

@@ -483,3 +483,5 @@ $RECYCLE.BIN/
 
 # Reqnroll code-behind, regenerated from each .feature file on build
 *.feature.cs
+
+**/TestResults

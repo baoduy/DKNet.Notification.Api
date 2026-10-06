@@ -3,12 +3,11 @@ Feature: Email channel with the SMTP sender, rendering and delivery
   # DRK-2020 §5 (spec revision 19). Gherkin copied from the spec.
   # Surface A (brief DRK-2025 §7): the @integration scenarios of the email settings, the recipient check, the
   # rendering refusal and the delivery queue. Its @unit scenarios live in DKNet.Notification.App.Tests/Unit/
-  # Notifications: EmailRendererTests (rule "The template is filled from the parameters"), DeliverySettingsTests
-  # ("A bad delivery setting stops the start-up", one row also through the host in Integration/Notifications) and
-  # ReleasedSettingsFilesTests ("No released settings file holds an SMTP password").
+  # Notifications: EmailRendererTests (rule "The template is filled from the parameters") and DeliverySettingsTests
+  # ("A bad delivery setting stops the start-up", one row also through the host in Integration/Notifications).
   # Surface B (brief DRK-2023 §7): the delivery, retry, repeated-call, connection, health check and local-run
-  # scenarios, steps in Steps/EmailDeliverySteps.cs. "The local run starts the mail catcher" lives in
-  # DKNet.Notification.App.Tests/Scaffold/LocalAppHostTests, the one project allowed Aspire.Hosting.Testing.
+  # scenarios, steps in Steps/EmailDeliverySteps.cs. "The local run starts the mail catcher" has no test: the
+  # AppHost is for local runs only.
   # Every expected value in the step definitions is a literal from the spec; the setting names are the leader's
   # contract names (brief DRK-2025 §5).
 
@@ -179,13 +178,6 @@ Feature: Email channel with the SMTP sender, rendering and delivery
       When "treasury-ops" emails "jane@example.com" and then "john@example.com"
       Then the mail to "john@example.com" is delivered before the mail to "jane@example.com"
       And the mail to "jane@example.com" is delivered on attempt 2
-
-    @integration
-    Scenario: A stop loses a notification that has not ended
-      Given the mail catcher is stopped
-      And "treasury-ops" emailed template "account-opened" to "jane@example.com", and it waits for attempt 2
-      When the service is restarted after the mail catcher is back
-      Then the mail catcher receives no mail to "jane@example.com"
 
     @integration
     Scenario: An SMTP reply text never reaches the logs

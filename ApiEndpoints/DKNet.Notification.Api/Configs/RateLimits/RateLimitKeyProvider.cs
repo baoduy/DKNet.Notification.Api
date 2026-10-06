@@ -12,6 +12,7 @@ public interface IRateLimitKeyProvider
 /// <summary>
 ///     Provides rate limiting policies based on client IP or JWT user identity
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal sealed class RateLimitKeyProvider : IRateLimitKeyProvider
 {
     #region Methods

@@ -22,8 +22,8 @@ DKNet Notification turns one registered template plus caller parameters into one
 - [05-quality.md](05-quality.md) — How is it secured, observed, tested, packaged and deployed?
 - [adr/](adr/) — Why each major choice was made, and which options were rejected:
   - [ADR-0001](adr/0001-why-a-new-service.md) — Why a new service.
-  - [ADR-0002](adr/0002-no-relational-database.md) — No relational database; Redis only for idempotency records.
-  - [ADR-0003](adr/0003-accept-then-deliver-in-process.md) — Accept with 202, then deliver from an in-process queue.
+  - [ADR-0002](adr/0002-no-relational-database.md) — No relational database; Redis only for idempotency records. Amended by ADR-0012 and ADR-0013: Redis also holds delivery and status.
+  - [ADR-0003](adr/0003-accept-then-deliver-in-process.md) — Accept with 202, then deliver from an in-process queue. Superseded by ADR-0013.
   - [ADR-0004](adr/0004-template-rendering-with-dknet-transformation.md) — Render templates with DKNet.Svc.Transformation and `{{name}}` tokens.
   - [ADR-0005](adr/0005-email-over-smtp-with-mailkit.md) — Send email over SMTP with MailKit. Its rejected Graph alternative is superseded by ADR-0009.
   - [ADR-0006](adr/0006-teams-through-workflows-webhooks.md) — Post to Teams through Workflows webhooks.
@@ -32,11 +32,13 @@ DKNet Notification turns one registered template plus caller parameters into one
   - [ADR-0009](adr/0009-graph-email-sender-one-per-deployment.md) — Add a Microsoft Graph email sender; one email sender per deployment.
   - [ADR-0010](adr/0010-graph-sign-in-separate-app-workload-identity.md) — Sign in to Graph as a separate app with workload identity; `Mail.Send` scoped to one mailbox.
   - [ADR-0011](adr/0011-slimmessagebus-in-process-mediator.md) — Use SlimMessageBus's in-memory bus as the in-process mediator; validation stays outside it.
+  - [ADR-0012](adr/0012-notification-status-tracking.md) — Let a caller read the status of its own notification: `pending`, `success` or `failed`; the accept answer becomes 200.
+  - [ADR-0013](adr/0013-delivery-through-slimmessagebus-redis-queue.md) — Deliver through the SlimMessageBus Redis queue, so waiting notifications survive a restart.
 - [diagrams/](diagrams/) — archify IR (`.json`) and render (`.svg`) for every diagram.
 
 ## Runtime architecture
 
-![A backend caller gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container and is shared by all replicas, renders, queues the message and answers 202; the delivery worker hands email to the one active sender — the SMTP sender to the SMTP provider, or the Graph sender, which gets an Entra ID token as the mail-sender app and posts to Microsoft Graph — and Teams messages to a Teams Workflows webhook.](diagrams/runtime.svg)
+![A backend caller gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container and is shared by all replicas, renders, writes the pending status, publishes the message to the delivery list in Redis and answers 200, and answers the caller's status lookup from Redis; the delivery consumer takes messages from that list, puts a message back to wait for a retry, writes the final status, and hands email to the one active sender — the SMTP sender to the SMTP provider, or the Graph sender, which gets an Entra ID token as the mail-sender app and posts to Microsoft Graph — and Teams messages to a Teams Workflows webhook.](diagrams/runtime.svg)
 
 ## Delivery slices
 

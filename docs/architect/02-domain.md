@@ -24,8 +24,10 @@
 | Recipient key | The reserved parameter key for a channel: `to` for email, `teamsDestination` for Teams. | Any other parameter. |
 | Teams destination | A name that operators map to one Teams Workflows webhook URL in the deployment settings. | The webhook URL itself. Callers never see it. |
 | Rendered message | The finished subject or title plus body, after every token is filled. | The template version. |
-| Skipped | The outcome when the channel is unavailable: the call is accepted with 202, logged, and nothing is delivered. | Rejected. |
-| Rejected | The outcome when the request is invalid: the call gets an error response and nothing is queued. | Skipped. |
+| Skipped | The outcome when the channel is unavailable: the call is accepted with 200, logged, and nothing is delivered. | Rejected. |
+| Rejected | The outcome when the request is invalid, or the queue is full: the call gets an error response and nothing is queued. | Skipped. |
+| Public status | The value a caller reads for its notification: `pending`, `success` or `failed`. It folds the lifecycle states into 3 values (see Lifecycles). | The notification's internal state, which a caller never sees. |
+| Delivery queue | The Redis list `notification-delivery`. Each message in it is one rendered notification that waits for an attempt (ADR-0013). | The in-memory bus that carries the API's own requests (ADR-0011). |
 | Delivery attempt | One try to hand the rendered message to the SMTP provider, Microsoft Graph or the Teams webhook. With Graph, the token request is part of the attempt, and its answers follow the same transient and permanent rules. | A caller's retry of the API call. |
 | Transient failure | A failure that may pass: a timeout, a lost connection, HTTP 408, 429 or 5xx, or an SMTP 4xx reply. | A permanent failure. |
 | Permanent failure | A failure that will not pass: an SMTP 5xx reply, or HTTP 4xx other than 408 and 429. | A transient failure. |
@@ -69,11 +71,11 @@
   - A notification changes state only along the lifecycle below.
   - Parameter values and the recipient are never written to a log.
 - **References:** `NotificationTemplate` by template id only.
-- **Persistence:** none. A notification lives only in memory, from the API call to its end state (ADR-0003).
+- **Persistence:** none for the aggregate itself. Its queued form is a `DeliverNotification` message in the Redis delivery list, and its public status is a record beside it (04-data; ADR-0012, ADR-0013). `Notification.Resume` rebuilds the aggregate from a queued message for each attempt: Queued when no attempt was made, Retry Waiting otherwise. `Resume` refuses an attempt count of 3 or more, so the 3-attempt limit stays in the domain. A resumed notification holds the rendered message and the recipient, not the original parameters.
 
 ## Domain events
 
-None in version 1. No aggregate is stored, and no other service consumes an outcome. Each state change is one structured log entry instead (05-quality, Observability).
+None in version 1. No other service consumes an outcome. Each state change is one structured log entry instead (05-quality, Observability). The caller reads the end state from the status record, not from an event.
 
 ## Lifecycles
 
@@ -82,15 +84,25 @@ None in version 1. No aggregate is stored, and no other service consumes an outc
 | State | Meaning | Trigger to enter |
 |---|---|---|
 | Received | The API call passed authentication and the idempotency check. | `POST /v1/notifications` |
-| Rejected (end) | The request is invalid, or the queue is full. Nothing is queued. | A validation, recipient or rendering check fails (400), or the queue is full (503). |
-| Skipped (end) | The channel is unavailable. Nothing is delivered. | The channel is unsupported or not configured, the template has no version for it, or the Teams destination is not configured. |
-| Queued | The rendered message waits in the delivery queue. The caller has its 202. | Rendering succeeded and the queue had room. |
-| Delivering | The delivery worker runs one delivery attempt. | The worker takes the notification from the queue, or a retry wait ends. |
-| Retry Waiting | A transient failure happened and attempts remain. | Transient failure with `AttemptCount` below 3. |
+| Rejected (end) | The request is invalid, or the queue is full. Nothing is queued and no status is written. | A validation, recipient or rendering check fails (400), or the queue is full (503). |
+| Skipped (end) | The channel is unavailable. Nothing is delivered. Its public status is `failed`. | The channel is unsupported or not configured, the template has no version for it, or the Teams destination is not configured. |
+| Queued | The rendered message waits in the delivery queue. The caller has its 200, and the status is `pending`. | Rendering succeeded and the queue had room. |
+| Delivering | The delivery consumer runs one delivery attempt. | The consumer takes the notification from the queue once its `NotBefore` time has come, which includes the end of a retry wait. |
+| Retry Waiting | A transient failure happened and attempts remain. The message waits in the queue until its `NotBefore` time. | Transient failure with `AttemptCount` below 3. |
 | Delivered (end) | The SMTP provider, Microsoft Graph or the Teams webhook accepted the message. | SMTP accepted the message, Graph answered 202, or the webhook answered 2xx. |
 | Failed (end) | Delivery gave up. It is logged as an error. | Permanent failure, or a transient failure on attempt 3. |
 
-A process stop loses every notification in Queued or Retry Waiting. No state records the loss (ADR-0003).
+A process stop loses no waiting notification in Queued or Retry Waiting, apart from at most the one message being taken from the list at that instant: the message is in Redis, and a replica that is cut off during an attempt puts it back without counting the attempt (ADR-0013). A hard crash can lose the one message a replica holds. No state records such a loss, and the status stays `pending` until its record expires (05-quality).
+
+The public status folds these states into 3 values. Only `pending` is not final.
+
+| Public `status` | Internal states | Final |
+|---|---|---|
+| `pending` | Queued, Delivering, Retry Waiting | No |
+| `success` | Delivered | Yes |
+| `failed` | Failed, Skipped | Yes |
+
+A status never goes backwards: `pending` is written before the message is published, and only final values are written after it.
 
 ![Received moves to Rejected, Skipped or Queued; Queued moves to Delivering; Delivering ends Delivered or Failed, or waits in Retry Waiting and tries again.](diagrams/notification-lifecycle.svg)
 
