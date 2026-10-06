@@ -1,6 +1,6 @@
 # ADR-0003: Accept with 202, then deliver from an in-process queue
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0013 (the in-process queue) and ADR-0012 (the 202 answer)
 - **Context:**
   - The requester's rule: an unavailable channel is accepted, logged and ignored. The caller gets no error.
   - So a success answer can never mean "delivered". It can only mean "accepted".

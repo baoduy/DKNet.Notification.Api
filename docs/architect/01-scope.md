@@ -12,7 +12,7 @@
 
 | Who | Kind | What they do |
 |---|---|---|
-| Backend services | Calling system | Call `POST /v1/notifications` with an Entra ID machine token. DKNet.Accounts.Api is a likely first caller; no caller is committed yet. |
+| Backend services | Calling system | Call `POST /v1/notifications` with an Entra ID machine token, then read the status of each notification with `GET /v1/notifications/{notificationId}`. DKNet.Accounts.Api is a likely first caller; no caller is committed yet. |
 | Template authors | Human (developer) | Add or change a template file and its registration, then release a new version of the service. |
 | Operators | Human | Deploy the service, set channel settings and Teams destinations per deployment, and read logs and metrics. |
 | Recipients | Human | Receive the email or read the Teams message. They never call the service. |
@@ -24,8 +24,9 @@
 - Decide when a channel is unavailable, and then accept the call, log it and deliver nothing.
 - Render the message from the template version and the parameters.
 - Encode parameter values safely for the target format.
-- Deliver the message to the channel, with a bounded retry on transient failures.
-- Replay the first 202 to a repeated call with the same idempotency key from the same caller, and send nothing again.
+- Deliver the message to the channel, with a bounded retry on transient failures. Notifications that wait in the queue, or wait for a retry, survive a restart.
+- Keep the status of each accepted notification for its caller, for 24 hours by default: `pending`, `success` or `failed`. Answer the caller's lookup, and only for the caller's own notifications.
+- Replay the first 200 to a repeated call with the same idempotency key from the same caller, and send nothing again.
 - Hold the channel settings and Teams destinations for its deployment.
 - Use exactly one email sender per deployment, SMTP or Microsoft Graph, picked in the settings.
 - Log every outcome without personal data.
@@ -37,7 +38,7 @@
 | Decides when to notify or whom to notify | The calling service, for example DKNet.Accounts.Api |
 | Subscribes to other services' events, such as DKNet.Accounts.Api's `ledger-events` queue | The calling service calls this API when it wants a message sent |
 | Looks up a recipient's address from a user or customer id | The calling service passes the address in `parameters` |
-| Tracks delivery status or keeps delivery history | No one in version 1; a later design revision |
+| Lists notifications, keeps delivery history, or shows why a notification was not delivered | No one. A caller reads one status per notification id; a skipped notification shows as `failed` with no reason |
 | Accepts raw message text without a template | No one; the caller registers a template through a release |
 | Manages templates at runtime | The release process of this repo |
 | Generates PDFs | DKNet.Svc.PdfGenerators in the DKNet repo exists, and is not used in version 1 |

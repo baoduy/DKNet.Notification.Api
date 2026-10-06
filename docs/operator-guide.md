@@ -27,11 +27,12 @@ Every setting below is an ASP.NET Core configuration key. The chart writes each 
 | `Notifications:Email:TimeoutSeconds` | `Notifications__Email__TimeoutSeconds` | `30` | No | Plain settings. 1–120 |
 | `Notifications:Teams:Enabled` | `Notifications__Teams__Enabled` | `false` | No | Plain settings |
 | `Notifications:Teams:TimeoutSeconds` | `Notifications__Teams__TimeoutSeconds` | `30` | No | Plain settings. 1–120 |
-| `Notifications:Delivery:QueueCapacity` | `Notifications__Delivery__QueueCapacity` | `1000` | No | Plain settings. 1–100,000, per replica |
+| `Notifications:Delivery:QueueCapacity` | `Notifications__Delivery__QueueCapacity` | `1000` | No | Plain settings. 1–100,000, **for the whole service**, not per replica (see [Redis](#redis)) |
 | `Notifications:Delivery:MaxAttempts` | `Notifications__Delivery__MaxAttempts` | `3` | No | Plain settings. 1–3 |
 | `Notifications:Delivery:RetryDelaysSeconds` | `Notifications__Delivery__RetryDelaysSeconds__0/1` | `[5, 30]` | No | Plain settings. Exactly 2 values, each 1–300 seconds |
+| `Notifications:Status:RetentionHours` | `Notifications__Status__RetentionHours` | `24` | No | Plain settings. 1–168. How long a caller can read the status of a notification, counted from its last write |
 
-**A bad `Delivery` value stops the service from starting.** A bad `Email` or `Teams` value does not — it only leaves that channel unable to send (see "What a bad value does" below).
+**A bad `Delivery` or `Status` value stops the service from starting.** A bad `Email` or `Teams` value does not — it only leaves that channel unable to send (see "What a bad value does" below).
 
 ### Email senders
 
@@ -88,16 +89,26 @@ Exactly one sender is active per deployment, chosen by `Notifications:Email:Send
 
 | Setting group | A bad value does this |
 |---|---|
-| `Notifications:Delivery:*` | Stops the service from starting |
+| `Notifications:Delivery:*` / `Notifications:Status:*` | Stops the service from starting |
 | `Notifications:Templates` (the catalogue) | Stops the service from starting |
 | `Notifications:Email:*` / `Notifications:Email:Smtp:*` / `Notifications:Email:Graph:*` | The service starts; email is left "not configured" and every email call is skipped (logged once at start-up as a warning, naming the bad settings — never their values) |
 | `Notifications:Teams:*` | The service starts; Teams is left "not configured" and every Teams call is skipped with reason `ChannelNotConfigured` — **no log entry is written at start-up for this one**, unlike email (see §5 for the per-call skip reason to look for) |
 
 ### Redis
 
-- `ConnectionStrings:Redis` holds the idempotency store's connection string. The service reads it for both request idempotency and the general distributed cache.
+- `ConnectionStrings:Redis` holds the connection string of the one Redis the service uses. It carries three things: request idempotency records, the delivery queue and the notification status records.
 - **In `Production` (the chart's `ASPNETCORE_ENVIRONMENT`), a missing `ConnectionStrings:Redis` stops the service from starting.** The in-memory fallback exists only for local `Development` and `Testing` runs — it is not a production degrade-to-single-replica path.
-- More than one replica needs Redis for a second reason even where it did start: without it, idempotency and the distributed cache would each keep separate in-memory state per replica, so a retried call could be treated as new on a different replica. The chart lists the Redis secret in its default `secretProvider.objects`/`secretObjects`, so it is required, not opt-in.
+- More than one replica needs Redis for a second reason even where it did start: without it, idempotency, the status records and the delivery queue would each keep separate in-memory state per replica, so a retried call could be treated as new on a different replica. The chart lists the Redis secret in its default `secretProvider.objects`/`secretObjects`, so it is required, not opt-in.
+
+**Delivery and status now live in Redis** (ADR-0013, ADR-0012):
+
+- **The delivery queue** is the Redis list `notification-delivery`. Every notification that waits for delivery, or waits for a retry, is one message in it. All replicas share the list, and each replica runs one consumer. A deploy or a restart loses no waiting notification; a replica that stops during an attempt puts its message back. A hard crash of a replica can lose the one message it had taken, and Redis data loss loses the whole queue.
+- **Personal data sits in Redis until delivery.** A queued message holds the recipient and the rendered body, not encrypted. Restrict who can read this Redis, and keep TLS and a password on it, as for the idempotency records. The message is gone once the notification is delivered or has failed.
+- **Status records** are the keys `status:{callerId}:{notificationId}`. They hold the notification id, the `Idempotency-Key` and the status, no personal data. They expire `Notifications:Status:RetentionHours` after their last write: 24 hours by default.
+- **`Notifications:Delivery:QueueCapacity` is now for the whole service.** The API counts the Redis list, and answers `503 QUEUE_FULL` when it holds that many notifications. Before this release it was a limit per replica. A value you sized for one replica now has to cover all of them, so **raise it when you run more replicas**. The count is approximate, so the list can pass the limit by a few messages. Local runs with no Redis have no limit.
+- **The gauge `notifications.queue.length` changed meaning.** It reads the length of the Redis list, so every replica reports the same service-wide backlog, not the count that replica holds. **A dashboard or an alert built on the per-replica value must be rebuilt.** Do not add the replicas up: each one reports the same number, so a sum counts the backlog once per replica. Read one value instead, for example the maximum. A scrape that runs after the bus is disposed at shutdown can fail; that is expected during a stop.
+- **A Redis outage stops delivery** and answers every call with `500`, as before. SlimMessageBus can log a `TaskCanceledException` when the service stops while Redis is down.
+- A flush of this Redis removes the waiting notifications, the status records and the idempotency records together.
 
 ### The other settings the chart sets or needs
 
@@ -226,14 +237,33 @@ The API is `ClusterIP`-only by default. Turn on `api.httpRoute.enabled: true` (e
 
    - **A missing or bad `Idempotency-Key`** (blank, over 255 characters, or outside `^[a-zA-Z0-9\-_]+$`) answers `400 Bad Request` — the handler never runs, so this is not a notification outcome at all.
    - **Use a new key for every test call.** A key you already used for this same route and caller, within the last 4 hours, replays the first call's answer verbatim **without running the handler again** — so a second call with a reused key writes **no new log entry**, even if you changed the request body.
-   - **A `202 Accepted` means only "queued or skipped"** — never "rejected". A rejected call (bad recipient, unknown template, full queue, and so on) answers a `4xx` with an error body instead. A `202` with a correctly new key still does not by itself prove delivery — check the logs next.
+   - **A `200 OK` means only "queued or skipped"** — never "rejected". A rejected call (bad recipient, unknown template, full queue, and so on) answers a `4xx` with an error body instead. A `200` with a correctly new key still does not by itself prove delivery — read its status next, then check the logs.
+
+   Read the status of the notification with the id the call returned, as the same caller:
+
+   ```http
+   GET /v1/notifications/<notificationId> HTTP/1.1
+   Authorization: Bearer <token with the notifications.send scope or role>
+   ```
+
+   It answers `{ "notificationId": …, "idempotencyKey": …, "status": … }` with `pending` (queued, being delivered or waiting for a retry), `success` or `failed`. A skipped call reads `failed` at once, and the status never says why. Another caller's id, an unknown id and an expired id all answer `404`.
 
    Check the structured logs for the real outcome: `NotificationQueued` then `NotificationDelivered` or `NotificationFailed` for a real send, or `NotificationSkipped` (with its `Reason`) when a channel is not configured or the template has no version for that channel.
 
-   The shipped `account-opened` template has only an `email` version in this release — a `teams` test call against it answers `202` and then logs `NotificationSkipped` with reason `NoTemplateVersion`, not a delivery. A real Teams delivery test needs a template release that registers a Teams (Markdown) version of a template; this guide cannot make that call for you.
+   The shipped `account-opened` template has only an `email` version in this release — a `teams` test call against it answers `200` and then logs `NotificationSkipped` with reason `NoTemplateVersion`, not a delivery. A real Teams delivery test needs a template release that registers a Teams (Markdown) version of a template; this guide cannot make that call for you.
 
    Two different skip reasons cover Teams, and they are not interchangeable:
    - `ChannelNotConfigured` — Teams itself is off or badly set up (§2's "What a bad value does"); every Teams call is skipped this way, regardless of destination or template.
    - `TeamsDestinationNotConfigured` — Teams is configured, but the named destination is unset or its webhook URL is bad.
 
    Neither writes a start-up log entry, unlike email. In this release, a `teams` test call always hits `NoTemplateVersion` before the destination is even checked (no Teams template version ships yet), so a destination mistake does not surface as `TeamsDestinationNotConfigured` until a template with a Teams version ships — check the destination configuration by inspection (§2), not by this test call, until then.
+
+## 6. Upgrade notes
+
+For the release that adds notification status and Redis delivery (ADR-0012, ADR-0013):
+
+- **`POST /v1/notifications` answers `200 OK` instead of `202 Accepted`.** For 4 hours after the release, an idempotent replay of a call accepted before the release still answers the stored `202`, because the idempotency records kept before it hold a `202`. New calls answer `200`. Tell callers to accept both until then.
+- **`Notifications:Delivery:QueueCapacity` is for the whole service** now, not per replica. Raise it with the number of replicas (see [Redis](#redis)).
+- **`notifications.queue.length` is the service-wide backlog**, the same on every replica. Rebuild dashboards and alerts that used the per-replica value.
+- **Notifications that were queued in memory when the old release stopped are lost.** The old release held them in the process, so a deploy that takes it down cannot carry them over. From this release on, a deploy loses no waiting notification.
+- **The Redis connection string now carries delivery and status too.** Nothing new to configure: the same `ConnectionStrings:Redis`, with the same TLS and password. Anyone who can read this Redis can now read the waiting messages too.

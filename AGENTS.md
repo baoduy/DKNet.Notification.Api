@@ -2,7 +2,7 @@
 
 ## Scope
 - The solution is centered on `ApiEndpoints/` (`DKNet.Notification.*` projects) with the solution file at the solution root. Every path below is relative to that root.
-- The service is an empty scaffold generated from the `dknet-minimal` template: it holds no feature yet, no database and no typed client. The approved design lives in `docs/architect/`.
+- The service sends email and Microsoft Teams notifications from registered templates, keeps each notification's status for its caller and delivers through a SlimMessageBus Redis queue. It was generated from the `dknet-minimal` template and has no database and no typed client. The approved design lives in `docs/architect/`.
 - Prefer code-verified patterns in this guide over older README statements when they differ.
 
 ## Architecture at a glance
@@ -10,7 +10,10 @@
 - Middleware/service composition is orchestrated by `DKNet.Notification.Api/Configs/AppConfig.cs` and `DKNet.Notification.Api/Configs/ServiceConfigs.cs`.
 - Layer boundaries are strict: `Api` -> `AppServices` -> `Domains` -> `Share`.
 - `DKNet.Notification.AppHost/AppHost.cs` is Aspire host orchestration (Redis + API project), not business logic.
-- `GET /healthz` is the only API route today: anonymous, status only (`{"status":"Healthy"}`), with no dependency check. With `EnableSwagger` on (local Development) the OpenAPI document and `/docs` are served too.
+- API routes: `POST /v1/notifications` and `GET /v1/notifications/{notificationId}` (`NotificationsV1Endpoint`, both need `notifications.send`), and `GET /healthz`: anonymous, status only (`{"status":"Healthy"}`), with no dependency check. With `EnableSwagger` on (local Development) the OpenAPI document and `/docs` are served too.
+- `POST` answers `200 OK { "notificationId" }` for a queued or a skipped call, with no `Location` header. `GET` answers the caller's own `pending`, `success` or `failed` with `Cache-Control: no-store`; an unknown, expired or another caller's id answers 404 `NOTIFICATION_NOT_FOUND`. A skipped call reads `failed`.
+- Delivery runs through `DeliveryConsumer` (`AppServices/Delivery`), a SlimMessageBus consumer on the queue `notification-delivery` with `Instances(1)`: a Redis list when `ConnectionStrings:Redis` is set, the memory provider in local runs and tests (`ServiceConfigs`). It makes one attempt per message and publishes a not-yet-due or retrying message back to the queue; no exception leaves it, because the Redis consumer would drop the message. `QueueCapacity` counts that list for the whole service.
+- `NotificationStatusStore` keeps the status under `status:{callerId}:{notificationId}` in `IDistributedCache` for `Notifications:Status:RetentionHours` (default 24, 1–168). A write is best effort: a failure logs and never fails the call or the delivery. `SendNotificationService` writes `pending` before it publishes.
 - Sign-in is Entra ID bearer tokens only (`AuthConfig`, JWT bearer). With `FeatureManagement:RequireAuthorization` on, every other request needs a valid token (fallback policy), including routes that do not exist. With it off (local Development, Testing) no sign-in middleware runs.
 
 ## Adding a feature
@@ -18,7 +21,7 @@
 - Domain types live in `DKNet.Notification.Domains`, application services and validators in `DKNet.Notification.AppServices`.
 - An endpoint sends a command (`Fluents.Requests.IWitResponse<T>` from `DKNet.SlimBus.Extensions`) on SlimMessageBus's in-memory bus to an `internal sealed` handler in `AppServices`; `AddServicesFromAssembly` in `ServiceConfigs` registers it (ADR-0011). Keep body validation in an endpoint filter registered before `.RequiredIdempotentKey()`, not in the bus, so a refused body holds no idempotency key.
 - A command failure whose error carries a `PreconditionCodes.Prefix`-prefixed `"Code"` metadata entry answers 409 (`FluentValidationConfig`); every other failure keeps the library's status.
-- Time: production reads and waits on the injected `TimeProvider` (registered as `TimeProvider.System` in `ServiceConfigs`), never `DateTimeOffset.UtcNow` or a plain `Task.Delay`. Unit tests drive a fake clock and move it only once the worker's timer exists (see `DeliveryWorkerTests.TestClock`). The exceptions are the sender I/O time limits and the `Retry-After` date, which stay on the real clock because they are about a real provider; BDD runs on the real clock.
+- Time: production reads and waits on the injected `TimeProvider` (registered as `TimeProvider.System` in `ServiceConfigs`), never `DateTimeOffset.UtcNow` or a plain `Task.Delay`. Unit tests drive a `FakeTimeProvider` and move it only after the consumer has put the message back (see `DeliveryConsumerTests`). The exceptions are the sender I/O time limits and the `Retry-After` date, which stay on the real clock because they are about a real provider; BDD runs on the real clock.
 - Request idempotency comes from `DKNet.AspCore.Idempotency` (Redis store when `ConnectionStrings:Redis` is set, in-memory otherwise).
 
 ## Build and run
