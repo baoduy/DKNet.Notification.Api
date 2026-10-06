@@ -26,6 +26,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DKNet.Notification.App.BDDT
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DKNet.Notification.App.TestSupport", "ApiEndpoints\DKNet.Notification.App.TestSupport\DKNet.Notification.App.TestSupport.csproj", "{A1B2C3D4-5E6F-4A7B-8C9D-0E1F2A3B4C5D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DKNet.Notification.Client", "ApiEndpoints\DKNet.Notification.Client\DKNet.Notification.Client.csproj", "{8F6A508F-B8A7-4CB2-8D76-18FC2EA3B825}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -64,6 +66,10 @@ Global
 		{A1B2C3D4-5E6F-4A7B-8C9D-0E1F2A3B4C5D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A1B2C3D4-5E6F-4A7B-8C9D-0E1F2A3B4C5D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A1B2C3D4-5E6F-4A7B-8C9D-0E1F2A3B4C5D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8F6A508F-B8A7-4CB2-8D76-18FC2EA3B825}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F6A508F-B8A7-4CB2-8D76-18FC2EA3B825}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F6A508F-B8A7-4CB2-8D76-18FC2EA3B825}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F6A508F-B8A7-4CB2-8D76-18FC2EA3B825}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -77,5 +83,6 @@ Global
 		{EAB0ED23-FF31-45B9-A59B-9D0B78B677EC} = {5217F0FC-7FBA-4FB2-9B86-9BCD8969049E}
 		{9C8E5406-F787-467B-8600-DD4618BE2F20} = {5217F0FC-7FBA-4FB2-9B86-9BCD8969049E}
 		{A1B2C3D4-5E6F-4A7B-8C9D-0E1F2A3B4C5D} = {5217F0FC-7FBA-4FB2-9B86-9BCD8969049E}
+		{8F6A508F-B8A7-4CB2-8D76-18FC2EA3B825} = {5217F0FC-7FBA-4FB2-9B86-9BCD8969049E}
 	EndGlobalSection
 EndGlobal

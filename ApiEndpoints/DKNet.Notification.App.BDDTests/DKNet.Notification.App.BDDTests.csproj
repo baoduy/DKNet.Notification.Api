@@ -44,6 +44,8 @@
     <ItemGroup>
         <ProjectReference Include="../DKNet.Notification.Api/DKNet.Notification.Api.csproj" />
         <ProjectReference Include="../DKNet.Notification.App.TestSupport/DKNet.Notification.App.TestSupport.csproj" />
+        <!-- The client package scenarios (DRK-2141): only test projects reference both the API and the client. -->
+        <ProjectReference Include="../DKNet.Notification.Client/DKNet.Notification.Client.csproj" />
     </ItemGroup>
 
 </Project>

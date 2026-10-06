@@ -2,7 +2,7 @@
 
 ## Scope
 - The solution is centered on `ApiEndpoints/` (`DKNet.Notification.*` projects) with the solution file at the solution root. Every path below is relative to that root.
-- The service sends email and Microsoft Teams notifications from registered templates, keeps each notification's status for its caller and delivers through a SlimMessageBus Redis queue. It was generated from the `dknet-minimal` template and has no database and no typed client. The approved design lives in `docs/architect/`.
+- The service sends email and Microsoft Teams notifications from registered templates, keeps each notification's status for its caller and delivers through a SlimMessageBus Redis queue. It was generated from the `dknet-minimal` template and has no database. Its typed .NET client, `DKNet.Notification.Client` (Refit, ADR-0014, ADR-0015), has its own contracts and references no project of the solution; only test projects reference both the API and the client. The approved design lives in `docs/architect/`.
 - Prefer code-verified patterns in this guide over older README statements when they differ.
 
 ## Architecture at a glance
@@ -33,7 +33,7 @@
 - Local host options:
   - API only: `dotnet run --project ApiEndpoints/DKNet.Notification.Api`
   - Aspire host: `dotnet run --project ApiEndpoints/DKNet.Notification.AppHost`
-- No project in the solution is packable: `dotnet pack` writes no package.
+- `DKNet.Notification.Client` is the only packable project: `dotnet pack ApiEndpoints/DKNet.Notification.Client -c Release` writes its package, with `README.md` at the package root. Its version comes from the release tags; never hand-edit one.
 
 ## Testing and quality constraints
 - Tests live under `ApiEndpoints/DKNet.Notification.App.Tests/` (Shouldly + xUnit) and `ApiEndpoints/DKNet.Notification.App.BDDTests/` (Reqnroll + NUnit). `ApiEndpoints/DKNet.Notification.App.TestSupport/` holds the shared host (`TestApiFactoryBase`) and the fake sign-in scheme (`TestAuthHandler`).
@@ -42,7 +42,7 @@
 - App.Tests classes run in parallel. A class that listens to something process-wide (an Azure SDK event source, a diagnostic or activity listener for every source) or asserts a tight time bound joins `[Collection(SerialTestsCollection.Name)]`, which runs alone after the rest.
 
 ## Code coverage
-- Coverage and unit tests are for the application only: the `DKNet.Notification.*` projects that serve the API and hold the business rules (today `Api`, `AppServices`, `Domains`, `Share`). `coverage.runsettings` includes `[DKNet.Notification.*]*`, so a new application project is measured without a change.
+- Coverage and unit tests are for the application only: the `DKNet.Notification.*` projects that serve the API and hold the business rules (today `Api`, `AppServices`, `Domains`, `Share`) and the `Client` package. `coverage.runsettings` includes `[DKNet.Notification.*]*`, so a new application project is measured without a change.
 - Not measured, and no tests written for them: the test projects, `App.TestSupport`, the Aspire `AppHost` (local runs only), EF Core migrations (`**/Migrations/**`, model snapshot included) and generated code. A new local-run-only project (a second host, a migration runner, a seeding tool) gets an assembly entry in the `<Exclude>` list of `coverage.runsettings` in the same change that adds it.
 - Framework wiring in `Api/Configs/` carries `[ExcludeFromCodeCoverage]` on the class: every `*Config` class (enforced by `Architecture/ApiTests`) and the plumbing types beside them (rate limiting, antiforgery, security headers, Swagger, options binding). Never put the attribute on a type that decides business behaviour — an endpoint, filter, handler, validator, domain type or the caller-permission check (`Configs/Auth`) — test it instead. Keep business decisions out of `*Config` classes; the one that has one (`FluentValidationConfig`'s error-to-status mapping) is covered by the BDD error scenarios.
 - Never place real logic in an excluded path (`bin/`, `obj/`, `*Test*.cs`, `Migrations/`) or an excluded project.
