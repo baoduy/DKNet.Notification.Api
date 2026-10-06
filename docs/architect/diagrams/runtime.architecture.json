@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "DKNet Notification — Runtime Architecture (design revision 2)",
+    "title": "DKNet Notification — Runtime Architecture (design revision 3)",
     "output": "runtime.html",
     "quality_profile": "showcase"
   },
@@ -11,7 +11,7 @@
       "id": "caller",
       "type": "external",
       "label": "Backend caller",
-      "sublabel": "e.g. Accounts.Api",
+      "sublabel": "HTTPS or client pkg",
       "pos": [
         20,
         295
@@ -380,6 +380,15 @@
         "SMTP password, Graph client secret and webhook URLs: environment variables or Azure App Configuration",
         "Graph with workload identity holds no secret",
         "Local run: Aspire AppHost with Redis and Mailpit, Sender = Smtp"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Client package",
+      "items": [
+        "DKNet.Notification.Client runs inside the caller's process; it is not a component of this service",
+        "Refit methods for POST and GET /v1/notifications; nothing for /healthz",
+        "The caller's own DelegatingHandler adds the Entra ID token; every refusal is one exception type"
       ]
     }
   ]

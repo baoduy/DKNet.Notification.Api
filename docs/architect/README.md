@@ -9,9 +9,9 @@ DKNet Notification turns one registered template plus caller parameters into one
 | **Bounded context** | Notification Delivery |
 | **Stack** | .NET 10 / ASP.NET Core minimal API with DKNet packages, scaffolded from DKNet.Templates (`dknet-minimal`), Aspire AppHost for local runs |
 | **Status** | Active |
-| **Design revision** | 2 |
+| **Design revision** | 3 |
 | **Owner** | drunkcoding |
-| **Root ticket** | DRK-1875 (revision 1), DRK-1961 (revision 2) |
+| **Root ticket** | DRK-1875 (revision 1), DRK-1961 (revision 2), DRK-2137 (revision 3) |
 
 ## Documents
 
@@ -19,7 +19,7 @@ DKNet Notification turns one registered template plus caller parameters into one
 - [02-domain.md](02-domain.md) — Which terms, aggregates, rules and states make up the model?
 - [03-integration.md](03-integration.md) — Which API does it expose, what does it depend on, and how does a call flow?
 - [04-data.md](04-data.md) — What does it store, where, and for how long?
-- [05-quality.md](05-quality.md) — How is it secured, observed, tested, packaged and deployed?
+- [05-quality.md](05-quality.md) — How is it secured, observed, tested, packaged and deployed? What does the client package ship as?
 - [adr/](adr/) — Why each major choice was made, and which options were rejected:
   - [ADR-0001](adr/0001-why-a-new-service.md) — Why a new service.
   - [ADR-0002](adr/0002-no-relational-database.md) — No relational database; Redis only for idempotency records. Amended by ADR-0012 and ADR-0013: Redis also holds delivery and status.
@@ -34,15 +34,19 @@ DKNet Notification turns one registered template plus caller parameters into one
   - [ADR-0011](adr/0011-slimmessagebus-in-process-mediator.md) — Use SlimMessageBus's in-memory bus as the in-process mediator; validation stays outside it.
   - [ADR-0012](adr/0012-notification-status-tracking.md) — Let a caller read the status of its own notification: `pending`, `success` or `failed`; the accept answer becomes 200.
   - [ADR-0013](adr/0013-delivery-through-slimmessagebus-redis-queue.md) — Deliver through the SlimMessageBus Redis queue, so waiting notifications survive a restart.
+  - [ADR-0014](adr/0014-typed-client-package.md) — Ship a typed .NET client package, DKNet.Notification.Client, released with the service.
+  - [ADR-0015](adr/0015-client-uses-refit.md) — The client package uses Refit for its HTTP calls; the API never takes Refit.
 - [diagrams/](diagrams/) — archify IR (`.json`) and render (`.svg`) for every diagram.
 
 ## Runtime architecture
 
-![A backend caller gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container and is shared by all replicas, renders, writes the pending status, publishes the message to the delivery list in Redis and answers 200, and answers the caller's status lookup from Redis; the delivery consumer takes messages from that list, puts a message back to wait for a retry, writes the final status, and hands email to the one active sender — the SMTP sender to the SMTP provider, or the Graph sender, which gets an Entra ID token as the mail-sender app and posts to Microsoft Graph — and Teams messages to a Teams Workflows webhook.](diagrams/runtime.svg)
+![A backend caller, through plain HTTPS or the DKNet.Notification.Client package, gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container and is shared by all replicas, renders, writes the pending status, publishes the message to the delivery list in Redis and answers 200, and answers the caller's status lookup from Redis; the delivery consumer takes messages from that list, puts a message back to wait for a retry, writes the final status, and hands email to the one active sender — the SMTP sender to the SMTP provider, or the Graph sender, which gets an Entra ID token as the mail-sender app and posts to Microsoft Graph — and Teams messages to a Teams Workflows webhook.](diagrams/runtime.svg)
 
 ## Delivery slices
 
 Each slice is one future Workflow B ticket, delivered in this order.
+
+Slices 1 to 6 are built and released as version 1. Revision 3 adds slices 7 and 8.
 
 1. **Scaffold** — generate the solution with `dotnet new dknet-minimal`, remove the two sample features, remove the relational database (ADR-0002), and add CI build and container publish. Realises: README, 04 Storage, 05 Packaging and deployment.
 2. **Send API, template catalogue and skip rule** — `POST /v1/notifications` with authorization, idempotency with its three non-default settings (ADR-0008), evaluation steps 1 to 5, the template catalogue and its start-up checks, and the skip log entry. No channel sender exists yet, so every valid call ends Skipped at step 5; that is the behaviour this slice ships and tests. Realises: 02 NotificationTemplate, 03 Exposed API, Evaluation order steps 1 to 5 and Main flow 2, 05 Security and Observability, ADR-0007, ADR-0008.
@@ -50,3 +54,5 @@ Each slice is one future Workflow B ticket, delivered in this order.
 4. **Graph email sender** — `Sender` = `Graph`, the Graph sender and its settings, sign-in with both credential modes as the mail-sender app, the `sendMail` call, the retry classification for the token step and Graph answers, and the Graph stub tests. It reuses the queue and worker from slice 3. Realises: 03 Outbound call — Microsoft Graph `sendMail` and Main flow 4, 04 GraphSenderSettings, 05 Graph sign-in and the Graph rows of Testing approach, ADR-0009, ADR-0010.
 5. **Microsoft Teams channel** — the Teams recipient check, named Teams destinations, the Adaptive Card payload with its 28 KB check, and the Teams channel sender with 429 handling. It reuses the queue and worker from slice 3. Realises: 03 Evaluation order steps 6 to 8 for Teams and Main flow 3, ADR-0006.
 6. **Helm chart and operator guide** — a Helm chart like DKNet.Accounts.Api's, with the email sender setting, the workload identity service account annotation and the `azure.workload.identity/use` pod label, plus the configuration reference for channels, email senders, destinations and templates. The operator guide carries the Graph setup: the mail-sender app, its federated credential, and the required `Mail.Send` scope to the one mailbox with RBAC for Applications (or an application access policy), checked with `Test-ServicePrincipalAuthorization`. Realises: 05 Graph mailbox scope — required setup step, Packaging and deployment.
+7. **Client package** (dev-team) — the `DKNet.Notification.Client` project: a Refit route declaration for `POST /v1/notifications` and `GET /v1/notifications/{notificationId}`, its own request and response types, the two registrations (base address; base address plus the caller's own `DelegatingHandler`), the one refusal exception, the README inside the package, and the route parity and package tests. Nothing for `/healthz`. The API does not change. The method shapes and error detail come from the client spec (DRK-2136). Realises: 03 Context map and Dependencies, 05 Packaging and deployment (NuGet package) and the client rows of Testing approach, ADR-0014, ADR-0015.
+8. **Client release** (devops, CI/CD) — the release workflow packs `DKNet.Notification.Client` with the release version it computes for the image and pushes it to GitHub Packages, as DKNet.Accounts.Api's release workflow does. Needs slice 7. The client is not released until this slice merges. Realises: 05 Packaging and deployment (CI, NuGet package), ADR-0014.

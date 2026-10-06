@@ -5,6 +5,7 @@
 | Neighbour | Direction | How they talk |
 |---|---|---|
 | Backend callers (DKNet.Accounts.Api is a likely first) | Caller → this service | HTTPS REST, Entra ID bearer token |
+| .NET callers that take DKNet.Notification.Client | Caller → client package → this service | NuGet package reference at build time; the client then calls this service over HTTPS REST with the caller's own bearer token (ADR-0014) |
 | Microsoft Entra ID | This service → Entra ID | OpenID Connect metadata and signing keys, read to validate tokens. With the Graph sender, also a client credentials token request for Graph |
 | Redis | This service → Redis | Redis protocol, for idempotency records, the delivery queue and notification status records |
 | SMTP provider | This service → provider | SMTP with STARTTLS or TLS, authenticated. Only when `Sender` is `Smtp` |
@@ -13,9 +14,17 @@
 | DKNet packages (DKNet repo) | This service → packages | NuGet package references, in process |
 | DKNet.Templates | One-time, at scaffold | `dotnet new dknet-minimal`; no runtime link |
 
-This service calls no other DKNet service. No DKNet service is called by it. No library depends on it.
+This service calls no other DKNet service at runtime. It depends on no DKNet service at build time.
 
-![DKNet Notification sits between backend callers and its delivery targets — the SMTP provider or Microsoft Graph for email, one per deployment, and Teams Workflows webhooks — and depends on Entra ID for tokens, Redis for idempotency records, the delivery queue and status records, and DKNet packages at build time.](diagrams/context-map.svg)
+This repo ships one library, `DKNet.Notification.Client` (ADR-0014):
+
+- A .NET caller may reference it. The direction is caller → client package. DRK-2135 makes DKNet.Accounts.Api the first such caller.
+- The client package references no project of this solution. It carries its own request and response types.
+- The API, application, domain and shared projects never reference the client package.
+- Only this repo's test projects reference both the API and the client, for the route parity test (05-quality).
+- A caller that does not use .NET, or prefers plain HTTP, calls the API directly. Both ways reach the same routes.
+
+![DKNet Notification sits between backend callers, which call it over HTTPS directly or through the DKNet.Notification.Client package built on Refit, and its delivery targets — the SMTP provider or Microsoft Graph for email, one per deployment, and Teams Workflows webhooks — and depends on Entra ID for tokens, Redis for idempotency records, the delivery queue and status records, and DKNet packages at build time.](diagrams/context-map.svg)
 
 ## Exposed API
 
@@ -26,6 +35,8 @@ This service calls no other DKNet service. No DKNet service is called by it. No 
 | GET | `/healthz` | Liveness: the process is up. | Anonymous |
 
 The scaffold's OpenAPI and Scalar pages stay behind its `EnableSwagger` flag, which is off by default.
+
+`DKNet.Notification.Client` has one method for each of the two `/v1/notifications` routes. It has nothing for `/healthz` (ADR-0014).
 
 ### `POST /v1/notifications`
 
@@ -255,13 +266,16 @@ No library retries inside an attempt. The `Azure.Identity` credential is built w
 | MailKit | NuGet library (third party) | service → library | New to the DKNet repos. ADR-0005 |
 | Azure.Identity | NuGet library (third party) | service → library | Graph token, both credential modes. DKNet.Accounts.Api pins it too. ADR-0010 |
 | DKNet.Templates | Solution template | one-time scaffold | Not referenced after slice 1 |
+| Refit, Refit.HttpClientFactory | NuGet library (third party) | client package → library | The client package only; no API project takes it. New to the DKNet repos. ADR-0015 |
 | Microsoft Entra ID | External service | service → Entra ID | Token validation; with the Graph sender, also the mail-sender app's token request |
 | Redis | External store | service → Redis | ADR-0002, ADR-0012, ADR-0013 |
 | SMTP provider | External service | service → provider | ADR-0005 |
 | Microsoft Graph and the sending mailbox | External service | service → Graph | ADR-0009, ADR-0010 |
 | Microsoft Teams Workflows | External service | service → webhook | ADR-0006 |
 
-Every arrow points from this service to a library or an external system. No library points back. No DKNet repo depends on this service at build time, so there is no cycle. DKNet.SlimBus.Extensions supplies only the command and handler contracts; its EF Core helpers are not used (ADR-0011).
+Every arrow points from this service to a library or an external system. No library points back.
+
+The client package adds one edge into this repo: a caller → `DKNet.Notification.Client`. The client package points only to Refit and the .NET HTTP libraries. This service depends on no caller's repo, at build time or at runtime. So a caller such as DKNet.Accounts.Api can reference the client with no cycle. DKNet.SlimBus.Extensions supplies only the command and handler contracts; its EF Core helpers are not used (ADR-0011).
 
 ## Main flows
 
