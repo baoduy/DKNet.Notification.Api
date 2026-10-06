@@ -14,7 +14,7 @@
     - `success`: Delivered. Final.
     - `failed`: Failed or Skipped. Final. The skip reason is never shown.
   - The route needs `notifications.send`, the same permission as `POST`.
-  - A status record is scoped to the caller. Its key is `status:{callerId}:{notificationId}`. An unknown id, an expired id and another caller's id all answer 404 `NOTIFICATION_NOT_FOUND`.
+  - A status record is scoped to the caller. Its key is `status:{callerId}:{notificationId}`, and in Redis the cache instance name `DKNet.Notification.Api` comes first: `DKNet.Notification.Apistatus:{callerId}:{notificationId}`. An unknown id, an expired id and another caller's id all answer 404 `NOTIFICATION_NOT_FOUND`.
   - The record lives in `IDistributedCache`: Redis, or process memory in local runs and tests. It holds no personal data.
   - A record expires `Notifications:Status:RetentionHours` after its last write. The default is 24 hours; the allowed range is 1 to 168.
   - `pending` is written before the notification is published to the delivery queue, so a final value can never be overwritten by an older `pending`. Only final values are written after it, so a status never goes backwards.

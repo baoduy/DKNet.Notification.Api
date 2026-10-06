@@ -155,7 +155,7 @@ Responses:
 | 429 | — | The existing rate limit. |
 | 500 | — | Redis cannot be read. |
 
-A status write is best effort and is not retried (05-quality). A `pending` that never changes means the final write failed or the queued message could not be read. The record then expires on its own.
+A status write is best effort and is not retried (05-quality). A `pending` that never changes means the final write failed, the queued message could not be read, or the replica holding it crashed or stopped while taking it. The record then expires on its own.
 
 ### Evaluation order
 
@@ -283,7 +283,7 @@ Failure paths:
 - Step 6 finds the queue full: 503 `QUEUE_FULL`. Nothing is written. The caller retries after 30 seconds with the same key.
 - Step 7 gets a transient failure: the consumer publishes the message back with a wait of 5 seconds, then 30 seconds, and a replica takes it again. After attempt 3 the notification ends Failed and the status becomes `failed`.
 - Step 7 gets a permanent failure: the notification ends Failed at once.
-- A replica stops during step 7: the message goes back to the queue without counting the attempt. A replica that stops while a message waits for its time loses nothing, because the message is in Redis.
+- A replica stops during step 7: the message goes back to the queue without counting the attempt. A replica that stops while a message waits for its time loses nothing, because the message is in Redis. A stop can lose at most the one message the replica was taking from the list at that instant.
 - The caller reads `pending`, then `success` or `failed`, with `GET /v1/notifications/{notificationId}` at any point after step 6.
 
 This flow is the SMTP sender. With `Sender` set to `Graph`, steps 7 and 8 run as in Flow 4.

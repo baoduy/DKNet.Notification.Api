@@ -8,7 +8,7 @@ namespace DKNet.Notification.AppServices.Delivery;
 ///     Bound through the constructor, not through setters: the settings binder adds the configured items of a list to
 ///     the default it finds in the property, so <c>RetryDelaysSeconds</c> would keep <c>[5, 30]</c> in front of them.
 /// </remarks>
-/// <param name="queueCapacity">How many notifications per replica may not have ended.</param>
+/// <param name="queueCapacity">How many notifications may wait in the delivery list, for the whole service.</param>
 /// <param name="maxAttempts">The attempts a notification gets at most.</param>
 /// <param name="retryDelaysSeconds">The waits before attempt 2 and attempt 3; <see langword="null" /> keeps <c>[5, 30]</c>.</param>
 public sealed class DeliverySettings(
@@ -25,7 +25,7 @@ public sealed class DeliverySettings(
 
     #region Properties
 
-    /// <summary>Gets how many notifications per replica may not have ended: 1 to 100,000.</summary>
+    /// <summary>Gets how many notifications may wait in the delivery list, for the whole service: 1 to 100,000.</summary>
     public int QueueCapacity { get; } = queueCapacity;
 
     /// <summary>Gets the attempts a notification gets at most: 1 to 3.</summary>

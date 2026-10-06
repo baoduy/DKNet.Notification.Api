@@ -28,7 +28,7 @@
   - The consumer rebuilds the notification with `Notification.Resume`, so the 3-attempt limit stays in the domain.
   - Time is read from the injected `TimeProvider`. The sender time limits and the `Retry-After` date stay on the real clock, because they are about a real provider.
   - Queued messages hold the recipient and the rendered body as they are. They are not encrypted. Redis access control and TLS protect them, as they protect idempotency records.
-  - Compatibility rule: a field of `DeliverNotification` is only ever added, and as optional. Removing or renaming a field takes two releases, so a message queued by one release is still read by the next.
+  - Compatibility rule: a field of `DeliverNotification` is only ever added, and as optional. Removing or renaming a field takes two releases, so a message queued by one release is still read by the next. The rule covers the type too: SlimMessageBus routes a message by a header holding the type's namespace and assembly-qualified name, and drops a message whose type it cannot find. So never move or rename `DeliverNotification`, and only ever append values to `BodyFormat`, which is stored as a number.
 - **Alternatives:**
   - *Keep the in-process queue (ADR-0003).* Rejected: it loses every waiting notification on each deploy.
   - *SlimMessageBus's in-process `Retry()` for the retry waits.* Rejected: it waits in memory, so a stop still loses the retry.
@@ -36,7 +36,7 @@
   - *Redis Streams built by hand.* Rejected: it would be our own queue to maintain. The Redis list is a documented SlimMessageBus feature.
 - **Consequences:**
   - Easier: waiting notifications and retry waits survive a restart or a deploy. Replicas share one backlog, and one limit covers the service.
-  - Harder: delivery is at most once per pop. A hard crash can lose the one message a replica holds. Redis data loss loses the queue.
+  - Harder: delivery is at most once per pop. A hard crash can lose the one message a replica holds, and a stop can lose at most the one message the replica was taking from the list at that instant. Either way its status stays `pending` until the record expires. Redis data loss loses the queue.
   - Harder: a duplicate is possible after an ambiguous timeout, or when a stop cuts an attempt after the provider already took the message.
   - Harder: personal data (the recipient and the rendered body) sits in Redis until the notification is delivered or fails. Operators who read the Redis data can read it.
   - Harder: a message that cannot be deserialized is lost, and its status stays `pending` until the record expires. The compatibility rule is what prevents this across releases.

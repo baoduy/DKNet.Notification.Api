@@ -92,7 +92,7 @@ None in version 1. No other service consumes an outcome. Each state change is on
 | Delivered (end) | The SMTP provider, Microsoft Graph or the Teams webhook accepted the message. | SMTP accepted the message, Graph answered 202, or the webhook answered 2xx. |
 | Failed (end) | Delivery gave up. It is logged as an error. | Permanent failure, or a transient failure on attempt 3. |
 
-A process stop loses no notification in Queued or Retry Waiting: the message is in Redis, and a replica that is cut off during an attempt puts it back without counting the attempt (ADR-0013). A hard crash can lose the one message a replica holds. No state records such a loss, and the status stays `pending` until its record expires (05-quality).
+A process stop loses no waiting notification in Queued or Retry Waiting, apart from at most the one message being taken from the list at that instant: the message is in Redis, and a replica that is cut off during an attempt puts it back without counting the attempt (ADR-0013). A hard crash can lose the one message a replica holds. No state records such a loss, and the status stays `pending` until its record expires (05-quality).
 
 The public status folds these states into 3 values. Only `pending` is not final.
 

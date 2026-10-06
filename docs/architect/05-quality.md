@@ -137,7 +137,7 @@ Delivery is best effort, but a notification that waits survives a restart (ADR-0
 
 | Event | What happens to a notification |
 |---|---|
-| A deploy or a stop while a notification waits in the queue, or waits for a retry | Nothing is lost. The message is in Redis, and any replica takes it when its time comes |
+| A deploy or a stop while a notification waits in the queue, or waits for a retry | Nothing waiting is lost. The message is in Redis, and any replica takes it when its time comes. The one exception is the message the stopping replica was taking from the list at that instant: it can be lost, and its status stays `pending` until the record expires |
 | A stop during a delivery attempt | The message is put back with `AttemptsMade` unchanged. The cut-off attempt is not counted, so a run of deploys cannot use up the 3 attempts |
 | A hard crash of a replica | At most 1 message is lost: the one that replica had taken. Its status stays `pending` until the record expires |
 | Redis loses its data | The queue is lost, and so are the status records. Callers read 404 for them |

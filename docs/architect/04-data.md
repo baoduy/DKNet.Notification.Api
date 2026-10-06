@@ -28,7 +28,7 @@ The service never writes:
 | Channel settings, email sender settings and Teams destinations | Configuration: `appsettings.json` for non-secret values; environment variables or Azure App Configuration for secrets | One set per deployment. Same configuration order as DKNet.Accounts.Api |
 | Idempotency records | Redis | Shared by all replicas; expires on its own (ADR-0002) |
 | Notifications waiting for delivery | Redis list `notification-delivery` (process memory in local runs and tests) | Waiting notifications and retry waits survive a restart or a deploy (ADR-0013) |
-| Notification status | Redis key `status:{callerId}:{notificationId}` through `IDistributedCache` (process memory in local runs and tests) | A caller reads the status of its own notification from any replica (ADR-0012) |
+| Notification status | Redis key `DKNet.Notification.Apistatus:{callerId}:{notificationId}` (the cache instance name, then `status:{callerId}:{notificationId}`) through `IDistributedCache` (process memory in local runs and tests) | A caller reads the status of its own notification from any replica (ADR-0012) |
 | Notification during an attempt | Process memory | Rebuilt from the queued message for each attempt |
 
 There is no relational database. The scaffold's PostgreSQL resource, EF Core context and database health check are removed in slice 1 (ADR-0002).
@@ -61,7 +61,7 @@ The message is JSON, written by the System.Text.Json serializer. Local runs and 
 
 | Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
 |---|---|---|---|---|---|---|
-| SchemaVersion | integer | — | Yes | — | 1 | Fields are only ever added, as optional (ADR-0013) |
+| SchemaVersion | integer | — | Yes | — | 1 | Fields are only ever added, as optional; `DeliverNotification` is never moved or renamed, and `BodyFormat` only gains values at the end (ADR-0013) |
 | NotificationId | GUID | — | Yes | — | — | The id returned to the caller; in every log entry |
 | TemplateId | string | 1–100 | Yes | — | — | |
 | Channel | string | 1–50 | Yes | — | — | Lower-cased caller value |
@@ -83,7 +83,7 @@ A message holds the rendered message and the one recipient, not the caller's par
 
 | Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
 |---|---|---|---|---|---|---|
-| Key | string | — | Yes | Unique | — | `status:{callerId}:{notificationId}`, under the cache's instance name. One record per caller and notification |
+| Key | string | — | Yes | Unique | — | `status:{callerId}:{notificationId}`; in Redis the cache instance name `DKNet.Notification.Api` comes first, so the key reads `DKNet.Notification.Apistatus:{callerId}:{notificationId}`. One record per caller and notification |
 | NotificationId | GUID | — | Yes | — | — | |
 | IdempotencyKey | string | 1–255 | No | — | — | The `Idempotency-Key` of the accepting call |
 | Status | enum | — | Yes | — | `Pending` | `Pending`, `Success` or `Failed`. The API shows them as `pending`, `success`, `failed`; Skipped is `Failed` |
