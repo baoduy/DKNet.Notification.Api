@@ -4,15 +4,14 @@
     <Authors>Steven Hoang</Authors>
     <Company>https://drunkcoding.net</Company>
     <Copyright>Copyright @ $([System.DateTime]::Now. Year)</Copyright>
-    <PackageProjectUrl>https://github.com/baoduy/DKNet</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/baoduy/DKNet</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/baoduy/DKNet.Notification.Api</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/baoduy/DKNet.Notification.Api</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>aspnetcore,aws,azure,cloud,ddd,events,extensions,generator,password,pdf,random,storage,string</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <LangVersion>default</LangVersion>
     <NeutralLanguage>en</NeutralLanguage>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageIcon>NugetLogo.png</PackageIcon>
     <Nullable>enable</Nullable>
     <ImplicitUsings>true</ImplicitUsings>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
