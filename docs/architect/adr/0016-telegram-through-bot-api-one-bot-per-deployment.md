@@ -1,0 +1,46 @@
+# ADR-0016: Send to Telegram through the Bot API, one bot per deployment, operator-named destinations
+
+- **Status:** Accepted. It reverses the revision 3 non-goal "Delivers to … Telegram" (01-scope). ADR-0006 and ADR-0013 stay.
+- **Context:**
+  - The requester asked for Telegram as a third channel (DRK-2173). Messages go to a Telegram group or channel, never to one person.
+  - The requester's rules: operators map a name to one chat in the deployment settings; the caller sends only that name; one bot sends for the whole deployment (DRK-2173, decision of 2026-10-08).
+  - The Telegram Bot API takes every call over HTTPS at `https://api.telegram.org/bot<token>/METHOD_NAME`. The bot token is part of the URL path (Telegram Bot API, "Making requests").
+  - `sendMessage` takes a `chat_id`: "Unique identifier for the target chat or username of the target bot, supergroup or channel" (Telegram Bot API, "sendMessage").
+  - A chat id "may have more than 32 significant bits … But it has at most 52 significant bits, so a signed 64-bit integer … [is] safe for storing this identifier" (Telegram Bot API, "ResponseParameters").
+  - Every answer is JSON with `ok`. A refused call may carry `parameters.retry_after`: "the number of seconds left to wait before the request can be repeated" (Telegram Bot API, "Making requests", "ResponseParameters").
+  - A bot posts in a channel only as an administrator. `can_post_messages` is an administrator right "for channels only" (Telegram Bot API, "ChatAdministratorRights").
+  - The Teams and Graph senders already post a JSON body over HTTPS with no SDK, and classify answers by HTTP status (ADR-0006, ADR-0009).
+  - OpenTelemetry's HTTP client instrumentation is on in this service. It records `url.full` on every outbound call, and redacts only the query values, never the path (OpenTelemetry.Instrumentation.Http 1.19.0 README, "Traces").
+- **Decision:**
+  - Telegram is a channel named `telegram`. It has one sender: an HTTPS POST to the Bot API method `sendMessage`.
+  - One bot per deployment. Its token is one secret setting, `BotToken`.
+  - Operators map a destination name to one chat id in the settings. Callers send only the name, in the reserved key `telegramDestination`. The name rule is the Teams one.
+  - A chat id is a non-zero signed 64-bit integer, sent as a JSON number. A `@username` is not accepted, so one id format covers groups and channels.
+  - A name not set in this deployment ends Skipped with reason `TelegramDestinationNotConfigured`, as Teams does.
+  - The request carries `chat_id`, `text` and `parse_mode` = `HTML`, and nothing else (ADR-0017). Telegram's own defaults apply to link previews and the notification sound.
+  - The base address `https://api.telegram.org` is fixed. It is no setting in production. Only the test host points it at a stub.
+  - The token never leaves the request:
+    - It is read only from a secret source.
+    - It is never written to a log entry, a metric, a queued message or a status record.
+    - The HTTP client span of a call to the Bot API is not recorded, because its `url.full` would hold the token. The delivery activity of the attempt is still recorded.
+    - Only the HTTP status of an answer is kept, never the answer's text or an exception's text.
+  - Answers follow the 3-attempt rule (ADR-0013). 2xx with `ok` true is Delivered. 408, 429, 5xx, a timeout and a lost connection are transient. Any other answer is permanent: a bot removed from its chat, a chat that does not exist, a revoked token, a redirect.
+  - A 429 waits for `parameters.retry_after` from the body, at most 60 seconds, as other 429s do. Without it, the configured wait applies.
+  - A group that became a supergroup answers with `parameters.migrate_to_chat_id`. That answer is permanent; the service does not follow it. The operator sets the new chat id.
+  - `Enabled` = `true` with a missing or bad `BotToken` leaves Telegram not configured. The host starts and logs one warning, `TelegramChannelNotConfigured`, naming the setting, never its value. Every Telegram call ends Skipped with `ChannelNotConfigured`.
+- **Alternatives:**
+  - *The caller sends a chat id.* Rejected: the requester's rule. A caller could then reach any chat the bot is in, and direct messages to a person need subscribe and opt-out, which are out of scope.
+  - *More than one bot per deployment, picked per destination.* Rejected: the requester's rule. It adds a token per destination for no asked-for need.
+  - *A `@username` chat id beside the numeric one.* Rejected: it works for public chats only, and one format keeps the rule and the tests small.
+  - *The `Telegram.Bot` NuGet package.* Rejected: a new third-party dependency for one method. The Teams and Graph senders show a plain HTTPS POST is enough.
+  - *Keep the HTTP client span and overwrite its URL.* Not chosen: dropping the span is one rule with nothing to get wrong. The delivery activity already carries the attempt, the status code and the duration.
+  - *No start-up warning, as Teams.* Rejected: a missing token is the likeliest set-up error. The email rule (ADR-0009) shows it in the first log line.
+  - *Follow `migrate_to_chat_id` and resend.* Rejected: the settings are read once at start-up, and a silent change of target is worse than one failed message.
+- **Consequences:**
+  - Easier: callers add Telegram with one new channel name and one new key. No caller and no client package changes.
+  - Easier: a new chat is a settings change: one chat id, no new secret.
+  - Harder: the bot token is a single secret for every chat. Anyone holding it can post as the bot anywhere it is a member, and read what it receives.
+  - Harder: a bot removed from its chat, or a group upgraded to a supergroup, makes every message to that destination end Failed until an operator acts. The log carries only the status code.
+  - Harder: a flood wait above 60 seconds uses up the 3 attempts, and the notification ends Failed.
+  - Harder: no offline Telegram exists. Tests use a local HTTP stub, and a real bot is checked only by hand (05-quality).
+  - Harder: a rolling deploy that adds Telegram can fail a Telegram message taken by an old replica. Telegram is turned on only after every replica runs the new release (05-quality, Packaging and deployment).

@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Post a Telegram Notification",
+    "output": "send-telegram.html",
+    "viewBox": [
+      1080,
+      690
+    ],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "Backend caller",
+      "sublabel": "notifications.send"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Notification API",
+      "sublabel": "POST /v1/notifications"
+    },
+    {
+      "id": "settings",
+      "type": "security",
+      "label": "Telegram settings",
+      "sublabel": "destination to chat id"
+    },
+    {
+      "id": "queue",
+      "type": "messagebus",
+      "label": "Delivery list",
+      "sublabel": "Redis list"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Delivery consumer",
+      "sublabel": "Telegram sender, 1 bot"
+    },
+    {
+      "id": "telegram",
+      "type": "cloud",
+      "label": "Telegram Bot API",
+      "sublabel": "sendMessage"
+    }
+  ],
+  "segments": [
+    {
+      "from": 160,
+      "to": 330,
+      "label": "Accept"
+    },
+    {
+      "from": 342,
+      "to": 590,
+      "label": "Deliver"
+    }
+  ],
+  "messages": [
+    {
+      "id": "post",
+      "from": "caller",
+      "to": "api",
+      "y": 180,
+      "label": "POST channel=telegram, telegramDestination=ops-alerts",
+      "variant": "emphasis",
+      "note": "token, key, template and Telegram version already checked"
+    },
+    {
+      "id": "lookup",
+      "from": "api",
+      "to": "settings",
+      "y": 224,
+      "label": "destination ops-alerts set?",
+      "variant": "default"
+    },
+    {
+      "id": "chat",
+      "from": "settings",
+      "to": "api",
+      "y": 252,
+      "label": "chat id",
+      "variant": "return",
+      "note": "not set: Skipped, 200, status failed"
+    },
+    {
+      "id": "enqueue",
+      "from": "api",
+      "to": "queue",
+      "y": 290,
+      "label": "escape values, visible text ≤ 4,096; status pending, then publish",
+      "variant": "emphasis"
+    },
+    {
+      "id": "accepted",
+      "from": "api",
+      "to": "caller",
+      "y": 320,
+      "label": "200 notificationId",
+      "variant": "return"
+    },
+    {
+      "id": "take",
+      "from": "queue",
+      "to": "worker",
+      "y": 368,
+      "label": "take message (any replica)",
+      "variant": "default"
+    },
+    {
+      "id": "post1",
+      "from": "worker",
+      "to": "telegram",
+      "y": 404,
+      "label": "POST /bot***/sendMessage, attempt 1",
+      "variant": "emphasis",
+      "note": "token in path; this HTTP span is not recorded"
+    },
+    {
+      "id": "throttled",
+      "from": "telegram",
+      "to": "worker",
+      "y": 440,
+      "label": "429, parameters.retry_after",
+      "variant": "return"
+    },
+    {
+      "id": "post2",
+      "from": "worker",
+      "to": "telegram",
+      "y": 488,
+      "label": "POST sendMessage, attempt 2",
+      "variant": "dashed",
+      "note": "put back; waits retry_after, at most 60 s"
+    },
+    {
+      "id": "ok",
+      "from": "telegram",
+      "to": "worker",
+      "y": 528,
+      "label": "200 ok=true: Delivered, status success",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "api",
+      "from": 180,
+      "to": 324,
+      "type": "backend"
+    },
+    {
+      "participant": "settings",
+      "from": 220,
+      "to": 256,
+      "type": "security"
+    },
+    {
+      "participant": "worker",
+      "from": 364,
+      "to": 534,
+      "type": "backend"
+    },
+    {
+      "participant": "telegram",
+      "from": 400,
+      "to": 532,
+      "type": "cloud"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Accept",
+      "items": [
+        "Missing telegramDestination: 400 RECIPIENT_MISSING",
+        "Visible text above 4,096 UTF-16 code units: 400 MESSAGE_TOO_LARGE",
+        "Values are escaped (& < > \"), so they add no tag; parse_mode is HTML"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Deliver",
+      "items": [
+        "408, 429, 5xx and timeouts are retried, at most 3 attempts; a retry goes back to the Redis list",
+        "403 (bot removed from its chat), 400, 401, 404: Failed at once, status failed; only the status code is logged",
+        "Callers never see the chat id; no log, trace or record holds the bot token"
+      ]
+    }
+  ]
+}

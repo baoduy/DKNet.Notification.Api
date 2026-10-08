@@ -40,7 +40,7 @@
     { "participant": "settings", "from": 336, "to": 372, "type": "security" }
   ],
   "cards": [
-    { "dot": "cyan", "title": "Skip reasons", "items": ["ChannelNotSupported: no sender in this release", "ChannelNotConfigured: sender exists but is disabled here", "NoTemplateVersion: template has no version for the channel", "TeamsDestinationNotConfigured: name not set in this deployment"] },
+    { "dot": "cyan", "title": "Skip reasons", "items": ["ChannelNotSupported: no sender in this release", "ChannelNotConfigured: sender exists but is disabled here", "NoTemplateVersion: template has no version for the channel", "TeamsDestinationNotConfigured: name not set in this deployment", "TelegramDestinationNotConfigured: name not set in this deployment"] },
     { "dot": "amber", "title": "The requester's rule", "items": ["The caller gets 200, the same answer as a queued call; its status reads failed, never why", "Nothing is queued and nothing is sent"] }
   ]
 }

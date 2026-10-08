@@ -17,29 +17,31 @@
   "components": [
     { "id": "template", "type": "backend", "label": "NotificationTemplate", "sublabel": "root, id = template id", "pos": [40, 120], "size": [190, 64] },
     { "id": "version", "type": "backend", "label": "TemplateVersion", "sublabel": "entity, one per channel", "pos": [40, 290], "size": [190, 64] },
-    { "id": "body", "type": "database", "label": "TemplateBody", "sublabel": "Html or Markdown", "pos": [40, 460], "size": [190, 60] },
+    { "id": "body", "type": "database", "label": "TemplateBody", "sublabel": "Html, Markdown or TelegramHtml", "pos": [40, 460], "size": [190, 60] },
     { "id": "notification", "type": "backend", "label": "Notification", "sublabel": "root, NotificationId", "pos": [460, 120], "size": [200, 64], "tag": "in memory" },
     { "id": "parameters", "type": "database", "label": "NotificationParameters", "sublabel": "string to string", "pos": [330, 290], "size": [170, 60] },
-    { "id": "recipient", "type": "database", "label": "Recipient", "sublabel": "Email or Teams", "pos": [530, 290], "size": [130, 60] },
+    { "id": "recipient", "type": "database", "label": "Recipient", "sublabel": "Email, Teams or Telegram", "pos": [530, 290], "size": [130, 60] },
     { "id": "rendered", "type": "database", "label": "RenderedMessage", "sublabel": "subject/title + body", "pos": [700, 290], "size": [170, 60] },
-    { "id": "destination", "type": "external", "label": "TeamsDestination", "sublabel": "name to webhook URL", "pos": [520, 460], "size": [150, 60] }
+    { "id": "destination", "type": "external", "label": "TeamsDestination", "sublabel": "name to webhook URL", "pos": [430, 460], "size": [150, 60] },
+    { "id": "tgdestination", "type": "external", "label": "TelegramDestination", "sublabel": "name to chat id", "pos": [620, 460], "size": [170, 60] }
   ],
   "boundaries": [
     { "kind": "region", "label": "NotificationTemplate aggregate (read-only)", "wraps": ["template", "version", "body"] },
     { "kind": "region", "label": "Notification aggregate (not stored)", "wraps": ["notification", "parameters", "recipient", "rendered"] }
   ],
   "connections": [
-    { "id": "template-version", "from": "template", "to": "version", "label": "1 to 2", "fromSide": "bottom", "toSide": "top" },
+    { "id": "template-version", "from": "template", "to": "version", "label": "1 to 3", "fromSide": "bottom", "toSide": "top" },
     { "id": "version-body", "from": "version", "to": "body", "label": "holds", "fromSide": "bottom", "toSide": "top" },
     { "id": "notification-template", "from": "notification", "to": "template", "label": "templateId (by id)", "variant": "dashed", "fromSide": "left", "toSide": "right" },
     { "id": "notification-parameters", "from": "notification", "to": "parameters", "label": "holds", "fromSide": "bottom", "toSide": "top" },
     { "id": "notification-recipient", "from": "notification", "to": "recipient", "label": "holds", "fromSide": "bottom", "toSide": "top" },
     { "id": "notification-rendered", "from": "notification", "to": "rendered", "label": "rendered once", "fromSide": "right", "toSide": "top" },
-    { "id": "recipient-destination", "from": "recipient", "to": "destination", "label": "by name", "variant": "dashed", "fromSide": "bottom", "toSide": "top" }
+    { "id": "recipient-destination", "from": "recipient", "to": "destination", "label": "by name", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "recipient-tgdestination", "from": "recipient", "to": "tgdestination", "label": "by name", "variant": "dashed", "fromSide": "bottom", "toSide": "top" }
   ],
   "cards": [
-    { "dot": "cyan", "title": "NotificationTemplate", "items": ["At most 1 version per channel", "Email version: Html plus SubjectLine; Teams version: Markdown plus optional CardTitle", "Files are checked at start-up; changes only by release"] },
-    { "dot": "emerald", "title": "Notification", "items": ["Also holds ChannelName, CallerId, Status and AttemptCount (0 to 3)", "Recipient is EmailRecipient (EmailAddress) or TeamsRecipient (TeamsDestinationName)", "Rendered exactly once, before it is queued"] },
+    { "dot": "cyan", "title": "NotificationTemplate", "items": ["At most 1 version per channel", "Email version: Html plus SubjectLine; Teams version: Markdown plus optional CardTitle; Telegram version: TelegramHtml, body only", "Files are checked at start-up; changes only by release"] },
+    { "dot": "emerald", "title": "Notification", "items": ["Also holds ChannelName, CallerId, Status and AttemptCount (0 to 3)", "Recipient is EmailRecipient (EmailAddress), TeamsRecipient (TeamsDestinationName) or TelegramRecipient (TelegramDestinationName)", "Rendered exactly once, before it is queued"] },
     { "dot": "rose", "title": "References", "items": ["Aggregates refer to each other by id only", "Parameter values and recipients are never logged"] }
   ]
 }

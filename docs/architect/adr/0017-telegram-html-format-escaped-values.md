@@ -1,0 +1,33 @@
+# ADR-0017: Telegram templates use Telegram HTML, values are escaped, and the visible text is counted
+
+- **Status:** Accepted
+- **Context:**
+  - The requester's rule: a Telegram template may use bold, italic and links. A parameter value can never add formatting or a link (DRK-2173).
+  - Telegram parses a message's formatting with `parse_mode`: `HTML`, `MarkdownV2` or the legacy `Markdown` (Telegram Bot API, "Formatting options").
+  - HTML style: "All `<`, `>` and `&` symbols that are not a part of a tag or an HTML entity must be replaced with the corresponding HTML entities". Only `&lt;`, `&gt;`, `&amp;` and `&quot;` are supported as named entities; all numeric entities are supported (Telegram Bot API, "HTML style").
+  - MarkdownV2 needs 18 characters escaped everywhere in the text, template text included (Telegram Bot API, "MarkdownV2 style"). The legacy mode is "retained for backward compatibility".
+  - `sendMessage` takes "1-4096 characters after entities parsing" (Telegram Bot API, "sendMessage"). Telegram counts entity offsets and lengths in UTF-16 code units (Telegram Bot API, "MessageEntity").
+  - A tag Telegram does not support, or a tag left open, makes the whole call fail with a 4xx. The caller has already had its 200 by then.
+  - Telegram itself turns a bare URL, a `@username` or a `#hashtag` in plain text into a link ("url", "mention", "hashtag" entities, Telegram Bot API, "MessageEntity"). Escaping cannot stop that.
+- **Decision:**
+  - A Telegram template version has the format `TelegramHtml`. It is one file of Telegram HTML: the message body only, with no title and no subject.
+  - Allowed tags: `<b>`, `<strong>`, `<i>`, `<em>`, and `<a href="…">` with only the `href` attribute. Every tag is closed. Line breaks are newline characters in the file.
+  - A token is allowed in text only, never inside a tag. So every link target comes from the template, never from a value.
+  - The template holds at least 1 visible, non-white-space character outside its tokens. So a rendered message is never empty.
+  - The host checks these rules when it starts, as it checks that each template file exists. A version that breaks one stops the start-up.
+  - Each parameter value is escaped before it fills the body: `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`, `"` → `&quot;`. No other character changes. So a value cannot add a tag, close one, or leave an attribute.
+  - The size check counts the visible text: the rendered body with its tags removed and its entities decoded, in UTF-16 code units. More than 4,096 is refused at evaluation step 8 with 400 `MESSAGE_TOO_LARGE`, before anything is queued.
+- **Alternatives:**
+  - *MarkdownV2.* Rejected: template authors would have to escape 18 characters in their own text, and one miss fails the call after the 200.
+  - *Legacy Markdown.* Rejected: Telegram keeps it only for backward compatibility.
+  - *Plain text with no `parse_mode`.* Rejected: the requester asked for bold, italic and links.
+  - *Reuse the email format `Html` and its encoder.* Rejected: email HTML allows any tag. The email encoder also turns some characters into numeric entities, which changes nothing on screen but makes the rule harder to state.
+  - *Tokens allowed inside `href`.* Rejected: a value would then choose a link target, which the requester's rule forbids.
+  - *Count the text as sent, tags and entities included.* Rejected: Telegram counts after entities parsing. A stricter count would refuse messages Telegram takes.
+  - *Leave the size to Telegram.* Rejected: the caller would get 200 and then `failed`. The Teams 28 KB check (ADR-0006) is checked before queueing too.
+- **Consequences:**
+  - Easier: template authors write ordinary HTML for 5 tags, and a broken template is found when the host starts, not at delivery.
+  - Easier: a value can never change how the message is formatted, or add a hidden link.
+  - Harder: a value that is itself a URL, a `@username` or a `#hashtag` still shows as a link in Telegram. This is Telegram's own detection.
+  - Harder: the size check needs a small parser for the 5 tags and the supported entities.
+  - Harder: underline, strikethrough, code and quotes are not available. A later revision adds a tag when someone asks.
