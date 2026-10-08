@@ -34,7 +34,7 @@
 | Delivery queue | The Redis list `notification-delivery`. Each message in it is one rendered notification that waits for an attempt (ADR-0013). | The in-memory bus that carries the API's own requests (ADR-0011). |
 | Delivery attempt | One try to hand the rendered message to the SMTP provider, Microsoft Graph, the Teams webhook or the Telegram Bot API. With Graph, the token request is part of the attempt, and its answers follow the same transient and permanent rules. | A caller's retry of the API call. |
 | Transient failure | A failure that may pass: a timeout, a lost connection, HTTP 408, 429 or 5xx, or an SMTP 4xx reply. | A permanent failure. |
-| Permanent failure | A failure that will not pass: an SMTP 5xx reply, or HTTP 4xx other than 408 and 429. | A transient failure. |
+| Permanent failure | A failure that will not pass: an SMTP 5xx reply, HTTP 4xx other than 408 and 429, or a Telegram 2xx answer whose `ok` is not true. | A transient failure. |
 | Caller | The backend system that sent the request, known by its token's `client_id`, `azp` or `appid` claim. | The recipient. |
 
 ## Aggregates
@@ -56,6 +56,7 @@
   - A Telegram version is `TelegramHtml`, with no subject and no title (ADR-0017). It:
     - uses only the tags `b`, `strong`, `i`, `em`, and `a` with only an `href` attribute, and closes every tag;
     - holds tokens in text only, never inside a tag;
+    - writes `&`, `<` and `>` in its own text only as entities;
     - holds at least 1 visible, non-white-space character outside its tokens.
   - Every registered file exists and is readable when the host starts. If not, the host fails to start.
   - The catalogue never changes while the process runs.

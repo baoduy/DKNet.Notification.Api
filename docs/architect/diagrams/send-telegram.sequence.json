@@ -125,7 +125,7 @@
       "id": "throttled",
       "from": "telegram",
       "to": "worker",
-      "y": 440,
+      "y": 454,
       "label": "429, parameters.retry_after",
       "variant": "return"
     },
@@ -133,7 +133,7 @@
       "id": "post2",
       "from": "worker",
       "to": "telegram",
-      "y": 488,
+      "y": 502,
       "label": "POST sendMessage, attempt 2",
       "variant": "dashed",
       "note": "put back; waits retry_after, at most 60 s"
@@ -142,7 +142,7 @@
       "id": "ok",
       "from": "telegram",
       "to": "worker",
-      "y": 528,
+      "y": 542,
       "label": "200 ok=true: Delivered, status success",
       "variant": "return"
     }
@@ -163,13 +163,13 @@
     {
       "participant": "worker",
       "from": 364,
-      "to": 534,
+      "to": 548,
       "type": "backend"
     },
     {
       "participant": "telegram",
       "from": 400,
-      "to": 532,
+      "to": 546,
       "type": "cloud"
     }
   ],

@@ -209,6 +209,15 @@ Delivery is best effort, but a notification that waits survives a restart (ADR-0
 - **Helm chart:** one chart for the API, like DKNet.Accounts.Api's `helm/dknet-accounts` (slice 6). It sets the channel settings, the email sender, the destinations and the secret references. From slice 10 it also sets the Telegram values: `Enabled` off by default, `TimeoutSeconds`, a commented destination example with its `ChatId` in the plain values, and the bot token as an opt-in Key Vault secret kept out of the default secret list (a listed secret that does not exist stops the pod).
 - **Workload identity:** for `Credential` = `WorkloadIdentity`, the chart's service account carries the `azure.workload.identity/client-id` annotation with the mail-sender app's client id. DKNet.Accounts.Api's chart sets the same annotation for its own identity. The pod template also carries the label `azure.workload.identity/use: "true"`; without it the workload identity webhook injects no token. DKNet.Accounts.Api's chart sets no such label.
 - **Rollout rule for Telegram:** deploy the release with the Telegram channel with Telegram off. Turn it on in a later deploy, once every replica runs that release. A replica of an earlier release cannot resume a Telegram message.
+- **Rollback with Telegram on:** turn Telegram off first, and let the queued Telegram messages drain. Then roll back. An earlier release ends any Telegram message it takes as Failed.
+- **Telegram settings in the chart (slice 10):** the keys follow the chart's existing names. A Key Vault secret name is the setting's environment variable key with `__` → `--`, lowercased.
+
+| Setting | Environment variable key | Where it lives in the chart | Default |
+|---|---|---|---|
+| `Notifications:Telegram:Enabled` | `Notifications__Telegram__Enabled` | Plain values (`api.configMap`) | `"false"` |
+| `Notifications:Telegram:TimeoutSeconds` | `Notifications__Telegram__TimeoutSeconds` | Plain values | `"30"` |
+| `Notifications:Telegram:Destinations:<name>:ChatId` | `Notifications__Telegram__Destinations__<name>__ChatId` | Plain values, one entry per destination; a commented example only | None |
+| `Notifications:Telegram:BotToken` | `Notifications__Telegram__BotToken` | Opt-in Key Vault secret `notifications--telegram--bottoken`, added to the secret lists only when Telegram is turned on | None |
 - **Local run:** the Aspire AppHost starts Redis, a Mailpit SMTP catcher and the API, with `Sender` = `Smtp`. Graph and Telegram have no local stand-in in the AppHost.
 - **NuGet package:** `DKNet.Notification.Client`, the typed .NET client (ADR-0014, ADR-0015). Its version is the service's release version, the one the pipeline computes from tags for the image. It is published to GitHub Packages at `https://nuget.pkg.github.com/baoduy/index.json`, the feed of DKNet.Accounts.Client. Restoring it needs a GitHub token with `read:packages`. The package carries its README. It is the repo's only packable project. Callers that use plain HTTP need no package.
 
@@ -243,7 +252,7 @@ Delivery is best effort, but a notification that waits survives a restart (ADR-0
 | Telegram request shape: fixed path with the token, `chat_id` from the settings as a number, escaped `text`, `parse_mode` = `HTML`, no other field | Integration | Redis | Telegram Bot API: a local HTTP stub that records each request and answers 200 with `ok` true |
 | Telegram escaping: a value holding `<b>`, `</i>`, `&` and `"` arrives as text, not as a tag | Integration | Redis | Telegram stub |
 | Telegram size: a visible text of 4,096 is queued; 4,097 answers 400 `MESSAGE_TOO_LARGE`; tags and entities do not count | Unit and integration | Redis | Telegram stub |
-| Telegram template start-up checks: an unknown tag, an open tag, a token inside a tag, or no visible text stops the start-up | Unit | — | File system: a temporary `Templates` folder |
+| Telegram template start-up checks: an unknown tag, an open tag, a token inside a tag, a bare `&` or `<` in the template's text, or no visible text stops the start-up | Unit | — | File system: a temporary `Templates` folder |
 | Telegram skip rule: unknown destination ends `TelegramDestinationNotConfigured`; Telegram on with no `BotToken` logs `TelegramChannelNotConfigured` naming `BotToken` and ends `ChannelNotConfigured` | Integration | Redis | Entra ID |
 | Telegram retry: 429 with `parameters.retry_after`, 503 and a timeout are retried; a third transient answer ends Failed | Integration | Redis | Telegram stub answers in a set order |
 | Telegram permanent answers: 400, 401, 403 (bot removed from its chat), 404 and a 2xx with `ok` false end Failed after 1 attempt | Integration | Redis | Telegram stub |

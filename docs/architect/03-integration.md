@@ -289,7 +289,7 @@ How each answer counts for the retry rule (ADR-0013, ADR-0016):
 | Answer | Kind | What the consumer does |
 |---|---|---|
 | 2xx with `ok` true | — | Ends Delivered |
-| 2xx with `ok` not true, or a body that cannot be read | Permanent | Ends Failed at once |
+| 2xx with `ok` not true, or a complete body that is not valid JSON | Permanent | Ends Failed at once. A connection lost while the body is read is transient, as below |
 | 429 | Transient | Waits for `parameters.retry_after`, at most 60 seconds; without it, waits as below. A longer flood wait uses up the 3 attempts |
 | 408, 5xx, timeout, lost connection | Transient | Waits 5 seconds, then 30 seconds; at most 3 attempts |
 | 400, such as a chat that does not exist or a group that became a supergroup (`parameters.migrate_to_chat_id`) | Permanent | Ends Failed at once. The new chat id is not followed |

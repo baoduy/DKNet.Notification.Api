@@ -13,6 +13,7 @@
   - A Telegram template version has the format `TelegramHtml`. It is one file of Telegram HTML: the message body only, with no title and no subject.
   - Allowed tags: `<b>`, `<strong>`, `<i>`, `<em>`, and `<a href="…">` with only the `href` attribute. Every tag is closed. Line breaks are newline characters in the file.
   - A token is allowed in text only, never inside a tag. So every link target comes from the template, never from a value.
+  - The template's own text writes `&`, `<` and `>` only as entities: every `&` starts `&lt;`, `&gt;`, `&amp;`, `&quot;` or a numeric entity, and no `<` or `>` stands outside a tag.
   - The template holds at least 1 visible, non-white-space character outside its tokens. So a rendered message is never empty.
   - The host checks these rules when it starts, as it checks that each template file exists. A version that breaks one stops the start-up.
   - Each parameter value is escaped before it fills the body: `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`, `"` → `&quot;`. No other character changes. So a value cannot add a tag, close one, or leave an attribute.
