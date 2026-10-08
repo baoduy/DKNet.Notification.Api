@@ -11,6 +11,7 @@
 | SMTP provider | This service → provider | SMTP with STARTTLS or TLS, authenticated. Only when `Sender` is `Smtp` |
 | Microsoft Graph | This service → Graph | HTTPS POST to `sendMail` with an Entra ID bearer token. Only when `Sender` is `Graph` (ADR-0009) |
 | Microsoft Teams Workflows webhook | This service → webhook | HTTPS POST of an Adaptive Card message |
+| Telegram Bot API | This service → Telegram | HTTPS POST to `sendMessage` as the deployment's one bot, the token in the URL path (ADR-0016) |
 | DKNet packages (DKNet repo) | This service → packages | NuGet package references, in process |
 | DKNet.Templates | One-time, at scaffold | `dotnet new dknet-minimal`; no runtime link |
 
@@ -24,7 +25,7 @@ This repo ships one library, `DKNet.Notification.Client` (ADR-0014):
 - Only this repo's test projects reference both the API and the client, for the route parity test (05-quality).
 - A caller that does not use .NET, or prefers plain HTTP, calls the API directly. Both ways reach the same routes.
 
-![DKNet Notification sits between backend callers, which call it over HTTPS directly or through the DKNet.Notification.Client package built on Refit, and its delivery targets — the SMTP provider or Microsoft Graph for email, one per deployment, and Teams Workflows webhooks — and depends on Entra ID for tokens, Redis for idempotency records, the delivery queue and status records, and DKNet packages at build time.](diagrams/context-map.svg)
+![DKNet Notification sits between backend callers, which call it over HTTPS directly or through the DKNet.Notification.Client package built on Refit, and its delivery targets — the SMTP provider or Microsoft Graph for email, one per deployment, Teams Workflows webhooks, and the Telegram Bot API as one bot — and depends on Entra ID for tokens, Redis for idempotency records, the delivery queue and status records, and DKNet packages at build time.](diagrams/context-map.svg)
 
 ## Exposed API
 
@@ -60,6 +61,7 @@ Recipient keys inside `parameters`:
 |---|---|---|
 | `email` | `to` | Exactly 1 address in `local@domain` form, at most 254 characters. No display name and no list. |
 | `teams` | `teamsDestination` | A Teams destination name: 1 to 64 characters, lowercase letters, digits and `-`. |
+| `telegram` | `telegramDestination` | A Telegram destination name: 1 to 64 characters, lowercase letters, digits and `-`. Never a chat id. |
 
 Example:
 
@@ -99,7 +101,7 @@ Responses:
 | 400 | `RECIPIENT_MISSING` | The channel's recipient key is absent or empty. |
 | 400 | `RECIPIENT_INVALID` | The recipient value breaks its rule. |
 | 400 | `PARAMETER_MISSING` | The template version holds a token with no parameter. The first missing name is given. |
-| 400 | `MESSAGE_TOO_LARGE` | The rendered Teams card is above 28 KB, the Teams webhook limit. |
+| 400 | `MESSAGE_TOO_LARGE` | The rendered Teams card is above 28 KB, the Teams webhook limit. Or the visible text of a rendered Telegram message is above 4,096 UTF-16 code units, the Telegram limit (ADR-0017). |
 | 400 | — | `Idempotency-Key` is missing or breaks its rule. |
 | 401 | — | No token, or the token is invalid. Empty body. |
 | 403 | — | The token lacks `notifications.send`. Empty body. |
@@ -178,11 +180,11 @@ Each check runs only when the one before it passed.
 4. Find the template (400 `TEMPLATE_NOT_FOUND`).
 5. Resolve the channel. It ends **Skipped** when:
    - the channel is not supported by this release, or
-   - the channel is not configured in this deployment (for email: `EmailChannelSettings` in 04-data), or
+   - the channel is not configured in this deployment (for email: `EmailChannelSettings`; for Telegram: `TelegramChannelSettings`, in 04-data), or
    - the template has no version for the channel.
 6. Check the recipient key (400 `RECIPIENT_MISSING`, 400 `RECIPIENT_INVALID`).
-7. Teams only: the destination name is not set in this deployment → **Skipped**.
-8. Render the template version (400 `PARAMETER_MISSING`, 400 `MESSAGE_TOO_LARGE`).
+7. Teams and Telegram only: the destination name is not set in this deployment → **Skipped**.
+8. Render the template version (400 `PARAMETER_MISSING`), then check its size (400 `MESSAGE_TOO_LARGE`: the Teams card, or the Telegram visible text).
 9. Check that the delivery list has room (503 `QUEUE_FULL`), write the status `pending`, then publish the notification to the delivery queue.
 10. Answer 200.
 
@@ -208,6 +210,7 @@ The service consumes no events.
 | Microsoft Entra ID token endpoint | Client credentials token for `https://graph.microsoft.com/.default` | Sign in to Graph when `Sender` is `Graph` (ADR-0010) | 408, 429, 5xx, a timeout and a lost connection are transient and retried; a 429 waits for `Retry-After`, at most 60 seconds. Other 4xx, such as `invalid_client`, end Failed at once. |
 | Microsoft Graph | `POST /users/{Mailbox}/sendMail` | Deliver email when `Sender` is `Graph` (ADR-0009) | 408, 429, 5xx and timeouts are retried. Other 4xx, such as 403 for a mailbox outside the app's scope, end Failed. |
 | Teams Workflows webhook | HTTPS POST | Deliver the Teams card | 429, 5xx and timeouts are retried. Other 4xx, such as a deleted workflow, end Failed. |
+| Telegram Bot API | `POST /bot<token>/sendMessage` | Deliver the Telegram message (ADR-0016) | 408, 429, 5xx, a timeout and a lost connection are retried; a 429 waits for `parameters.retry_after`, at most 60 seconds. Other 4xx, such as a bot removed from its chat or a revoked token, end Failed. |
 | DKNet.Svc.Transformation | Token replacement | Render template versions | In process; not a runtime dependency. |
 | DKNet.AspCore.Idempotency and its Redis store | Idempotency filter and store | Replay the first 200 to repeated calls | In process; depends on Redis above. |
 | DKNet.AspCore.Extensions | Problem-details error bodies, endpoint scope declarations | One error shape with DKNet.Accounts.Api | In process; not a runtime dependency. |
@@ -254,6 +257,47 @@ How each answer counts for the retry rule (ADR-0013, ADR-0009):
 
 No library retries inside an attempt. The `Azure.Identity` credential is built with its retry turned off (`Retry.MaxRetries` = 0); its default would retry 3 times. The consumer's rule is the only retry, so `AttemptCount` stays at most 3. A wait is not held in memory: the consumer publishes the message back to the queue with a `NotBefore` time (ADR-0013).
 
+### Outbound call — Telegram `sendMessage`
+
+The Telegram sender makes one call per delivery attempt. The token sits in the path; this example shows it as `***`.
+
+```http
+POST https://api.telegram.org/bot***/sendMessage
+Content-Type: application/json
+
+{
+  "chat_id": -1001234567890,
+  "text": "<b>Account opened</b>\nDear Jane &amp; family, account 0012345678 is open.",
+  "parse_mode": "HTML"
+}
+```
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{ "ok": true, "result": { "message_id": 42 } }
+```
+
+- `chat_id` is the destination's chat id from the settings, as a JSON number. The caller never names it.
+- `text` is the rendered body. Each parameter value in it is escaped (ADR-0017).
+- No other field is sent. Telegram's defaults apply to link previews and the notification sound.
+- The service reads the answer body only for `ok` and `parameters.retry_after`. It never keeps `description`.
+
+How each answer counts for the retry rule (ADR-0013, ADR-0016):
+
+| Answer | Kind | What the consumer does |
+|---|---|---|
+| 2xx with `ok` true | — | Ends Delivered |
+| 2xx with `ok` not true, or a complete body that is not valid JSON | Permanent | Ends Failed at once. A connection lost while the body is read is transient, as below |
+| 429 | Transient | Waits for `parameters.retry_after`, at most 60 seconds; without it, waits as below. A longer flood wait uses up the 3 attempts |
+| 408, 5xx, timeout, lost connection | Transient | Waits 5 seconds, then 30 seconds; at most 3 attempts |
+| 400, such as a chat that does not exist or a group that became a supergroup (`parameters.migrate_to_chat_id`) | Permanent | Ends Failed at once. The new chat id is not followed |
+| 401, 403, 404, such as a revoked token or a bot removed from its chat | Permanent | Ends Failed at once |
+| Any other 4xx, or a redirect | Permanent | Ends Failed at once |
+
+No library retries inside an attempt, and no redirect is followed. The consumer's rule is the only retry, so `AttemptCount` stays at most 3.
+
 ## Dependencies
 
 | Depends on | Kind | Direction | Notes |
@@ -272,6 +316,7 @@ No library retries inside an attempt. The `Azure.Identity` credential is built w
 | SMTP provider | External service | service → provider | ADR-0005 |
 | Microsoft Graph and the sending mailbox | External service | service → Graph | ADR-0009, ADR-0010 |
 | Microsoft Teams Workflows | External service | service → webhook | ADR-0006 |
+| Telegram Bot API | External service | service → Telegram | ADR-0016. No Telegram package; a plain HTTPS POST |
 
 Every arrow points from this service to a library or an external system. No library points back.
 
@@ -312,7 +357,7 @@ This flow is the SMTP sender. With `Sender` set to `Graph`, steps 7 and 8 run as
 4. The service writes one warning log entry: `notificationId`, template id, channel and reason. It logs no parameter and no recipient.
 5. The service writes the status `failed`, publishes nothing, and answers 200 with the `notificationId`.
 
-The same flow runs when the channel is supported but not configured, when the template has no version for the channel, and when the Teams destination name is not set in this deployment.
+The same flow runs when the channel is supported but not configured, when the template has no version for the channel, and when the Teams or Telegram destination name is not set in this deployment.
 
 ![Sequence of a call for an unsupported channel: checks 1 to 4 pass, the channel check fails, a warning is logged without personal data, and the caller gets 200.](diagrams/channel-skipped.svg)
 
@@ -353,3 +398,25 @@ Failure paths:
 - Step 4 times out after Graph already took the mail: the retry can send it twice (ADR-0013).
 
 ![Sequence of one email through Microsoft Graph: the API accepts and queues it as in Flow 1, then the delivery consumer gets an Entra ID token as the mail-sender app, posts to sendMail on the one mailbox, puts the message back to wait out a 429 and gets 202 on attempt 2.](diagrams/send-email-graph.svg)
+
+### Flow 5 — Post to Telegram
+
+The deployment has Telegram on, a bot token, and a destination `ops-alerts` mapped to a chat id.
+
+1. A caller posts `channel: telegram`, a template id and parameters holding `telegramDestination`.
+2. The service finds the template's Telegram version, then the destination's chat id in the settings.
+3. The service escapes each parameter value for Telegram HTML and fills the body (ADR-0017).
+4. The service counts the visible text: at most 4,096 UTF-16 code units.
+5. The service checks the delivery list has room, writes the status `pending`, queues the message with the destination name, and answers 200.
+6. The delivery consumer takes the message and posts it to `sendMessage` with the chat id. A 2xx answer with `ok` true ends Delivered, and the status becomes `success`.
+
+Failure paths:
+
+- Telegram on but no bot token: the host logs `TelegramChannelNotConfigured` at start-up. Every Telegram call ends Skipped at step 5 of the evaluation order, as in Flow 2.
+- Step 2 finds no destination with that name: Skipped, as in Flow 2.
+- Step 4 finds more than 4,096: 400 `MESSAGE_TOO_LARGE`. Nothing is queued.
+- Step 6 gets 429: the message goes back to the queue to wait for `parameters.retry_after`, at most 60 seconds, then retries within the 3 attempts.
+- Step 6 gets 403, because the bot was removed from the chat: the notification ends Failed at once. The log entry carries the status code only.
+- Step 6 times out after Telegram already posted the message: the retry can post it twice (ADR-0013).
+
+![Sequence of a Telegram notification: the destination name resolves to a chat id, values are escaped and the visible text counted, the message is queued and 200 returned, then the delivery consumer posts it to sendMessage as the bot, puts it back to wait out a 429 with retry_after, and delivers on attempt 2; the bot token never appears in a log or trace.](diagrams/send-telegram.svg)

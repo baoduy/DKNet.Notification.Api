@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "DKNet Notification — Context Map (design revision 3)",
+    "title": "DKNet Notification \u2014 Context Map (design revision 4)",
     "output": "context-map.html",
     "quality_profile": "showcase"
   },
@@ -112,7 +112,7 @@
       "sublabel": "Sender = Smtp",
       "pos": [
         750,
-        217
+        180
       ],
       "size": [
         170,
@@ -141,6 +141,20 @@
       "pos": [
         750,
         367
+      ],
+      "size": [
+        170,
+        56
+      ]
+    },
+    {
+      "id": "telegram",
+      "type": "cloud",
+      "label": "Telegram Bot API",
+      "sublabel": "1 bot, chat per destination",
+      "pos": [
+        750,
+        442
       ],
       "size": [
         170,
@@ -238,6 +252,13 @@
       "to": "teams",
       "label": "HTTPS POST",
       "variant": "emphasis"
+    },
+    {
+      "id": "notification-telegram",
+      "from": "notification",
+      "to": "telegram",
+      "label": "HTTPS sendMessage",
+      "variant": "emphasis"
     }
   ],
   "cards": [
@@ -258,6 +279,7 @@
       "items": [
         "Email goes to the SMTP provider or Microsoft Graph: one sender per deployment",
         "Teams Workflows receives finished Teams cards",
+        "Telegram receives sendMessage calls from the one bot; callers name a destination, never a chat id",
         "Graph needs a mail-sender app with Mail.Send scoped to one mailbox",
         "One set of channel settings per deployment"
       ]
