@@ -39,4 +39,29 @@ internal sealed class AzureAppConfigOptions
     public string? Label { get; set; }
 
     #endregion
+
+    #region Methods
+
+    /// <summary>
+    ///     The label to select keys by
+    /// </summary>
+    public string ResolveLabel() => throw new NotImplementedException();
+
+    /// <summary>
+    ///     The feature-flag key filter
+    /// </summary>
+    public string? ResolveFeatureFlagFilter() => throw new NotImplementedException();
+
+    /// <summary>
+    ///     The configuration refresh interval
+    /// </summary>
+    public TimeSpan ResolveRefreshInterval() => throw new NotImplementedException();
+
+    /// <summary>
+    ///     Whether a setting fetched from the store is kept
+    /// </summary>
+    /// <param name="key">The key of the fetched setting</param>
+    public bool ShouldLoadSetting(string key) => throw new NotImplementedException();
+
+    #endregion
 }
