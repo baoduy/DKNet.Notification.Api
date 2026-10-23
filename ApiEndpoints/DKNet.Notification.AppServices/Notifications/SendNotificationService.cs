@@ -2,7 +2,7 @@ using DKNet.Notification.AppServices.Delivery;
 using DKNet.Notification.AppServices.Templates;
 using DKNet.Notification.Domains.Notifications;
 using DKNet.Notification.Domains.Templates;
-using DKNet.Notification.Share.Extensions;
+using DKNet.Fw.Extensions.Primitives;
 using Microsoft.Extensions.Logging;
 using SlimMessageBus;
 
@@ -11,7 +11,7 @@ namespace DKNet.Notification.AppServices.Notifications;
 /// <summary>
 ///     Steps 4 to 9 of a send call, and the log entry and count of every outcome; step 9 writes the pending status,
 ///     then puts the notification in the delivery queue. Caller text reaches a log entry only through
-///     <see cref="SanitizeForLoggingExtensions.SanitizeForLogging" />; a parameter value, the recipient
+///     <see cref="StringExtensions.SanitizeForLogging" />; a parameter value, the recipient
 ///     and the rendered message never do.
 /// </summary>
 public sealed class SendNotificationService(

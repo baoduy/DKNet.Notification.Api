@@ -14,7 +14,7 @@ global using DKNet.Notification.AppServices.Notifications;
 global using DKNet.Notification.AppServices.Share;
 global using DKNet.Notification.Share;
 global using DKNet.Notification.Share.Options;
-global using DKNet.Notification.Api.Configs.Antiforgery;
+global using DKNet.AspCore.Extensions.Hosting; global using DKNet.AspCore.Extensions.RateLimits; global using DKNet.AspCore.Extensions.Antiforgery;
 global using DKNet.Notification.Api.Configs.Healthz;
 global using Microsoft.Extensions.Options;
 global using Microsoft.AspNetCore.HttpsPolicy;
