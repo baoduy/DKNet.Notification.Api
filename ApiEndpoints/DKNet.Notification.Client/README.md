@@ -34,7 +34,7 @@ services.AddTransient<BearerTokenHandler>();
 services.AddNotificationClient(new Uri("https://notifications.example.com"), typeof(BearerTokenHandler));
 ```
 
-The client never retries: one call sends one request.
+The client adds no retry policy of its own; the calling application's HTTP handlers can retry requests.
 
 ## Send
 

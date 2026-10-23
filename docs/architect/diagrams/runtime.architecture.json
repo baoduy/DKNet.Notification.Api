@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "DKNet Notification — Runtime Architecture (design revision 3)",
+    "title": "DKNet Notification \u2014 Runtime Architecture (design revision 4)",
     "output": "runtime.html",
     "quality_profile": "showcase"
   },
@@ -93,41 +93,13 @@
       ]
     },
     {
-      "id": "graphsender",
+      "id": "email",
       "type": "backend",
-      "label": "Graph sender",
-      "sublabel": "mail-sender app",
+      "label": "Email sender",
+      "sublabel": "Sender = Smtp or Graph",
       "pos": [
         1010,
-        150
-      ],
-      "size": [
-        150,
-        60
-      ]
-    },
-    {
-      "id": "smtpsender",
-      "type": "backend",
-      "label": "SMTP sender",
-      "sublabel": "MailKit",
-      "pos": [
-        1010,
-        297
-      ],
-      "size": [
-        150,
-        60
-      ]
-    },
-    {
-      "id": "teams",
-      "type": "backend",
-      "label": "Teams sender",
-      "sublabel": "Adaptive Card",
-      "pos": [
-        1010,
-        444
+        224
       ],
       "size": [
         150,
@@ -141,7 +113,7 @@
       "sublabel": "sendMail, 1 mailbox",
       "pos": [
         1260,
-        150
+        130
       ],
       "size": [
         150,
@@ -166,10 +138,24 @@
       "id": "webhook",
       "type": "cloud",
       "label": "Teams Workflows",
-      "sublabel": "webhook URL",
+      "sublabel": "webhook URL, Adaptive Card",
       "pos": [
         1260,
-        444
+        440
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "telegram",
+      "type": "cloud",
+      "label": "Telegram Bot API",
+      "sublabel": "sendMessage, 1 bot",
+      "pos": [
+        1260,
+        560
       ],
       "size": [
         150,
@@ -184,9 +170,7 @@
       "wraps": [
         "api",
         "worker",
-        "graphsender",
-        "smtpsender",
-        "teams"
+        "email"
       ]
     },
     {
@@ -217,6 +201,13 @@
       "label": "Microsoft 365 tenant: Mail.Send on 1 mailbox",
       "wraps": [
         "graph"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "Telegram: bot token in URL path, never logged or traced",
+      "wraps": [
+        "telegram"
       ]
     }
   ],
@@ -282,55 +273,45 @@
       "toSide": "bottom"
     },
     {
-      "id": "worker-graph",
+      "id": "worker-email",
       "from": "worker",
-      "to": "graphsender",
-      "label": "Sender=Graph",
-      "fromSide": "top",
-      "toSide": "left"
-    },
-    {
-      "id": "worker-smtp",
-      "from": "worker",
-      "to": "smtpsender",
-      "label": "Sender=Smtp",
+      "to": "email",
+      "label": "email",
       "variant": "emphasis"
     },
     {
-      "id": "worker-teams",
-      "from": "worker",
-      "to": "teams",
-      "label": "teams",
-      "fromSide": "bottom",
-      "toSide": "left"
-    },
-    {
-      "id": "graph-token",
-      "from": "graphsender",
+      "id": "email-token",
+      "from": "email",
       "to": "entra",
-      "label": "client credentials",
+      "label": "client credentials (Graph)",
       "variant": "security",
       "fromSide": "top",
       "toSide": "right"
     },
     {
-      "id": "graph-send",
-      "from": "graphsender",
+      "id": "email-graph",
+      "from": "email",
       "to": "graph",
-      "label": "HTTPS POST"
+      "label": "HTTPS sendMail"
     },
     {
-      "id": "smtp-send",
-      "from": "smtpsender",
+      "id": "email-smtp",
+      "from": "email",
       "to": "smtp",
       "label": "SMTP",
       "variant": "emphasis"
     },
     {
-      "id": "teams-webhook",
-      "from": "teams",
+      "id": "worker-webhook",
+      "from": "worker",
       "to": "webhook",
-      "label": "HTTPS POST"
+      "label": "teams: HTTPS POST card"
+    },
+    {
+      "id": "worker-telegram",
+      "from": "worker",
+      "to": "telegram",
+      "label": "telegram: HTTPS POST"
     }
   ],
   "cards": [
@@ -339,18 +320,19 @@
       "title": "Trust boundaries",
       "items": [
         "Service edge: every call except /healthz needs an Entra ID token with notifications.send (scp, scope or roles)",
-        "Microsoft 365 tenant: the Graph sender signs in as its own mail-sender app, never the API's registration",
-        "Mail.Send is scoped to the one sending mailbox with RBAC for Applications",
-        "Callers name a Teams destination, never a URL"
+        "Microsoft 365 tenant: the Graph sender signs in as its own mail-sender app; Mail.Send is scoped to the one sending mailbox",
+        "Callers name a Teams or Telegram destination, never a URL or a chat id",
+        "Telegram: the bot token rides in the URL path; the HTTP client span of that call is not recorded, and no log, metric or record holds the token"
       ]
     },
     {
       "dot": "emerald",
-      "title": "One email sender",
+      "title": "Channel senders",
       "items": [
-        "Sender = Smtp (default) or Graph; only the selected sender is created",
-        "A missing sender setting: start-up warning, email ends Skipped (ChannelNotConfigured)",
-        "Graph saves each mail to the mailbox's Sent Items"
+        "Email: Sender = Smtp (default) or Graph; only the selected sender is created; Graph saves each mail to Sent Items",
+        "Teams: an Adaptive Card to the destination's Workflows webhook, at most 28 KB",
+        "Telegram: sendMessage as the one bot to the destination's chat id; Telegram HTML with escaped values; visible text at most 4,096",
+        "A missing email or Telegram setting: start-up warning, calls end Skipped (ChannelNotConfigured)"
       ]
     },
     {
@@ -367,7 +349,7 @@
       "dot": "amber",
       "title": "Best effort, survives a restart",
       "items": [
-        "Retries: 5 s then 30 s, at most 3 attempts; a 429 waits for Retry-After, at most 60 s. A retry goes back to the Redis list with a not-before time, never held in memory",
+        "Retries: 5 s then 30 s, at most 3 attempts; a 429 waits for Retry-After (Telegram: retry_after in the body), at most 60 s. A retry goes back to the Redis list with a not-before time",
         "The Graph token request is part of the attempt",
         "A deploy or restart loses no waiting notification; a hard crash can lose the 1 message a replica holds; no database"
       ]
@@ -377,8 +359,8 @@
       "title": "Settings and secrets",
       "items": [
         "One set of channel settings per deployment",
-        "SMTP password, Graph client secret and webhook URLs: environment variables or Azure App Configuration",
-        "Graph with workload identity holds no secret",
+        "SMTP password, Graph client secret, webhook URLs and the Telegram bot token: environment variables or Azure App Configuration",
+        "Telegram chat ids are plain settings; Telegram is turned on only after every replica runs the release",
         "Local run: Aspire AppHost with Redis and Mailpit, Sender = Smtp"
       ]
     },

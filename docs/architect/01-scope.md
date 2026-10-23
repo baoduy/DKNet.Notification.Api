@@ -2,9 +2,9 @@
 
 ## Purpose
 
-- Backend services in the DKNet banking platform need to tell people things: by email, or in a Microsoft Teams channel.
-- Today no service can do this. No DKNet package sends email or posts to Teams.
-- Without this service, every caller would build its own messages and hold its own email and Teams settings.
+- Backend services in the DKNet banking platform need to tell people things: by email, in a Microsoft Teams channel, or in a Telegram group or channel.
+- Before this service, no DKNet package sent email or posted to Teams or Telegram.
+- Without this service, every caller would build its own messages and hold its own email, Teams and Telegram settings.
 - DKNet Notification is the one place that owns message templates and channel delivery.
 - A caller names a channel, a template and the parameters. The service builds the message and delivers it.
 
@@ -14,8 +14,8 @@
 |---|---|---|
 | Backend services | Calling system | Call `POST /v1/notifications` with an Entra ID machine token, then read the status of each notification with `GET /v1/notifications/{notificationId}`. DRK-2135 plans DKNet.Accounts.Api as the first caller. |
 | Template authors | Human (developer) | Add or change a template file and its registration, then release a new version of the service. |
-| Operators | Human | Deploy the service, set channel settings and Teams destinations per deployment, and read logs and metrics. |
-| Recipients | Human | Receive the email or read the Teams message. They never call the service. |
+| Operators | Human | Deploy the service, set channel settings, Teams and Telegram destinations and the Telegram bot token per deployment, create the Telegram bot and add it to each chat, and read logs and metrics. |
+| Recipients | Human | Receive the email, or read the Teams or Telegram message. They never call the service. |
 
 ## Responsibilities
 
@@ -27,7 +27,8 @@
 - Deliver the message to the channel, with a bounded retry on transient failures. Notifications that wait in the queue, or wait for a retry, survive a restart.
 - Keep the status of each accepted notification for its caller, for 24 hours by default: `pending`, `success` or `failed`. Answer the caller's lookup, and only for the caller's own notifications.
 - Replay the first 200 to a repeated call with the same idempotency key from the same caller, and send nothing again.
-- Hold the channel settings and Teams destinations for its deployment.
+- Hold the channel settings, Teams destinations and Telegram destinations for its deployment.
+- Send to Telegram as exactly one bot per deployment, and keep the bot token out of every log, trace and record.
 - Use exactly one email sender per deployment, SMTP or Microsoft Graph, picked in the settings.
 - Log every outcome without personal data.
 
@@ -44,7 +45,14 @@
 | Generates PDFs | DKNet.Svc.PdfGenerators in the DKNet repo exists, and is not used in version 1 |
 | Sends attachments | No one in version 1 |
 | Schedules sends, handles opt-out, sends in bulk or localises templates | No one in version 1; the caller for bulk (one call per message) |
-| Delivers to WhatsApp, Telegram, in-app or other channels | Later design revisions, one channel per change |
+| Delivers to WhatsApp, in-app or other channels | Later design revisions, one channel per change |
+| Sends Telegram buttons, images, files or other attachments | No one in revision 4 |
+| Reads messages or commands people send to the bot | No one; the bot only sends |
+| Sends a Telegram direct message to a person, takes a chat id from the caller, or handles subscribe and opt-out | No one; operators name each chat in the settings (ADR-0016) |
+| Runs more than one Telegram bot per deployment | No one; a second bot is a second deployment |
+| Sends silent or scheduled Telegram messages | No one in revision 4; the caller decides when to call |
+| Edits or deletes a Telegram message after sending | No one; the chat's administrators |
+| Creates the Telegram bot or adds it to a chat | The operator, with BotFather and the Telegram app (05-quality, Telegram set-up) |
 | Implements token replacement | DKNet.Svc.Transformation in the DKNet repo |
 | Implements the idempotency store | DKNet.AspCore.Idempotency and its Redis store in the DKNet repo |
 | Issues tokens or manages identities | Microsoft Entra ID |
@@ -52,6 +60,7 @@
 | Keeps a copy of sent mail | No one with SMTP; the sending mailbox's Sent Items with Graph, under the tenant's retention |
 | Grants or scopes its own mail permission | The tenant's Entra ID and Exchange Online administrators (05-quality, required setup step) |
 | Keeps Teams webhooks alive | The Teams Workflows app; each workflow has a human owner |
+| Keeps a copy of sent Telegram messages | No one here; Telegram keeps the chat history |
 
 ## Boundaries
 
@@ -64,3 +73,4 @@
 | SMTP provider | The provider relays the email. This service builds and submits it. |
 | Microsoft Graph and Microsoft 365 | Graph sends the email from the sending mailbox. This service builds the message and posts it to `sendMail`. |
 | Microsoft Teams Workflows | A workflow posts the card into a channel. This service builds the card and posts it to the workflow's webhook. |
+| Telegram Bot API | Telegram posts the message into the group or channel as the bot. This service builds the text and calls `sendMessage`. |

@@ -22,7 +22,7 @@ internal static class AuthConfig
     /// </remarks>
     public static IServiceCollection AddAuthConfig(this IServiceCollection services)
     {
-        services.MarkConfigAdded(nameof(AuthConfig));
+        services.MarkFeatureAdded(nameof(AuthConfig));
 
         // Claims keep their token names (scp, roles, azp, appid), the names the send permission and the caller id read.
         services.AddAuthentication()
@@ -57,7 +57,7 @@ internal static class AuthConfig
     /// </remarks>
     public static WebApplication UseAuthConfig(this WebApplication app)
     {
-        if (app.Services.IsConfigAdded(nameof(AuthConfig)))
+        if (app.Services.IsFeatureAdded(nameof(AuthConfig)))
         {
             app.UseAuthentication();
             app.UseAuthorization();

@@ -5,7 +5,7 @@
 The service owns:
 
 - The template catalogue: registrations and template files. They ship inside the release.
-- The channel settings and Teams destinations of its deployment.
+- The channel settings, Teams destinations and Telegram destinations of its deployment.
 - Idempotency records for its own endpoint.
 - The delivery queue: one message in a Redis list for each notification that waits for an attempt (ADR-0013).
 - The status record of each accepted notification, for the caller that sent it (ADR-0012).
@@ -16,7 +16,8 @@ The service never writes:
 - Recipients' contact data. Callers own it and pass it per call.
 - Any account, customer or ledger data. DKNet.Accounts.Api owns it.
 - Identities and tokens. Microsoft Entra ID owns them.
-- Delivered mail and Teams posts. The SMTP provider, Microsoft 365 and Teams own them after hand-off.
+- Delivered mail, Teams posts and Telegram messages. The SMTP provider, Microsoft 365, Teams and Telegram own them after hand-off.
+- The Telegram bot, its token and its place in each chat. The operator creates them with BotFather and the Telegram app (ADR-0016).
 - The copy of each Graph email in the sending mailbox's Sent Items. The Microsoft 365 tenant owns it, under its own retention (ADR-0009).
 - The mail-sender app registration, its credential and its `Mail.Send` grant. The tenant's Entra ID and Exchange Online administrators own them (ADR-0010).
 
@@ -25,7 +26,7 @@ The service never writes:
 | Data | Store | Why |
 |---|---|---|
 | Template catalogue | `appsettings.json` registrations plus files in the API project's `Templates` folder, copied into the image | The requester's rule: templates change only by release (ADR-0004) |
-| Channel settings, email sender settings and Teams destinations | Configuration: `appsettings.json` for non-secret values; environment variables or Azure App Configuration for secrets | One set per deployment. Same configuration order as DKNet.Accounts.Api |
+| Channel settings, email sender settings, Teams destinations and Telegram destinations | Configuration: `appsettings.json` for non-secret values; environment variables or Azure App Configuration for secrets | One set per deployment. Same configuration order as DKNet.Accounts.Api |
 | Idempotency records | Redis | Shared by all replicas; expires on its own (ADR-0002) |
 | Notifications waiting for delivery | Redis list `notification-delivery` (process memory in local runs and tests) | Waiting notifications and retry waits survive a restart or a deploy (ADR-0013) |
 | Notification status | Redis key `DKNet.Notification.Apistatus:{callerId}:{notificationId}` (the cache instance name, then `status:{callerId}:{notificationId}`) through `IDistributedCache` (process memory in local runs and tests) | A caller reads the status of its own notification from any replica (ADR-0012) |
@@ -45,11 +46,11 @@ The in-memory idempotency store, the memory delivery bus and the in-memory statu
 | TemplateId | string | 1–100 | Yes | — | — | Reference to NotificationTemplate |
 | Channel | string | 1–50 | Yes | — | — | Lower-cased caller value |
 | Parameters | map of string to string | ≤ 50 keys; key 1–64; value ≤ 4,000 | Yes | — | — | **Personal data.** Never logged. Empty on a resumed notification: the queued message holds the rendered message, not the parameters |
-| Recipient | EmailRecipient or TeamsRecipient | address ≤ 254; destination 1–64 | Yes, when queued | — | — | **Personal data** for email. Never logged |
+| Recipient | EmailRecipient, TeamsRecipient or TelegramRecipient | address ≤ 254; destination 1–64 | Yes, when queued | — | — | **Personal data** for email. Never logged |
 | RenderedSubject | string | ≤ 998 | Email only | — | — | Filled subject; CR and LF replaced by spaces |
 | RenderedTitle | string | ≤ 500 | No | — | Empty | Teams card title, when the version has one |
-| RenderedBody | string | Teams card ≤ 28 KB | Yes, when queued | — | — | **Personal data.** Never logged |
-| BodyFormat | enum | — | Yes | — | — | `Html` (email), `Markdown` (Teams) |
+| RenderedBody | string | Teams card ≤ 28 KB; Telegram visible text 1–4,096 UTF-16 code units | Yes, when queued | — | — | **Personal data.** Never logged |
+| BodyFormat | enum | — | Yes | — | — | `Html` (email), `Markdown` (Teams), `TelegramHtml` (Telegram) |
 | CallerId | string | ≤ 256 | Yes | — | — | First of the `client_id`, `azp`, `appid` claims |
 | Status | enum | — | Yes | — | `Received` | `Received`, `Rejected`, `Skipped`, `Queued`, `Delivering`, `RetryWaiting`, `Delivered`, `Failed` |
 | AttemptCount | integer | 0–3 | Yes | — | 0 | Delivery attempts made |
@@ -71,9 +72,10 @@ The message is JSON, written by the System.Text.Json serializer. Local runs and 
 | TraceId | string | — | Yes | — | — | The accepting call's trace id. Delivery links to it |
 | EmailAddress | string | ≤ 254 | Email only | — | — | **Personal data.** Never logged |
 | TeamsDestination | string | 1–64 | Teams only | — | — | The destination name, never the webhook URL |
-| Subject | string | ≤ 998 | Yes | — | Empty | Email subject, or the Teams card title |
-| Body | string | Teams card ≤ 28 KB | Yes | — | — | **Personal data.** Never logged |
-| Format | enum | — | Yes | — | — | `Html` (email), `Markdown` (Teams) |
+| TelegramDestination | string | 1–64 | Telegram only | — | — | Added in revision 4, optional (ADR-0013). The destination name, never the chat id or the bot token |
+| Subject | string | ≤ 998 | Yes | — | Empty | Email subject, or the Teams card title. Empty for Telegram |
+| Body | string | Teams card ≤ 28 KB; Telegram visible text 1–4,096 UTF-16 code units | Yes | — | — | **Personal data.** Never logged |
+| Format | enum | — | Yes | — | — | `Html` (email), `Markdown` (Teams), `TelegramHtml` (Telegram). Stored as a number; `TelegramHtml` is appended last (ADR-0013) |
 | AttemptsMade | integer | 0–2 | Yes | — | 0 | Delivery attempts already made |
 | NotBefore | timestamp (UTC) | milliseconds | Yes | — | Now | The next attempt starts no sooner |
 
@@ -97,15 +99,15 @@ The record holds no personal data.
 |---|---|---|---|---|---|---|
 | TemplateId | string | 1–100 | Yes | Unique | — | Lowercase letters, digits and `-` |
 | Description | string | ≤ 200 | No | — | Empty | For template authors only |
-| Versions | list of TemplateVersion | 1–2 items | Yes | One per channel | — | See below |
+| Versions | list of TemplateVersion | 1–3 items | Yes | One per channel | — | See below |
 
 ### TemplateVersion (configuration, read-only)
 
 | Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
 |---|---|---|---|---|---|---|
-| Channel | string | 1–50 | Yes | Unique within its template | — | `email` or `teams` in version 1 |
+| Channel | string | 1–50 | Yes | Unique within its template | — | `email` or `teams` in version 1; `telegram` from revision 4 |
 | File | string | ≤ 200 | Yes | — | — | Relative path inside the `Templates` folder |
-| Format | enum | — | Yes | — | — | `Html` for email, `Markdown` for Teams |
+| Format | enum | — | Yes | — | — | `Html` for email, `Markdown` for Teams, `TelegramHtml` for Telegram (ADR-0017) |
 | Subject | string | 1–500 | Email only | — | — | The HTML `<title>` of the file; it stays in the sent body. May hold `{{name}}` tokens |
 | Title | string | ≤ 200 | No | — | Empty | Teams only. Read from the file's front matter (`title:`). May hold `{{name}}` tokens |
 
@@ -156,6 +158,28 @@ Email is configured when `Enabled` is `true`, `Sender` is `Smtp` or `Graph`, and
 | Name | string | 1–64 | Yes | Unique | — | Lowercase letters, digits and `-`; the value callers send |
 | WebhookUrl | string (HTTPS URL) | ≤ 2,048 | Yes | — | — | **Secret.** Anyone with it can post. Environment variable or Azure App Configuration only |
 
+### TelegramChannelSettings (configuration, one per deployment)
+
+The section is `Notifications:Telegram` (ADR-0016).
+
+| Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
+|---|---|---|---|---|---|---|
+| Enabled | boolean | — | Yes | — | `false` | `false` means not configured: every Telegram call ends Skipped |
+| BotToken | string | 1–256, no white space and no `/` | Yes, when `Enabled` is `true` | — | Empty | **Secret.** The token BotFather gives the one bot. Environment variable or Azure App Configuration only; user secrets for local runs. Never logged and never in a trace |
+| TimeoutSeconds | integer | 1–120 | Yes | — | 30 | Per delivery attempt |
+| Destinations | map of name to TelegramDestination | 0–100 items | No | Name unique | Empty | |
+
+Telegram is configured when `Enabled` is `true`, `BotToken` keeps its rule, `TimeoutSeconds` is 1 to 120, and there are at most 100 destinations. Otherwise every Telegram call ends Skipped with reason `ChannelNotConfigured`, and the host still starts. When `Enabled` is `true` and Telegram is still not configured, the host logs `TelegramChannelNotConfigured` once (05-quality). It names the bad settings, never a setting's value. With `Enabled` = `false` no start-up warning is logged.
+
+The Bot API address `https://api.telegram.org` is not a setting (ADR-0016).
+
+### TelegramDestination (configuration)
+
+| Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
+|---|---|---|---|---|---|---|
+| Name | string | 1–64 | Yes | Unique | — | Lowercase letters, digits and `-`; the value callers send in `telegramDestination` |
+| ChatId | 64-bit signed integer | at most 52 significant bits; not 0 | Yes | — | — | The group or channel the bot posts in. Not a secret: without the bot token it lets no one post. A bad value means this destination is not set |
+
 ### DeliverySettings (configuration)
 
 | Field | Type | Length or precision | Required | Unique or indexed | Default | Notes |
@@ -192,4 +216,5 @@ Email is configured when `Enabled` is `true`, `Sender` is `Smtp` or `Graph`, and
 | Idempotency record kept | 4 hours | Redis expiry |
 | Template catalogue and settings | Until the next release or configuration change | The release or the operator |
 | Graph email copy in Sent Items | The Microsoft 365 tenant's retention | The tenant, not this service |
+| Telegram message in its chat | The chat's history in Telegram | The chat's administrators or Telegram, not this service |
 | Log entries | The log platform's retention | The log platform. No personal data is in them |

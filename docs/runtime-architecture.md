@@ -6,13 +6,19 @@ All code paths below are repo-root relative, matching the IR's `sources` entries
 
 | | |
 |---|---|
-| **Drawn from** | `dev` at commit [`e4769f8`](https://github.com/baoduy/DKNet.Notification.Api/tree/e4769f873896277e98aed1d8ebc6523b6746b1bb), with every slice shipped (send, status, email over SMTP and Graph, Teams, Redis delivery queue). The `Notifications:Delivery:QueueCapacity` entries in `appsettings.json` and the Helm values came in the change after it |
+| **Drawn from** | `dev` at commit [`e99743b`](https://github.com/baoduy/DKNet.Notification.Api/tree/e99743b17fb94ce61f920e1c90644fd28c3fef4c), including send, status, SMTP and Graph email, Teams, the Redis delivery queue, the client package and its release workflow |
 | **Diagram** | [`diagrams/runtime.architecture.json`](diagrams/runtime.architecture.json) (archify IR) · [`diagrams/runtime.svg`](diagrams/runtime.svg) (render) |
-| **Compare against** | The approved design, revision 2: [`docs/architect/diagrams/runtime.architecture.json`](architect/diagrams/runtime.architecture.json) · [`docs/architect/diagrams/runtime.svg`](architect/diagrams/runtime.svg) |
+| **Compare against** | The approved design, revision 3: [`docs/architect/diagrams/runtime.architecture.json`](architect/diagrams/runtime.architecture.json) · [`docs/architect/diagrams/runtime.svg`](architect/diagrams/runtime.svg) |
 
-![A backend caller gets an Entra ID token and calls the Notification API, which validates the JWT and the notifications.send permission; the API checks the idempotency record and status in Redis, counts the Redis delivery list against QueueCapacity (default 1,000), writes the pending status, publishes the message to that list and answers 200; the delivery consumer takes one message at a time, puts a not-due or retrying message back, writes the final status to Redis, and hands email to the selected sender — SMTP to the SMTP provider, or Graph, which signs in to Entra ID as the mail-sender app and posts to Microsoft Graph — and Teams messages to a Teams Workflows webhook.](diagrams/runtime.svg)
+![A backend caller gets an Entra ID token and reaches the Notification API through plain HTTPS or DKNet.Notification.Client running inside the caller's process; the API validates JWT and notifications.send, checks Redis idempotency and status, counts the delivery list against QueueCapacity, writes pending, publishes and answers 200; the consumer attempts delivery, requeues retries, writes final status and sends through SMTP, Graph or Teams Workflows.](diagrams/runtime.svg)
 
 Every component reuses the design's id (`caller`, `entra`, `api`, `redis`, `queue`, `worker`, `graphsender`, `smtpsender`, `teams`, `graph`, `smtp`, `webhook`), and every connection reuses the design's connection id, so the two compare item by item. The topology is the same; the differences are in what each piece does, listed below.
+
+As in revision 3, `caller` carries the “HTTPS or client pkg” label and `caller-post` remains the
+HTTPS POST / GET connection. `DKNet.Notification.Client` runs inside the caller's process,
+so it adds no service component or connection. Its `INotificationClient` methods send and read status;
+`ServiceCollectionExtensions.AddNotificationClient` can chain the caller's own bearer-token handler.
+The client adds no retry policy of its own. See the [consumer guide](notification-client.md).
 
 ## What this commit actually runs
 
@@ -36,7 +42,7 @@ Every component reuses the design's id (`caller`, `entra`, `api`, `redis`, `queu
 | Connection | `file:line` |
 |---|---|
 | `caller-token` | Caller side — no code evidence in this repo |
-| `caller-post` | `ApiEndpoints/DKNet.Notification.Api/ApiEndpoints/Notifications/NotificationsV1Endpoint.cs:33-44` |
+| `caller-post` | `INotificationClient.SendAsync` / `GetStatusAsync`, or plain HTTPS, reach `NotificationsV1Endpoint.Map` |
 | `api-keys` | `ApiEndpoints/DKNet.Notification.Api/Configs/Auth/AuthConfig.cs:28-29` |
 | `api-redis` | `ApiEndpoints/DKNet.Notification.Api/Configs/AppConfig.cs:64-66`, `ApiEndpoints/DKNet.Notification.AppServices/Notifications/NotificationStatusStore.cs:40-70` |
 | `api-queue` | `ApiEndpoints/DKNet.Notification.AppServices/Notifications/SendNotificationService.cs:223-260` |

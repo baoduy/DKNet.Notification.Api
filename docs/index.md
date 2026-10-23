@@ -6,12 +6,13 @@ DKNet Notification turns one registered template plus caller parameters into one
 
 Source: [baoduy/DKNet.Notification.Api](https://github.com/baoduy/DKNet.Notification.Api)
 
-As-built pages describe commit `362962797612943392d6ecb73686eed9c742a574`.
+As-built pages were checked against commit `e99743b17fb94ce61f920e1c90644fd28c3fef4c`, which includes the client package and its release workflow. Earlier source pins on individual feature pages identify their original documentation snapshot.
 
 ## Run it
 
 - [Send a notification](features/send-notification.md) — submit a templated message for email or Teams delivery.
 - [Read notification status](features/notification-status.md) — poll the caller's own delivery outcome.
+- [Notification client — consumer guide](notification-client.md) — restore and register the .NET package, send, retry and read status.
 - [Deployment guide](deployment.md) — release path, install, verification and rollback.
 - [Operator guide](operator-guide.md) — configuration and SMTP, Graph and Teams channel setup.
 

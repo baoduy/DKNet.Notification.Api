@@ -502,8 +502,8 @@ rect.c-bg-rect { fill: var(--bg); }
         </g>
 
         <!-- Components -->
-        <g id="node-caller" data-node-id="caller" data-node-label="Backend caller" tabindex="0" role="button" aria-label="Focus Backend caller, e.g. Accounts.Api, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="e.g. Accounts.Api" data-node-context="Architecture component">
-          <title>Backend caller · e.g. Accounts.Api · Architecture component</title>
+        <g id="node-caller" data-node-id="caller" data-node-label="Backend caller" tabindex="0" role="button" aria-label="Focus Backend caller, HTTPS or client pkg, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="HTTPS or client pkg" data-node-context="Architecture component">
+          <title>Backend caller · HTTPS or client pkg · Architecture component</title>
           <rect x="20" y="295" width="120" height="64" rx="6" class="c-mask"/>
           <rect x="20" y="295" width="120" height="64" rx="6" class="c-external" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(26 301) scale(0.6875)">
@@ -511,7 +511,7 @@ rect.c-bg-rect { fill: var(--bg); }
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
           <text data-node-label="" x="80" y="325" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Backend caller</text>
-        <text x="80" y="341" class="t-muted" font-size="9" text-anchor="middle">e.g. Accounts.Api</text>
+        <text x="80" y="341" class="t-muted" font-size="9" text-anchor="middle">HTTPS or client pkg</text>
         </g>
 
         <g id="node-entra" data-node-id="entra" data-node-label="Microsoft Entra ID" tabindex="0" role="button" aria-label="Focus Microsoft Entra ID, JWT keys, Graph token, Architecture component" aria-pressed="false" data-node-kind="security" data-node-sublabel="JWT keys, Graph token" data-node-context="Architecture component">

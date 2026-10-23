@@ -1,0 +1,243 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Notification client — send and read status",
+    "output": ".archify/notification-client-20261006/notification-client.html",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "repository": {
+      "url": "https://github.com/baoduy/DKNet.Notification.Api",
+      "provider": "github",
+      "revision": "e99743b17fb94ce61f920e1c90644fd28c3fef4c"
+    }
+  },
+  "participants": [
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "Caller app",
+      "sublabel": "Own DI container",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Client/ServiceCollectionExtensions.cs",
+          "line": 16,
+          "end_line": 44,
+          "label": "registration"
+        }
+      ]
+    },
+    {
+      "id": "client",
+      "type": "backend",
+      "label": "Refit client",
+      "sublabel": "INotificationClient",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Client/INotificationClient.cs",
+          "line": 6,
+          "end_line": 18,
+          "label": "two typed calls"
+        },
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Client/ServiceCollectionExtensions.cs",
+          "line": 47,
+          "end_line": 68,
+          "label": "JSON and exceptions"
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Notification API",
+      "sublabel": "NotificationsV1Endpoint",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/ApiEndpoints/Notifications/NotificationsV1Endpoint.cs",
+          "line": 33,
+          "end_line": 44,
+          "label": "routes"
+        },
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/ApiEndpoints/Notifications/NotificationsV1Endpoint.cs",
+          "line": 55,
+          "end_line": 118,
+          "label": "accept or refuse"
+        },
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Notifications/SendNotificationService.cs",
+          "line": 214,
+          "end_line": 271,
+          "label": "pending before publish"
+        }
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "Keys, status, list",
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/Configs/AppConfig.cs",
+          "line": 61,
+          "end_line": 99,
+          "label": "caller-scoped replay"
+        },
+        {
+          "path": "ApiEndpoints/DKNet.Notification.AppServices/Notifications/NotificationStatusStore.cs",
+          "line": 31,
+          "end_line": 70,
+          "label": "status read/write"
+        },
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Api/Configs/ServiceConfigs.cs",
+          "line": 71,
+          "end_line": 80,
+          "label": "delivery list"
+        }
+      ]
+    }
+  ],
+  "segments": [
+    {
+      "from": 155,
+      "to": 470,
+      "label": "Send: new, replay or refusal"
+    },
+    {
+      "from": 495,
+      "to": 735,
+      "label": "Read the current status"
+    }
+  ],
+  "messages": [
+    {
+      "id": "send",
+      "from": "caller",
+      "to": "client",
+      "y": 170,
+      "label": "SendAsync(request, key)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "post",
+      "from": "client",
+      "to": "api",
+      "y": 210,
+      "label": "POST: auth, body, key",
+      "variant": "emphasis",
+      "note": "API validates caller, body and key"
+    },
+    {
+      "id": "replay-check",
+      "from": "api",
+      "to": "redis",
+      "y": 290,
+      "label": "Look up caller-scoped key",
+      "variant": "default"
+    },
+    {
+      "id": "replay",
+      "from": "redis",
+      "to": "api",
+      "y": 330,
+      "label": "Cached acceptance or new key",
+      "variant": "return"
+    },
+    {
+      "id": "queue-new",
+      "from": "api",
+      "to": "redis",
+      "y": 370,
+      "label": "If queued: pending + publish",
+      "variant": "emphasis"
+    },
+    {
+      "id": "answer",
+      "from": "api",
+      "to": "client",
+      "y": 410,
+      "label": "200 id (new / replay) or refusal",
+      "variant": "return"
+    },
+    {
+      "id": "result",
+      "from": "client",
+      "to": "caller",
+      "y": 450,
+      "label": "Id or NotificationApiException",
+      "variant": "return"
+    },
+    {
+      "id": "status",
+      "from": "caller",
+      "to": "client",
+      "y": 510,
+      "label": "GetStatusAsync(id)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "get",
+      "from": "client",
+      "to": "api",
+      "y": 550,
+      "label": "GET /v1/notifications/{id}",
+      "variant": "default"
+    },
+    {
+      "id": "lookup",
+      "from": "api",
+      "to": "redis",
+      "y": 590,
+      "label": "Read caller-scoped status",
+      "variant": "default"
+    },
+    {
+      "id": "outcome",
+      "from": "redis",
+      "to": "api",
+      "y": 630,
+      "label": "Current outcome or no record",
+      "variant": "return"
+    },
+    {
+      "id": "status-answer",
+      "from": "api",
+      "to": "client",
+      "y": 670,
+      "label": "200 status / 404 NOTIFICATION_NOT_FOUND",
+      "variant": "return"
+    },
+    {
+      "id": "status-result",
+      "from": "client",
+      "to": "caller",
+      "y": 710,
+      "label": "Typed status or NotificationApiException",
+      "variant": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Acceptance and delivery",
+      "items": [
+        "New accepted call: render and write pending before publishing; skipped call writes failed without publishing",
+        "A returned id means accepted, including skipped calls; it does not certify delivery",
+        "Queued: pending until provider acceptance or terminal failure; skipped: failed immediately",
+        "Cached acceptance replays its id without queueing again; status is read separately"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Failure and retry",
+      "items": [
+        "Service refusal or unreadable success body: NotificationApiException with HTTP status and errors",
+        "QUEUE_FULL: wait 30 seconds, then retry the same key; transport errors reach the caller unchanged",
+        "The package adds no retry policy; caller handlers can retry"
+      ]
+    }
+  ]
+}

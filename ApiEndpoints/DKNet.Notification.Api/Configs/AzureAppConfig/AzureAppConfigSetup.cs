@@ -35,14 +35,26 @@ internal static class AzureAppConfigSetup
         builder.Configuration.AddAzureAppConfiguration(op =>
         {
             op.Connect(new Uri(conn), new DefaultAzureCredential())
-                .UseFeatureFlags()
-                .ConfigureRefresh(c => c.RegisterAll().SetRefreshInterval(TimeSpan.FromMinutes(30)));
+                .ConfigureRefresh(c => c.RegisterAll().SetRefreshInterval(options.ResolveRefreshInterval()));
 
-            var label = options.Label ?? SharedConsts.ApiName;
-            op.Select(KeyFilter.Any, label);
+            if (options.LoadFeatureFlags)
+            {
+                op.UseFeatureFlags(ff =>
+                {
+                    if (options.ResolveFeatureFlagFilter() is { } filter)
+                    {
+                        ff.Select(filter);
+                    }
+                });
+            }
+
+            op.Select(KeyFilter.Any, options.ResolveLabel());
+
+            // Drops feature flags the label selector also fetches, when flags are off or outside the prefix.
+            op.Map(setting => ValueTask.FromResult(options.ShouldLoadSetting(setting.Key) ? setting : null));
         });
 
-        builder.Services.MarkConfigAdded(nameof(AzureAppConfigSetup));
+        builder.Services.MarkFeatureAdded(nameof(AzureAppConfigSetup));
 
         return builder;
     }
@@ -54,7 +66,7 @@ internal static class AzureAppConfigSetup
     /// </summary>
     public static WebApplication UseAzureAppConfig(this WebApplication app)
     {
-        if (app.Services.IsConfigAdded(nameof(AzureAppConfigSetup)))
+        if (app.Services.IsFeatureAdded(nameof(AzureAppConfigSetup)))
         {
             app.Logger.LogInformation("{Feature} enabled", nameof(AzureAppConfigSetup));
         }

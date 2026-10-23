@@ -3,12 +3,12 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "DKNet Notification — Runtime Architecture (as built)",
-    "output": "runtime.html",
+    "output": ".archify/runtime-20261006/runtime.html",
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/baoduy/DKNet.Notification.Api",
       "provider": "github",
-      "revision": "e4769f873896277e98aed1d8ebc6523b6746b1bb"
+      "revision": "e99743b17fb94ce61f920e1c90644fd28c3fef4c"
     }
   },
   "components": [
@@ -16,7 +16,7 @@
       "id": "caller",
       "type": "external",
       "label": "Backend caller",
-      "sublabel": "e.g. Accounts.Api",
+      "sublabel": "HTTPS or client pkg",
       "pos": [
         20,
         295
@@ -24,6 +24,20 @@
       "size": [
         120,
         64
+      ],
+      "sources": [
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Client/INotificationClient.cs",
+          "line": 6,
+          "end_line": 18,
+          "label": "caller client routes"
+        },
+        {
+          "path": "ApiEndpoints/DKNet.Notification.Client/ServiceCollectionExtensions.cs",
+          "line": 16,
+          "end_line": 44,
+          "label": "caller-owned registration"
+        }
       ]
     },
     {
@@ -535,6 +549,16 @@
         "Sender = Smtp (default) or Graph; Graph signs in with workload identity or a client secret",
         "Azure App Configuration and OpenTelemetry are optional, off by default",
         "Aspire AppHost: Redis and Mailpit (SMTP 1025, STARTTLS)"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Client package",
+      "items": [
+        "DKNet.Notification.Client runs inside the caller's process; it is not a component of this service",
+        "Refit methods for POST and GET /v1/notifications; nothing for /healthz",
+        "The caller's own DelegatingHandler adds the bearer token; refusals use NotificationApiException",
+        "The client adds no retry policy; caller HTTP handlers can retry requests"
       ]
     }
   ]

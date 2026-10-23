@@ -32,7 +32,7 @@
     { "from": "delivering", "to": "failed", "variant": "security", "label": "permanent or 3rd attempt", "route": "right-channel" }
   ],
   "cards": [
-    { "dot": "cyan", "title": "Accept-time states", "items": ["Received, Rejected and Skipped are decided inside the API call", "Rejected: invalid request, unknown template, bad recipient, missing parameter (400) or full queue (503)", "Skipped: unsupported or unconfigured channel, no template version, unknown Teams destination"] },
+    { "dot": "cyan", "title": "Accept-time states", "items": ["Received, Rejected and Skipped are decided inside the API call", "Rejected: invalid request, unknown template, bad recipient, missing parameter (400) or full queue (503)", "Skipped: unsupported or unconfigured channel, no template version, unknown Teams or Telegram destination"] },
     { "dot": "amber", "title": "Delivery-time states", "items": ["Queued, Delivering, Retry Waiting, Delivered and Failed happen after the 200", "At most 3 attempts; waits of 5 s then 30 s between them, each wait a message back in the queue", "The caller reads 3 public statuses with GET /v1/notifications/{id}: pending (Queued, Delivering, Retry Waiting), success (Delivered) and failed (Failed, Skipped)"] },
     { "dot": "rose", "title": "Kept in Redis", "items": ["Queued and Retry Waiting are messages in the Redis delivery list: a deploy loses none, and a hard crash can lose the 1 message a replica holds", "The status record is kept 24 h from its last write; a skipped call reads failed and the reason is never shown", "Each state change is one structured log entry carrying the notification id"] }
   ]

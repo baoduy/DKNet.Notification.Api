@@ -1,6 +1,6 @@
 # DKNet Notification
 
-DKNet Notification turns one registered template plus caller parameters into one finished message, and delivers it to email or Microsoft Teams for backend services.
+DKNet Notification turns one registered template plus caller parameters into one finished message, and delivers it to email, Microsoft Teams or Telegram for backend services.
 
 | | |
 |---|---|
@@ -9,9 +9,9 @@ DKNet Notification turns one registered template plus caller parameters into one
 | **Bounded context** | Notification Delivery |
 | **Stack** | .NET 10 / ASP.NET Core minimal API with DKNet packages, scaffolded from DKNet.Templates (`dknet-minimal`), Aspire AppHost for local runs |
 | **Status** | Active |
-| **Design revision** | 3 |
+| **Design revision** | 4 |
 | **Owner** | drunkcoding |
-| **Root ticket** | DRK-1875 (revision 1), DRK-1961 (revision 2), DRK-2137 (revision 3) |
+| **Root ticket** | DRK-1875 (revision 1), DRK-1961 (revision 2), DRK-2137 (revision 3), DRK-2173 (revision 4) |
 
 ## Documents
 
@@ -36,17 +36,19 @@ DKNet Notification turns one registered template plus caller parameters into one
   - [ADR-0013](adr/0013-delivery-through-slimmessagebus-redis-queue.md) — Deliver through the SlimMessageBus Redis queue, so waiting notifications survive a restart.
   - [ADR-0014](adr/0014-typed-client-package.md) — Ship a typed .NET client package, DKNet.Notification.Client, released with the service.
   - [ADR-0015](adr/0015-client-uses-refit.md) — The client package uses Refit for its HTTP calls; the API never takes Refit.
+  - [ADR-0016](adr/0016-telegram-through-bot-api-one-bot-per-deployment.md) — Send to Telegram through the Bot API: one bot per deployment, operator-named destinations, and a bot token that never leaves the request.
+  - [ADR-0017](adr/0017-telegram-html-format-escaped-values.md) — Telegram templates use Telegram HTML with 5 tags; values are escaped; the visible text is counted against 4,096.
 - [diagrams/](diagrams/) — archify IR (`.json`) and render (`.svg`) for every diagram.
 
 ## Runtime architecture
 
-![A backend caller, through plain HTTPS or the DKNet.Notification.Client package, gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container and is shared by all replicas, renders, writes the pending status, publishes the message to the delivery list in Redis and answers 200, and answers the caller's status lookup from Redis; the delivery consumer takes messages from that list, puts a message back to wait for a retry, writes the final status, and hands email to the one active sender — the SMTP sender to the SMTP provider, or the Graph sender, which gets an Entra ID token as the mail-sender app and posts to Microsoft Graph — and Teams messages to a Teams Workflows webhook.](diagrams/runtime.svg)
+![A backend caller, through plain HTTPS or the DKNet.Notification.Client package, gets an Entra ID token and posts across the service edge to the Notification API inside the per-replica container; the API checks the idempotency record in Redis, which sits outside the container and is shared by all replicas, renders, writes the pending status, publishes the message to the delivery list in Redis and answers 200, and answers the caller's status lookup from Redis; the delivery consumer takes messages from that list, puts a message back to wait for a retry, writes the final status, and hands email to the one active email sender — SMTP to the SMTP provider, or Microsoft Graph with a token for the mail-sender app — posts Teams cards to a Teams Workflows webhook, and posts Telegram messages to the Telegram Bot API as the deployment's one bot.](diagrams/runtime.svg)
 
 ## Delivery slices
 
 Each slice is one future Workflow B ticket, delivered in this order.
 
-Slices 1 to 6 are built and released as version 1. Revision 3 adds slices 7 and 8.
+Slices 1 to 6 are built and released as version 1. Revision 3 adds slices 7 and 8. Revision 4 adds slices 9 and 10.
 
 1. **Scaffold** — generate the solution with `dotnet new dknet-minimal`, remove the two sample features, remove the relational database (ADR-0002), and add CI build and container publish. Realises: README, 04 Storage, 05 Packaging and deployment.
 2. **Send API, template catalogue and skip rule** — `POST /v1/notifications` with authorization, idempotency with its three non-default settings (ADR-0008), evaluation steps 1 to 5, the template catalogue and its start-up checks, and the skip log entry. No channel sender exists yet, so every valid call ends Skipped at step 5; that is the behaviour this slice ships and tests. Realises: 02 NotificationTemplate, 03 Exposed API, Evaluation order steps 1 to 5 and Main flow 2, 05 Security and Observability, ADR-0007, ADR-0008.
@@ -56,3 +58,5 @@ Slices 1 to 6 are built and released as version 1. Revision 3 adds slices 7 and 
 6. **Helm chart and operator guide** — a Helm chart like DKNet.Accounts.Api's, with the email sender setting, the workload identity service account annotation and the `azure.workload.identity/use` pod label, plus the configuration reference for channels, email senders, destinations and templates. The operator guide carries the Graph setup: the mail-sender app, its federated credential, and the required `Mail.Send` scope to the one mailbox with RBAC for Applications (or an application access policy), checked with `Test-ServicePrincipalAuthorization`. Realises: 05 Graph mailbox scope — required setup step, Packaging and deployment.
 7. **Client package** (dev-team) — the `DKNet.Notification.Client` project: a Refit route declaration for `POST /v1/notifications` and `GET /v1/notifications/{notificationId}`, its own request and response types, the two registrations (base address; base address plus the caller's own `DelegatingHandler`), the one refusal exception, the README inside the package, and the route parity and package tests. Nothing for `/healthz`. The API does not change. The method shapes and error detail come from the client spec (DRK-2136). Realises: 03 Context map and Dependencies, 05 Packaging and deployment (NuGet package) and the client rows of Testing approach, ADR-0014, ADR-0015.
 8. **Client release** (devops, CI/CD) — the release workflow packs `DKNet.Notification.Client` with the release version it computes for the image and pushes it to GitHub Packages, as DKNet.Accounts.Api's release workflow does. Needs slice 7. The client is not released until this slice merges. Realises: 05 Packaging and deployment (CI, NuGet package), ADR-0014.
+9. **Telegram channel** (dev-team) — the `telegram` channel: the `telegramDestination` recipient check, named Telegram destinations, the Telegram settings with the missing-setting rule and its start-up warning, the `TelegramHtml` template format with its start-up checks, value escaping, the 4,096 visible-character check, the Telegram sender with its retry classification and `retry_after` wait, the token rules for logs and traces, and the Telegram stub tests. It reuses the queue and consumer from slice 3. No caller and no client package changes. Realises: 02 Telegram terms and the `TelegramRecipient` value object, 03 Evaluation order steps 5 to 8 for Telegram, Outbound call — Telegram `sendMessage` and Main flow 5, 04 TelegramChannelSettings and TelegramDestination, 05 Content safety, Secrets, Logs and the Telegram rows of Testing approach, ADR-0016, ADR-0017.
+10. **Telegram Helm values and operator guide** (devops) — the chart's Telegram plain values (off by default), the opt-in Key Vault secret for the bot token kept out of the default secret list, a commented destination example, and the chart version bump. The operator guide carries the Telegram setup: create the bot with BotFather, add it to each group (or to each channel as an administrator that can post messages), read each chat id, store the token, set a new chat id after a group becomes a supergroup, and turn Telegram on only after every replica runs the release of slice 9. Needs slice 9. Realises: 05 Packaging and deployment (Helm chart, rollout rule) and Telegram set-up — required steps, ADR-0016.
