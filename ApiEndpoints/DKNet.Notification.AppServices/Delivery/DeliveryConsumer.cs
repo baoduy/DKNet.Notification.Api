@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using DKNet.Notification.AppServices.Notifications;
 using DKNet.Notification.Domains.Notifications;
-using DKNet.Notification.Share.Extensions;
+using DKNet.Fw.Extensions.Primitives;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SlimMessageBus;

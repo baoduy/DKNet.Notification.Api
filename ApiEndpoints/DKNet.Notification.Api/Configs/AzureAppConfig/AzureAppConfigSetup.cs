@@ -54,7 +54,7 @@ internal static class AzureAppConfigSetup
             op.Map(setting => ValueTask.FromResult(options.ShouldLoadSetting(setting.Key) ? setting : null));
         });
 
-        builder.Services.MarkConfigAdded(nameof(AzureAppConfigSetup));
+        builder.Services.MarkFeatureAdded(nameof(AzureAppConfigSetup));
 
         return builder;
     }
@@ -66,7 +66,7 @@ internal static class AzureAppConfigSetup
     /// </summary>
     public static WebApplication UseAzureAppConfig(this WebApplication app)
     {
-        if (app.Services.IsConfigAdded(nameof(AzureAppConfigSetup)))
+        if (app.Services.IsFeatureAdded(nameof(AzureAppConfigSetup)))
         {
             app.Logger.LogInformation("{Feature} enabled", nameof(AzureAppConfigSetup));
         }

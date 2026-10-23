@@ -15,7 +15,7 @@ internal static class HealthzConfig
         // Liveness only: no dependency check, so a slow or missing dependency never fails the probe.
         services.AddHealthChecks()
             .AddCheck<HealthCheckHandler>(SharedConsts.ApiName);
-        services.MarkConfigAdded(nameof(HealthzConfig));
+        services.MarkFeatureAdded(nameof(HealthzConfig));
         return services;
     }
 
@@ -26,7 +26,7 @@ internal static class HealthzConfig
     /// <returns></returns>
     public static WebApplication UseHealthzConfig(this WebApplication endpoints)
     {
-        if (!endpoints.Services.IsConfigAdded(nameof(HealthzConfig)))
+        if (!endpoints.Services.IsFeatureAdded(nameof(HealthzConfig)))
         {
             return endpoints;
         }

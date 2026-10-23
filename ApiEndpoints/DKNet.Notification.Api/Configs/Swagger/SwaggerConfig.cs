@@ -20,7 +20,7 @@ internal static class SwaggerConfig
 
     public static WebApplication UseOpenApiDoc(this WebApplication app)
     {
-        if (!app.Services.IsConfigAdded(nameof(SwaggerConfig))) return app;
+        if (!app.Services.IsFeatureAdded(nameof(SwaggerConfig))) return app;
 
         var openApi = app.MapOpenApi();
         var docs = app.MapScalarApiReference(DocsPath, c =>
@@ -34,7 +34,7 @@ internal static class SwaggerConfig
         // Outside Development, the document and its UI require an authenticated caller — independent of
         // EnableSwagger. Only enforceable when AuthConfig actually wired UseAuthorization(); with
         // RequireAuthorization off there is no authorization middleware to evaluate the requirement.
-        if (!app.Environment.IsDevelopment() && app.Services.IsConfigAdded(nameof(AuthConfig)))
+        if (!app.Environment.IsDevelopment() && app.Services.IsFeatureAdded(nameof(AuthConfig)))
         {
             openApi.RequireAuthorization();
             docs.RequireAuthorization();
@@ -103,7 +103,7 @@ internal static class SwaggerConfig
         {
             services.AddOpenApiDocVersion("v1", true);
 
-            services.MarkConfigAdded(nameof(SwaggerConfig));
+            services.MarkFeatureAdded(nameof(SwaggerConfig));
             return services;
         }
 
@@ -135,7 +135,7 @@ internal static class SwaggerConfig
 
                         doc.Paths = paths;
 
-                        if (ctx.ApplicationServices.IsConfigAdded(nameof(HealthzConfig)))
+                        if (ctx.ApplicationServices.IsFeatureAdded(nameof(HealthzConfig)))
                         {
                             AddHealthzPaths(doc);
                         }

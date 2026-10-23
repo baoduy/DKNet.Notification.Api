@@ -19,7 +19,7 @@ internal static class SecurityHeadersConfig
             return services;
         }
 
-        services.MarkConfigAdded(nameof(SecurityHeadersConfig));
+        services.MarkFeatureAdded(nameof(SecurityHeadersConfig));
         return services;
     }
 
@@ -33,7 +33,7 @@ internal static class SecurityHeadersConfig
     /// </summary>
     public static WebApplication UseSecurityHeadersConfig(this WebApplication app)
     {
-        if (!app.Services.IsConfigAdded(nameof(SecurityHeadersConfig)))
+        if (!app.Services.IsFeatureAdded(nameof(SecurityHeadersConfig)))
         {
             return app;
         }
@@ -45,7 +45,7 @@ internal static class SecurityHeadersConfig
         // initialize(), rendering empty without ever requesting /openapi/v1.json. Only this one path gets
         // 'unsafe-inline' back, and only while the documentation is actually mapped — every other response,
         // the OpenAPI document included, keeps the strict policy.
-        var docsHeaderWriter = app.Services.IsConfigAdded(nameof(SwaggerConfig))
+        var docsHeaderWriter = app.Services.IsFeatureAdded(nameof(SwaggerConfig))
             ? CreateWriter(DocsConfig())
             : null;
 

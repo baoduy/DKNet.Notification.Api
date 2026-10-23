@@ -2,7 +2,6 @@
 using DKNet.AspCore.Idempotency.RedisStore;
 using DKNet.Notification.Api.Configs.Auth;
 using DKNet.Notification.Api.Configs.AzureAppConfig;
-using DKNet.Notification.Api.Configs.RateLimits;
 using DKNet.Notification.Api.Configs.Swagger;
 using DKNet.Notification.AppServices.Delivery;
 
@@ -49,9 +48,17 @@ internal static class AppConfig
             services.AddAppVersioning();
         }
 
-        services.AddForwardedHeadersConfig(features, configuration)
-            .AddSecurityHeadersConfig(features)
-            .AddRequestBoundsConfig(features, configuration);
+        if (features.EnableForwardedHeaders)
+        {
+            services.AddForwardedHeadersConfig(configuration);
+        }
+
+        services.AddSecurityHeadersConfig(features);
+
+        if (features.EnableRequestBounds)
+        {
+            services.AddRequestBoundsConfig(configuration);
+        }
 
         services.AddHttpContextAccessor()
             .AddFeatureManagement();
@@ -83,7 +90,7 @@ internal static class AppConfig
         services.AddTeamsConfig(configuration);
 
         return services
-            .AddCrosConfig(configuration)
+            .AddCorsConfig(configuration)
             .AddAllAppServices(redisConnectionString)
             .AddHealthzConfig(features);
     }
@@ -116,12 +123,13 @@ internal static class AppConfig
         app.UseAzureAppConfig()
             .UseForwardedHeadersConfig()
             .UseSecurityHeadersConfig()
-            .UseAntiforgeryConfig()
-            .UseCrosConfig()
+            .UseCorsConfig()
             .UseHttpsConfig()
             .UseHealthzConfig();
 
         app.UseRouting();
+        //Antiforgery must be after UseRouting
+        app.UseAntiforgeryConfig();
         app.UseRequestBoundsConfig();
         app.UseRateLimitConfig();
 
